@@ -6,14 +6,16 @@ import { TodoItem } from '@/components/TodoItem';
 import { QuickAdd } from '@/components/QuickAdd';
 import { TimeFilter } from '@/components/TimeFilter';
 import { Todo } from '@/db/todos';
+import { useColors, useFontFamily } from '@/utils/theme';
 
 const keyExtractor = (item: Todo) => item.id;
-const renderItem = ({ item }: { item: Todo }) => <TodoItem todo={item} />;
 
 export default function TodosScreen() {
   const todos = useTodoStore((s) => s.todos);
   const loadTodos = useTodoStore((s) => s.loadTodos);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const c = useColors();
+  const fonts = useFontFamily();
 
   useEffect(() => {
     loadTodos();
@@ -38,8 +40,10 @@ export default function TodosScreen() {
     };
   }, []);
 
+  const renderItem = ({ item }: { item: Todo }) => <TodoItem todo={item} />;
+
   return (
-    <View className="flex-1 bg-primary-50">
+    <View style={{ flex: 1, backgroundColor: c.surface }}>
       <View className="flex-1 px-4 pt-12">
         <TimeFilter />
 
@@ -52,7 +56,9 @@ export default function TodosScreen() {
           contentContainerStyle={{ paddingBottom: 16 }}
           ListEmptyComponent={
             <View className="items-center pt-20">
-              <Text className="text-base text-gray-400">No todos for this period</Text>
+              <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-base">
+                No todos for this period
+              </Text>
             </View>
           }
         />

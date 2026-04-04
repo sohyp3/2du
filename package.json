@@ -12,10 +12,14 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-navigation/native": "^7.1.6",
     "expo": "^54.0.0",
     "expo-constants": "~18.0.9",
+    "expo-font": "^55.0.6",
     "expo-linking": "~8.0.8",
     "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.10",

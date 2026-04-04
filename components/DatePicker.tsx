@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useColors, useFontFamily } from '@/utils/theme';
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
@@ -11,6 +12,8 @@ interface DatePickerProps {
 function DatePickerRaw({ value, onChange }: DatePickerProps) {
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
+  const c = useColors();
+  const fonts = useFontFamily();
 
   const prevMonth = useCallback(() => {
     setViewMonth((m) => {
@@ -34,7 +37,7 @@ function DatePickerRaw({ value, onChange }: DatePickerProps) {
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDow = new Date(viewYear, viewMonth, 1).getDay();
-  const offset = firstDow === 0 ? 6 : firstDow - 1; // Monday start
+  const offset = firstDow === 0 ? 6 : firstDow - 1;
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < offset; i++) cells.push(null);
@@ -53,28 +56,33 @@ function DatePickerRaw({ value, onChange }: DatePickerProps) {
   });
 
   return (
-    <View className="rounded-xl bg-white p-3">
-      {/* Month nav */}
+    <View style={{ backgroundColor: c.surfaceContainerLow }} className="rounded-lg p-3">
       <View className="mb-2 flex-row items-center justify-between">
         <Pressable onPress={prevMonth} className="px-3 py-1">
-          <Text className="text-lg text-gray-400">‹</Text>
+          <Text style={{ color: c.outline }} className="text-lg">
+            ‹
+          </Text>
         </Pressable>
-        <Text className="text-sm font-semibold text-gray-800">{monthLabel}</Text>
+        <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+          {monthLabel}
+        </Text>
         <Pressable onPress={nextMonth} className="px-3 py-1">
-          <Text className="text-lg text-gray-400">›</Text>
+          <Text style={{ color: c.outline }} className="text-lg">
+            ›
+          </Text>
         </Pressable>
       </View>
 
-      {/* Weekday headers */}
       <View className="mb-1 flex-row">
         {WEEKDAYS.map((d) => (
           <View key={d} className="flex-1 items-center">
-            <Text className="text-xs text-gray-400">{d}</Text>
+            <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-xs">
+              {d}
+            </Text>
           </View>
         ))}
       </View>
 
-      {/* Day grid */}
       <View className="flex-row flex-wrap">
         {cells.map((day, i) => (
           <Pressable
@@ -86,17 +94,18 @@ function DatePickerRaw({ value, onChange }: DatePickerProps) {
             className="w-[14.28%] items-center py-1.5">
             {day ? (
               <View
-                className={`h-8 w-8 items-center justify-center rounded-full ${
-                  isSelected(day) ? 'bg-primary-400' : ''
-                }`}>
+                style={isSelected(day) ? { backgroundColor: c.primary } : undefined}
+                className="h-8 w-8 items-center justify-center rounded-full">
                 <Text
-                  className={`text-sm ${
-                    isSelected(day)
-                      ? 'font-bold text-white'
+                  style={{
+                    fontFamily: isSelected(day) || isToday(day) ? fonts.bold : fonts.regular,
+                    color: isSelected(day)
+                      ? c.onPrimary
                       : isToday(day)
-                        ? 'font-bold text-primary-600'
-                        : 'text-gray-700'
-                  }`}>
+                        ? c.primary
+                        : c.onSurfaceVariant,
+                  }}
+                  className="text-sm">
                   {day}
                 </Text>
               </View>

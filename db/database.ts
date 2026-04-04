@@ -22,4 +22,20 @@ export function initDatabase() {
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_todos_datetime ON todos(datetime);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_todos_parent_id ON todos(parent_id);`);
+
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+}
+
+export function getSetting(key: string): string | null {
+  const row = db.getFirstSync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [key]);
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string) {
+  db.runSync('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
 }

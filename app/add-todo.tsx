@@ -8,15 +8,16 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
 import { Priority } from '@/db/todos';
 import { DatePicker } from '@/components/DatePicker';
+import { useColors, useFontFamily } from '@/utils/theme';
 
-const PRIORITIES: { key: Priority; label: string; active: string }[] = [
-  { key: 'urgent', label: 'Urgent', active: 'bg-red-100' },
-  { key: 'moderate', label: 'Moderate', active: 'bg-primary-200' },
-  { key: 'low', label: 'Can wait', active: 'bg-gray-200' },
+const PRIORITIES: { key: Priority; label: string }[] = [
+  { key: 'urgent', label: 'Urgent' },
+  { key: 'moderate', label: 'Moderate' },
+  { key: 'low', label: 'Can wait' },
 ];
 
 function getDefaultHour(): number {
@@ -24,7 +25,8 @@ function getDefaultHour(): number {
 }
 
 export default function AddTodoScreen() {
-  const [name, setName] = useState('');
+  const params = useLocalSearchParams<{ name?: string }>();
+  const [name, setName] = useState(params.name ?? '');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('moderate');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -32,6 +34,8 @@ export default function AddTodoScreen() {
   const [minute, setMinute] = useState(0);
   const [timeNeeded, setTimeNeeded] = useState('');
   const [remindMe, setRemindMe] = useState(true);
+  const c = useColors();
+  const fonts = useFontFamily();
 
   const addTodo = useTodoStore((s) => s.addTodo);
   const router = useRouter();
@@ -56,135 +60,196 @@ export default function AddTodoScreen() {
     router.back();
   }, [name, description, priority, datetime, timeNeeded, remindMe, addTodo, router]);
 
-  const formatHour = (h: number) => {
-    const display = h % 12 || 12;
-    return display.toString();
-  };
-
+  const formatHour = (h: number) => (h % 12 || 12).toString();
   const ampm = hour < 12 ? 'AM' : 'PM';
-
-  const toggleAmPm = useCallback(() => {
-    setHour((h) => (h < 12 ? h + 12 : h - 12));
-  }, []);
+  const toggleAmPm = useCallback(() => setHour((h) => (h < 12 ? h + 12 : h - 12)), []);
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-primary-50"
+      style={{ flex: 1, backgroundColor: c.surface }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen
-        options={{
-          title: 'New Todo',
-          headerStyle: { backgroundColor: '#fefce8' },
-          headerTintColor: '#713f12',
-        }}
-      />
+      <Stack.Screen options={{ title: 'New Todo' }} />
 
       <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
-        {/* Name */}
-        <Text className="mb-1 text-sm font-medium text-gray-600">Name</Text>
+        <Text
+          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+          className="mb-1 text-sm">
+          Name
+        </Text>
         <TextInput
-          className="mb-4 rounded-xl bg-white px-4 py-3 text-base text-gray-800"
+          style={{
+            fontFamily: fonts.regular,
+            backgroundColor: c.surfaceContainerLow,
+            color: c.onSurface,
+          }}
+          placeholderTextColor={c.outline}
+          className="mb-4 rounded-lg px-4 py-3 text-base"
           placeholder="What do you need to do?"
-          placeholderTextColor="#9ca3af"
           value={name}
           onChangeText={setName}
           autoFocus
         />
 
-        {/* Description */}
-        <Text className="mb-1 text-sm font-medium text-gray-600">Description</Text>
+        <Text
+          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+          className="mb-1 text-sm">
+          Description
+        </Text>
         <TextInput
-          className="mb-4 min-h-[100px] rounded-xl bg-white px-4 py-3 text-base text-gray-800"
+          style={{
+            fontFamily: fonts.regular,
+            backgroundColor: c.surfaceContainerLow,
+            color: c.onSurface,
+          }}
+          placeholderTextColor={c.outline}
+          className="mb-4 min-h-[100px] rounded-lg px-4 py-3 text-base"
           placeholder="Add details..."
-          placeholderTextColor="#9ca3af"
           value={description}
           onChangeText={setDescription}
           multiline
           textAlignVertical="top"
         />
 
-        {/* Priority */}
-        <Text className="mb-1 text-sm font-medium text-gray-600">Priority</Text>
+        <Text
+          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+          className="mb-1 text-sm">
+          Priority
+        </Text>
         <View className="mb-4 flex-row gap-2">
-          {PRIORITIES.map(({ key, label, active }) => (
+          {PRIORITIES.map(({ key, label }) => (
             <Pressable
               key={key}
               onPress={() => setPriority(key)}
-              className={`flex-1 items-center rounded-xl py-2.5 ${priority === key ? active : 'bg-white'}`}>
+              style={{
+                backgroundColor:
+                  priority === key ? c.surfaceContainerHighest : c.surfaceContainerLow,
+              }}
+              className="flex-1 items-center rounded-lg py-2.5">
               <Text
-                className={`text-sm font-medium ${priority === key ? 'text-gray-800' : 'text-gray-400'}`}>
+                style={{
+                  fontFamily: fonts.medium,
+                  color: priority === key ? c.onSurface : c.outline,
+                }}
+                className="text-sm">
                 {label}
               </Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Date picker */}
-        <Text className="mb-1 text-sm font-medium text-gray-600">Date</Text>
+        <Text
+          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+          className="mb-1 text-sm">
+          Date
+        </Text>
         <View className="mb-4">
           <DatePicker value={selectedDate} onChange={setSelectedDate} />
         </View>
 
-        {/* Time - hour and minute selectors */}
-        <Text className="mb-1 text-sm font-medium text-gray-600">Time</Text>
-        <View className="mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-white py-3">
-          {/* Hour */}
+        <Text
+          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+          className="mb-1 text-sm">
+          Time
+        </Text>
+        <View
+          style={{ backgroundColor: c.surfaceContainerLow }}
+          className="mb-4 flex-row items-center justify-center gap-2 rounded-lg py-3">
           <Pressable onPress={() => setHour((h) => (h - 1 + 24) % 24)} className="px-3">
-            <Text className="text-xl text-gray-400">‹</Text>
+            <Text style={{ color: c.outline }} className="text-xl">
+              ‹
+            </Text>
           </Pressable>
-          <Text className="w-8 text-center text-lg font-semibold text-gray-800">
+          <Text
+            style={{ fontFamily: fonts.medium, color: c.onSurface }}
+            className="w-8 text-center text-lg">
             {formatHour(hour)}
           </Text>
           <Pressable onPress={() => setHour((h) => (h + 1) % 24)} className="px-3">
-            <Text className="text-xl text-gray-400">›</Text>
+            <Text style={{ color: c.outline }} className="text-xl">
+              ›
+            </Text>
           </Pressable>
 
-          <Text className="text-lg font-semibold text-gray-800">:</Text>
+          <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-lg">
+            :
+          </Text>
 
-          {/* Minute */}
           <Pressable onPress={() => setMinute((m) => (m - 5 + 60) % 60)} className="px-3">
-            <Text className="text-xl text-gray-400">‹</Text>
+            <Text style={{ color: c.outline }} className="text-xl">
+              ‹
+            </Text>
           </Pressable>
-          <Text className="w-8 text-center text-lg font-semibold text-gray-800">
+          <Text
+            style={{ fontFamily: fonts.medium, color: c.onSurface }}
+            className="w-8 text-center text-lg">
             {minute.toString().padStart(2, '0')}
           </Text>
           <Pressable onPress={() => setMinute((m) => (m + 5) % 60)} className="px-3">
-            <Text className="text-xl text-gray-400">›</Text>
+            <Text style={{ color: c.outline }} className="text-xl">
+              ›
+            </Text>
           </Pressable>
 
-          {/* AM/PM */}
-          <Pressable onPress={toggleAmPm} className="ml-1 rounded-lg bg-primary-100 px-3 py-1">
-            <Text className="text-sm font-semibold text-primary-700">{ampm}</Text>
+          <Pressable
+            onPress={toggleAmPm}
+            style={{ backgroundColor: c.surfaceContainerHighest }}
+            className="ml-1 rounded-lg px-3 py-1">
+            <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-sm">
+              {ampm}
+            </Text>
           </Pressable>
         </View>
 
-        {/* Time needed */}
-        <Text className="mb-1 text-sm font-medium text-gray-600">Time needed (minutes)</Text>
+        <Text
+          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+          className="mb-1 text-sm">
+          Time needed (minutes)
+        </Text>
         <TextInput
-          className="mb-4 rounded-xl bg-white px-4 py-3 text-base text-gray-800"
+          style={{
+            fontFamily: fonts.regular,
+            backgroundColor: c.surfaceContainerLow,
+            color: c.onSurface,
+          }}
+          placeholderTextColor={c.outline}
+          className="mb-4 rounded-lg px-4 py-3 text-base"
           placeholder="e.g. 30"
-          placeholderTextColor="#9ca3af"
           value={timeNeeded}
           onChangeText={setTimeNeeded}
           keyboardType="number-pad"
         />
 
-        {/* Remind me */}
         <Pressable
           onPress={() => setRemindMe((v) => !v)}
-          className="mb-6 flex-row items-center gap-3 rounded-xl bg-white px-4 py-3">
+          style={{ backgroundColor: c.surfaceContainerLow }}
+          className="mb-6 flex-row items-center gap-3 rounded-lg px-4 py-3">
           <View
-            className={`h-5 w-5 items-center justify-center rounded ${remindMe ? 'bg-primary-400' : 'border-2 border-gray-300'}`}>
-            {remindMe && <Text className="text-xs text-white">✓</Text>}
+            style={{
+              backgroundColor: remindMe ? c.primary : 'transparent',
+              borderColor: remindMe ? c.primary : c.outline,
+              borderWidth: remindMe ? 0 : 2,
+            }}
+            className="h-5 w-5 items-center justify-center rounded">
+            {remindMe && (
+              <Text style={{ color: c.onPrimary }} className="text-xs">
+                ✓
+              </Text>
+            )}
           </View>
-          <Text className="text-base text-gray-800">Remind me</Text>
+          <Text style={{ fontFamily: fonts.regular, color: c.onSurface }} className="text-base">
+            Remind me
+          </Text>
         </Pressable>
 
-        {/* Save button */}
         <Pressable
           onPress={handleSave}
-          className="mb-8 items-center rounded-xl bg-primary-400 py-3.5">
-          <Text className="text-base font-semibold text-white">Save Todo</Text>
+          style={{ backgroundColor: c.primary }}
+          className="mb-8 items-center rounded-full py-3.5">
+          <Text
+            style={{ fontFamily: fonts.bold, color: c.onPrimary }}
+            className="text-sm uppercase tracking-[3px]">
+            Save Todo
+          </Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

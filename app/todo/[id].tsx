@@ -14,23 +14,13 @@ import { useTodoStore } from '@/store/todoStore';
 import { getTodoById, Priority, Todo } from '@/db/todos';
 import { formatTime } from '@/utils/dates';
 import { DatePicker } from '@/components/DatePicker';
+import { useColors, useFontFamily } from '@/utils/theme';
+import { ThemeColors } from '@/store/themeStore';
 
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'Urgent',
-  moderate: 'Moderate',
-  low: 'Can wait',
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'bg-red-100 text-red-700',
-  moderate: 'bg-primary-100 text-primary-700',
-  low: 'bg-gray-100 text-gray-600',
-};
-
-const PRIORITIES: { key: Priority; label: string; active: string }[] = [
-  { key: 'urgent', label: 'Urgent', active: 'bg-red-100' },
-  { key: 'moderate', label: 'Moderate', active: 'bg-primary-200' },
-  { key: 'low', label: 'Can wait', active: 'bg-gray-200' },
+const PRIORITIES: { key: Priority; label: string }[] = [
+  { key: 'urgent', label: 'Urgent' },
+  { key: 'moderate', label: 'Moderate' },
+  { key: 'low', label: 'Can wait' },
 ];
 
 export default function TodoDetailScreen() {
@@ -38,6 +28,8 @@ export default function TodoDetailScreen() {
   const router = useRouter();
   const updateTodo = useTodoStore((s) => s.updateTodo);
   const deleteTodoAction = useTodoStore((s) => s.deleteTodo);
+  const c = useColors();
+  const fonts = useFontFamily();
 
   const [todo, setTodo] = useState<Todo | null>(null);
   const [editing, setEditing] = useState(false);
@@ -98,12 +90,10 @@ export default function TodoDetailScreen() {
       deleteTodoAction(id);
       router.back();
     };
-
     if (Platform.OS === 'web') {
       doDelete();
       return;
     }
-
     Alert.alert('Delete Todo', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: doDelete },
@@ -112,104 +102,157 @@ export default function TodoDetailScreen() {
 
   if (!todo) {
     return (
-      <View className="flex-1 items-center justify-center bg-primary-50">
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: c.surface,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
         <Stack.Screen options={{ title: 'Todo' }} />
-        <Text className="text-gray-400">Todo not found</Text>
+        <Text style={{ fontFamily: fonts.regular, color: c.outline }}>Todo not found</Text>
       </View>
     );
   }
 
   const isCompleted = todo.status === 'completed';
   const dateStr = new Date(todo.datetime).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
+    weekday: 'long',
+    month: 'long',
     day: 'numeric',
   });
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-primary-50"
+      style={{ flex: 1, backgroundColor: c.surface }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen
-        options={{
-          title: editing ? 'Edit Todo' : 'Todo',
-          headerStyle: { backgroundColor: '#fefce8' },
-          headerTintColor: '#713f12',
-        }}
-      />
+      <Stack.Screen options={{ title: editing ? 'Edit' : '', headerBackTitle: 'Back' }} />
 
       <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
         {editing ? (
           <>
-            <Text className="mb-1 text-sm font-medium text-gray-600">Name</Text>
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Name
+            </Text>
             <TextInput
-              className="mb-4 rounded-xl bg-white px-4 py-3 text-base text-gray-800"
+              style={{
+                fontFamily: fonts.regular,
+                backgroundColor: c.surfaceContainerLow,
+                color: c.onSurface,
+              }}
+              className="mb-4 rounded-lg px-4 py-3 text-base"
               value={name}
               onChangeText={setName}
               autoFocus
             />
 
-            <Text className="mb-1 text-sm font-medium text-gray-600">Description</Text>
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Description
+            </Text>
             <TextInput
-              className="mb-4 min-h-[100px] rounded-xl bg-white px-4 py-3 text-base text-gray-800"
+              style={{
+                fontFamily: fonts.regular,
+                backgroundColor: c.surfaceContainerLow,
+                color: c.onSurface,
+              }}
+              placeholderTextColor={c.outline}
+              className="mb-4 min-h-[100px] rounded-lg px-4 py-3 text-base"
               placeholder="Add details..."
-              placeholderTextColor="#9ca3af"
               value={description}
               onChangeText={setDescription}
               multiline
               textAlignVertical="top"
             />
 
-            <Text className="mb-1 text-sm font-medium text-gray-600">Priority</Text>
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Priority
+            </Text>
             <View className="mb-4 flex-row gap-2">
-              {PRIORITIES.map(({ key, label, active }) => (
+              {PRIORITIES.map(({ key, label }) => (
                 <Pressable
                   key={key}
                   onPress={() => setPriority(key)}
-                  className={`flex-1 items-center rounded-xl py-2.5 ${priority === key ? active : 'bg-white'}`}>
+                  style={{
+                    backgroundColor:
+                      priority === key ? c.surfaceContainerHighest : c.surfaceContainerLow,
+                  }}
+                  className="flex-1 items-center rounded-lg py-2.5">
                   <Text
-                    className={`text-sm font-medium ${priority === key ? 'text-gray-800' : 'text-gray-400'}`}>
+                    style={{
+                      fontFamily: fonts.medium,
+                      color: priority === key ? c.onSurface : c.outline,
+                    }}
+                    className="text-sm">
                     {label}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            {/* Date */}
-            <Text className="mb-1 text-sm font-medium text-gray-600">Date</Text>
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Date
+            </Text>
             <View className="mb-4">
               <DatePicker value={selectedDate} onChange={setSelectedDate} />
             </View>
 
-            {/* Time */}
-            <Text className="mb-1 text-sm font-medium text-gray-600">Time</Text>
-            <View className="mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-white py-3">
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Time
+            </Text>
+            <View
+              style={{ backgroundColor: c.surfaceContainerLow }}
+              className="mb-4 flex-row items-center justify-center gap-2 rounded-lg py-3">
               <Pressable onPress={() => setHour((h) => (h - 1 + 24) % 24)} className="px-3">
-                <Text className="text-xl text-gray-400">‹</Text>
+                <Text style={{ color: c.outline }} className="text-xl">
+                  ‹
+                </Text>
               </Pressable>
-              <Text className="w-8 text-center text-lg font-semibold text-gray-800">
+              <Text
+                style={{ fontFamily: fonts.medium, color: c.onSurface }}
+                className="w-8 text-center text-lg">
                 {(hour % 12 || 12).toString()}
               </Text>
               <Pressable onPress={() => setHour((h) => (h + 1) % 24)} className="px-3">
-                <Text className="text-xl text-gray-400">›</Text>
+                <Text style={{ color: c.outline }} className="text-xl">
+                  ›
+                </Text>
               </Pressable>
 
-              <Text className="text-lg font-semibold text-gray-800">:</Text>
+              <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-lg">
+                :
+              </Text>
 
               <Pressable onPress={() => setMinute((m) => (m - 5 + 60) % 60)} className="px-3">
-                <Text className="text-xl text-gray-400">‹</Text>
+                <Text style={{ color: c.outline }} className="text-xl">
+                  ‹
+                </Text>
               </Pressable>
-              <Text className="w-8 text-center text-lg font-semibold text-gray-800">
+              <Text
+                style={{ fontFamily: fonts.medium, color: c.onSurface }}
+                className="w-8 text-center text-lg">
                 {minute.toString().padStart(2, '0')}
               </Text>
               <Pressable onPress={() => setMinute((m) => (m + 5) % 60)} className="px-3">
-                <Text className="text-xl text-gray-400">›</Text>
+                <Text style={{ color: c.outline }} className="text-xl">
+                  ›
+                </Text>
               </Pressable>
 
               <Pressable
                 onPress={() => setHour((h) => (h < 12 ? h + 12 : h - 12))}
-                className="ml-1 rounded-lg bg-primary-100 px-3 py-1">
-                <Text className="text-sm font-semibold text-primary-700">
+                style={{ backgroundColor: c.surfaceContainerHighest }}
+                className="ml-1 rounded-lg px-3 py-1">
+                <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-sm">
                   {hour < 12 ? 'AM' : 'PM'}
                 </Text>
               </Pressable>
@@ -217,91 +260,138 @@ export default function TodoDetailScreen() {
 
             <Pressable
               onPress={() => setRemindMe((v) => !v)}
-              className="mb-6 flex-row items-center gap-3 rounded-xl bg-white px-4 py-3">
+              style={{ backgroundColor: c.surfaceContainerLow }}
+              className="mb-6 flex-row items-center gap-3 rounded-lg px-4 py-3">
               <View
-                className={`h-5 w-5 items-center justify-center rounded ${remindMe ? 'bg-primary-400' : 'border-2 border-gray-300'}`}>
-                {remindMe && <Text className="text-xs text-white">✓</Text>}
+                style={{
+                  backgroundColor: remindMe ? c.primary : 'transparent',
+                  borderColor: remindMe ? c.primary : c.outline,
+                  borderWidth: remindMe ? 0 : 2,
+                }}
+                className="h-5 w-5 items-center justify-center rounded">
+                {remindMe && (
+                  <Text style={{ color: c.onPrimary }} className="text-xs">
+                    ✓
+                  </Text>
+                )}
               </View>
-              <Text className="text-base text-gray-800">Remind me</Text>
+              <Text style={{ fontFamily: fonts.regular, color: c.onSurface }} className="text-base">
+                Remind me
+              </Text>
             </Pressable>
 
             <View className="mb-8 flex-row gap-3">
               <Pressable
                 onPress={() => setEditing(false)}
-                className="flex-1 items-center rounded-xl bg-gray-200 py-3">
-                <Text className="font-medium text-gray-600">Cancel</Text>
+                style={{ backgroundColor: c.surfaceContainerHighest }}
+                className="flex-1 items-center rounded-full py-3">
+                <Text style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={handleSave}
-                className="flex-1 items-center rounded-xl bg-primary-400 py-3">
-                <Text className="font-semibold text-white">Save</Text>
+                style={{ backgroundColor: c.primary }}
+                className="flex-1 items-center rounded-full py-3">
+                <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Save</Text>
               </Pressable>
             </View>
           </>
         ) : (
           <>
-            {/* View mode */}
-            <View className="mb-4 rounded-xl bg-white p-4">
+            <Text
+              style={{
+                fontFamily: fonts.bold,
+                color: isCompleted ? c.outline : c.onSurface,
+                textDecorationLine: isCompleted ? 'line-through' : 'none',
+              }}
+              className="text-2xl">
+              {todo.name}
+            </Text>
+
+            <Text
+              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+              className="mt-1 text-sm">
+              {isCompleted
+                ? 'Completed'
+                : todo.status === 'in_progress'
+                  ? 'In progress'
+                  : 'Pending'}
+            </Text>
+
+            {todo.description ? (
               <Text
-                className={`text-xl font-bold ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                {todo.name}
+                style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+                className="mt-4 text-base leading-6">
+                {todo.description}
               </Text>
+            ) : null}
 
-              {todo.description ? (
-                <Text className="mt-2 text-base leading-6 text-gray-600">{todo.description}</Text>
+            <View
+              style={{ backgroundColor: c.surfaceContainer }}
+              className="mt-6 overflow-hidden rounded-xl">
+              <DetailRow label="Date" value={dateStr} c={c} fonts={fonts} />
+              <DetailRow label="Time" value={formatTime(todo.datetime)} c={c} fonts={fonts} />
+              <DetailRow
+                label="Priority"
+                value={PRIORITIES.find((p) => p.key === todo.priority)?.label ?? todo.priority}
+                c={c}
+                fonts={fonts}
+              />
+              {todo.time_needed ? (
+                <DetailRow label="Duration" value={`${todo.time_needed} min`} c={c} fonts={fonts} />
               ) : null}
-
-              <View className="mt-4 flex-row flex-wrap gap-2">
-                <View className={`rounded-full px-3 py-1 ${PRIORITY_COLORS[todo.priority]}`}>
-                  <Text className="text-xs font-medium">{PRIORITY_LABELS[todo.priority]}</Text>
-                </View>
-                <View className="rounded-full bg-gray-100 px-3 py-1">
-                  <Text className="text-xs font-medium text-gray-600">{dateStr}</Text>
-                </View>
-                <View className="rounded-full bg-gray-100 px-3 py-1">
-                  <Text className="text-xs font-medium text-gray-600">
-                    {formatTime(todo.datetime)}
-                  </Text>
-                </View>
-                {todo.time_needed ? (
-                  <View className="rounded-full bg-gray-100 px-3 py-1">
-                    <Text className="text-xs font-medium text-gray-600">{todo.time_needed}m</Text>
-                  </View>
-                ) : null}
-                {todo.remind_me ? (
-                  <View className="rounded-full bg-primary-100 px-3 py-1">
-                    <Text className="text-xs font-medium text-primary-700">Reminder on</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              <View className="mt-3 self-start rounded-full bg-gray-50 px-3 py-1">
-                <Text className="text-xs text-gray-400">
-                  {isCompleted
-                    ? 'Completed'
-                    : todo.status === 'in_progress'
-                      ? 'In progress'
-                      : 'Pending'}
-                </Text>
-              </View>
+              <DetailRow
+                label="Reminder"
+                value={todo.remind_me ? 'On' : 'Off'}
+                c={c}
+                fonts={fonts}
+                last
+              />
             </View>
 
-            {/* Actions */}
-            <View className="flex-row gap-3">
+            <View className="mb-8 mt-6 flex-row gap-3">
               <Pressable
                 onPress={() => setEditing(true)}
-                className="flex-1 items-center rounded-xl bg-primary-400 py-3.5">
-                <Text className="font-semibold text-white">Edit</Text>
+                style={{ backgroundColor: c.primary }}
+                className="flex-1 items-center rounded-full py-3.5">
+                <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Edit</Text>
               </Pressable>
               <Pressable
                 onPress={handleDelete}
-                className="flex-1 items-center rounded-xl bg-red-100 py-3.5">
-                <Text className="font-semibold text-red-600">Delete</Text>
+                style={{ backgroundColor: c.errorContainer }}
+                className="flex-1 items-center rounded-full py-3.5">
+                <Text style={{ fontFamily: fonts.medium, color: c.error }}>Delete</Text>
               </Pressable>
             </View>
           </>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  c,
+  fonts,
+  last,
+}: {
+  label: string;
+  value: string;
+  c: ThemeColors;
+  fonts: { regular: string; medium: string };
+  last?: boolean;
+}) {
+  return (
+    <View
+      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: c.outlineVariant }}
+      className="flex-row items-center justify-between px-4 py-3">
+      <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }} className="text-sm">
+        {label}
+      </Text>
+      <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+        {value}
+      </Text>
+    </View>
   );
 }

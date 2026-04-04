@@ -109,3 +109,21 @@ export function formatTime(isoString: string): string {
   const d = new Date(isoString);
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
+
+export function formatDate(isoString: string): string {
+  const d = new Date(isoString);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+export function formatTodoMeta(isoString: string, period: FilterPeriod): string {
+  const d = new Date(isoString);
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  switch (period) {
+    case 'day':
+      return time;
+    case 'week':
+      return `${d.toLocaleDateString('en-US', { weekday: 'short' })} · ${time}`;
+    case 'month':
+      return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${time}`;
+  }
+}
