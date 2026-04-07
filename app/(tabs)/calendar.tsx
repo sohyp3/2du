@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { getTodosByDateRange, getTodoCountsByMonth, Todo } from '@/db/todos';
@@ -63,8 +63,6 @@ function getDayHours(startHour: number) {
   return hours;
 }
 
-const WEEK_HOURS = [9, 11, 13, 15, 17, 19, 21, 23];
-
 function formatHour(hour: number, is24h: boolean) {
   if (is24h) {
     return `${String(hour).padStart(2, '0')}:00`;
@@ -75,11 +73,6 @@ function formatHour(hour: number, is24h: boolean) {
   return `${hour - 12} PM`;
 }
 
-function formatHourRange(hour: number, is24h: boolean) {
-  const endHour = hour + 2;
-  return `${formatHour(hour, is24h)} – ${formatHour(endHour, is24h)}`;
-}
-
 export default function CalendarScreen() {
   const c = useColors();
   const fonts = useFontFamily();
@@ -88,8 +81,9 @@ export default function CalendarScreen() {
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
 
-  const [view, setView] = useState<CalendarView>('month');
+  const [view, setView] = useState<CalendarView>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
   const today = useMemo(() => new Date(), []);
 
   // Todos for selected range
@@ -117,6 +111,12 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+    setRefreshing(false);
   }, [loadData]);
 
   const navigate = useCallback(
@@ -231,6 +231,8 @@ export default function CalendarScreen() {
           onSelectDate={(d) => setSelectedDate(d)}
           onTodoPress={(id) => router.push(`/todo/${id}`)}
           toggleComplete={toggleComplete}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           c={c}
           fonts={fonts}
         />
@@ -242,7 +244,10 @@ export default function CalendarScreen() {
           today={today}
           todosByHour={todosByHour}
           timeFormat={timeFormat}
+          dayViewStartHour={dayViewStartHour}
           onTodoPress={(id) => router.push(`/todo/${id}`)}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           c={c}
           fonts={fonts}
         />
@@ -255,6 +260,8 @@ export default function CalendarScreen() {
           timeFormat={timeFormat}
           onTodoPress={(id) => router.push(`/todo/${id}`)}
           dayViewStartHour={dayViewStartHour}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           c={c}
           fonts={fonts}
         />
@@ -274,6 +281,8 @@ function MonthView({
   onSelectDate,
   onTodoPress,
   toggleComplete,
+  refreshing,
+  onRefresh,
   c,
   fonts,
 }: {
@@ -285,6 +294,8 @@ function MonthView({
   onSelectDate: (d: Date) => void;
   onTodoPress: (id: string) => void;
   toggleComplete: (id: string) => void;
+  refreshing: boolean;
+  onRefresh: () => void;
   c: ReturnType<typeof useColors>;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
@@ -374,6 +385,9 @@ function MonthView({
           data={todos}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 16 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
+          }
           renderItem={({ item }) => (
             <TodoRow
               todo={item}
@@ -404,7 +418,10 @@ function WeekView({
   today,
   todosByHour,
   timeFormat,
+  dayViewStartHour,
   onTodoPress,
+  refreshing,
+  onRefresh,
   c,
   fonts,
 }: {
@@ -412,89 +429,105 @@ function WeekView({
   today: Date;
   todosByHour: Record<string, Todo[]>;
   timeFormat: '12h' | '24h';
+  dayViewStartHour: number;
   onTodoPress: (id: string) => void;
+  refreshing: boolean;
+  onRefresh: () => void;
   c: ReturnType<typeof useColors>;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
+  const hours = useMemo(() => getDayHours(dayViewStartHour), [dayViewStartHour]);
+  const is24h = timeFormat === '24h';
 
   return (
-    <View className="flex-1 px-2">
+    <View className="flex-1">
+      {/* Sticky day header */}
+      <View className="flex-row px-1 pb-2" style={{ borderColor: c.outlineVariant }}>
+        <View className="w-11" />
+        {weekDates.map((d, i) => {
+          const isToday = isSameDay(d, today);
+          return (
+            <View key={i} className="flex-1 items-center">
+              <Text
+                style={{
+                  fontFamily: fonts.medium,
+                  color: isToday ? c.primary : c.outline,
+                }}
+                className="text-[10px] uppercase">
+                {WEEKDAYS[i]}
+              </Text>
+              <View
+                style={isToday ? { backgroundColor: c.primary } : undefined}
+                className={`mt-0.5 h-7 w-7 items-center justify-center rounded-full`}>
+                <Text
+                  style={{
+                    fontFamily: isToday ? fonts.bold : fonts.regular,
+                    color: isToday ? c.onPrimary : c.onSurface,
+                  }}
+                  className="text-sm">
+                  {d.getDate()}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Hourly grid */}
       <FlatList
-        data={WEEK_HOURS}
+        data={hours}
         keyExtractor={(h) => String(h)}
         contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
+        }
         renderItem={({ item: hour }) => (
-          <View className="flex-row border-b" style={{ borderColor: c.outlineVariant }}>
-            <View className="w-16 items-end pr-2 pt-1">
-              <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-xs">
-                {formatHourRange(hour, timeFormat === '24h')}
+          <View className="flex-row" style={{ minHeight: 44 }}>
+            <View className="w-11 items-end justify-start pr-1.5 pt-0.5">
+              <Text
+                style={{ fontFamily: fonts.regular, color: c.outline }}
+                className="text-[10px]">
+                {formatHour(hour, is24h)}
               </Text>
             </View>
-            <View className="flex-1 flex-row">
-              {weekDates.map((d, i) => {
-                const key = `${toDateKey(d)}-${hour}`;
-                const items = todosByHour[key] || [];
-                return (
-                  <View
-                    key={i}
-                    className="min-h-[60px] flex-1 border-l p-0.5"
-                    style={{ borderColor: c.outlineVariant }}>
-                    {items.map((t) => {
-                      const isCompleted = t.status === 'completed';
-                      return (
-                        <Pressable
-                          key={t.id}
-                          onPress={() => onTodoPress(t.id)}
+            {weekDates.map((d, i) => {
+              const key = `${toDateKey(d)}-${hour}`;
+              const items = todosByHour[key] || [];
+              return (
+                <View
+                  key={i}
+                  className="flex-1 border-l border-t px-0.5 py-0.5"
+                  style={{ borderColor: c.outlineVariant }}>
+                  {items.map((t) => {
+                    const isCompleted = t.status === 'completed';
+                    return (
+                      <Pressable
+                        key={t.id}
+                        onPress={() => onTodoPress(t.id)}
+                        style={{
+                          backgroundColor: isCompleted ? c.surfaceContainerHigh : c.primaryContainer,
+                          opacity: isCompleted ? 0.6 : 1,
+                        }}
+                        className="mb-0.5 rounded px-1 py-0.5">
+                        <Text
                           style={{
-                            backgroundColor: isCompleted ? c.errorContainer : c.primaryContainer,
+                            fontFamily: fonts.medium,
+                            color: isCompleted ? c.onSurfaceVariant : c.onSurface,
+                            textDecorationLine: isCompleted ? 'line-through' : 'none',
                           }}
-                          className="mb-0.5 rounded px-1 py-0.5">
-                          <Text
-                            style={{
-                              fontFamily: fonts.regular,
-                              color: isCompleted ? c.onErrorContainer : c.onSurface,
-                            }}
-                            className="text-[10px]"
-                            numberOfLines={1}>
-                            {t.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                );
-              })}
-            </View>
+                          className="text-[10px]"
+                          numberOfLines={1}>
+                          {t.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })}
           </View>
         )}
-        ListHeaderComponent={
-          <View className="flex-row border-b pb-1" style={{ borderColor: c.outlineVariant }}>
-            <View className="w-12" />
-            <View className="flex-1 flex-row">
-              {weekDates.map((d, i) => (
-                <View key={i} className="flex-1 items-center">
-                  <Text
-                    style={{
-                      fontFamily: fonts.bold,
-                      color: isSameDay(d, today) ? c.primary : c.onSurfaceVariant,
-                    }}
-                    className="text-xs">
-                    {WEEKDAYS[i]}
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: isSameDay(d, today) ? fonts.bold : fonts.regular,
-                      color: isSameDay(d, today) ? c.primary : c.onSurface,
-                    }}
-                    className="text-sm">
-                    {d.getDate()}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        }
       />
     </View>
   );
@@ -508,6 +541,8 @@ function DayView({
   timeFormat,
   onTodoPress,
   dayViewStartHour,
+  refreshing,
+  onRefresh,
   c,
   fonts,
 }: {
@@ -516,6 +551,8 @@ function DayView({
   timeFormat: '12h' | '24h';
   onTodoPress: (id: string) => void;
   dayViewStartHour: number;
+  refreshing: boolean;
+  onRefresh: () => void;
   c: ReturnType<typeof useColors>;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
@@ -526,6 +563,9 @@ function DayView({
       data={hours}
       keyExtractor={(h) => String(h)}
       contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 16 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
+      }
       renderItem={({ item: hour }) => {
         const items = todosByHour[String(hour)] || [];
         return (

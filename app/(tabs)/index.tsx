@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { FlatList, Keyboard, Platform, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { FlatList, KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 
 import { useTodoStore } from '@/store/todoStore';
 import { TodoItem } from '@/components/TodoItem';
@@ -13,7 +13,6 @@ const keyExtractor = (item: Todo) => item.id;
 export default function TodosScreen() {
   const todos = useTodoStore((s) => s.todos);
   const loadTodos = useTodoStore((s) => s.loadTodos);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const c = useColors();
   const fonts = useFontFamily();
 
@@ -21,29 +20,13 @@ export default function TodosScreen() {
     loadTodos();
   }, [loadTodos]);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardOffset(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardOffset(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const renderItem = ({ item }: { item: Todo }) => <TodoItem todo={item} />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.surface }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: c.surface }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       <View className="flex-1 px-4 pt-12">
         <TimeFilter />
 
@@ -64,11 +47,9 @@ export default function TodosScreen() {
         />
       </View>
 
-      <View
-        style={{ marginBottom: keyboardOffset > 0 ? keyboardOffset - 80 : 0 }}
-        className="px-4 pb-2">
+      <View className="px-4 pb-2">
         <QuickAdd />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
