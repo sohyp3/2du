@@ -105,9 +105,9 @@ export function getFilterLabel(period: FilterPeriod, date: Date): string {
   }
 }
 
-export function formatTime(isoString: string): string {
+export function formatTime(isoString: string, use24h = false): string {
   const d = new Date(isoString);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: !use24h });
 }
 
 export function formatDate(isoString: string): string {
@@ -115,9 +115,13 @@ export function formatDate(isoString: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export function formatTodoMeta(isoString: string, period: FilterPeriod): string {
+export function formatTodoMeta(isoString: string, period: FilterPeriod, use24h = false): string {
   const d = new Date(isoString);
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const time = d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: !use24h,
+  });
   switch (period) {
     case 'day':
       return time;

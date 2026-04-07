@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
+import { useCalendarStore } from '@/store/calendarStore';
 import { getTodoById, Priority, Todo } from '@/db/todos';
 import { formatTime } from '@/utils/dates';
 import { DatePicker } from '@/components/DatePicker';
@@ -28,6 +29,7 @@ export default function TodoDetailScreen() {
   const router = useRouter();
   const updateTodo = useTodoStore((s) => s.updateTodo);
   const deleteTodoAction = useTodoStore((s) => s.deleteTodo);
+  const timeFormat = useCalendarStore((s) => s.timeFormat);
   const c = useColors();
   const fonts = useFontFamily();
 
@@ -329,7 +331,12 @@ export default function TodoDetailScreen() {
               style={{ backgroundColor: c.surfaceContainer }}
               className="mt-6 overflow-hidden rounded-xl">
               <DetailRow label="Date" value={dateStr} c={c} fonts={fonts} />
-              <DetailRow label="Time" value={formatTime(todo.datetime)} c={c} fonts={fonts} />
+              <DetailRow
+                label="Time"
+                value={formatTime(todo.datetime, timeFormat === '24h')}
+                c={c}
+                fonts={fonts}
+              />
               <DetailRow
                 label="Priority"
                 value={PRIORITIES.find((p) => p.key === todo.priority)?.label ?? todo.priority}

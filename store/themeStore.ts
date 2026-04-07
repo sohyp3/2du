@@ -22,6 +22,7 @@ export interface ThemeColors {
   secondary: string;
   error: string;
   errorContainer: string;
+  onErrorContainer: string;
 }
 
 const SILVER_COLORS: ThemeColors = {
@@ -42,6 +43,7 @@ const SILVER_COLORS: ThemeColors = {
   secondary: '#6e6e6e',
   error: '#c4402a',
   errorContainer: '#fbd5cc',
+  onErrorContainer: '#3d1304',
 };
 
 const GOLD_COLORS: ThemeColors = {
@@ -62,6 +64,7 @@ const GOLD_COLORS: ThemeColors = {
   secondary: '#9a8c6e',
   error: '#e05a40',
   errorContainer: '#3d1c14',
+  onErrorContainer: '#ffdad4',
 };
 
 export const THEME_COLORS: Record<ThemeKey, ThemeColors> = {

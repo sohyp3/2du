@@ -11,11 +11,13 @@ import Animated, {
 import { Todo } from '@/db/todos';
 import { formatTodoMeta } from '@/utils/dates';
 import { useTodoStore } from '@/store/todoStore';
+import { useCalendarStore } from '@/store/calendarStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 
 function TodoItemRaw({ todo }: { todo: Todo }) {
   const toggleComplete = useTodoStore((s) => s.toggleComplete);
   const period = useTodoStore((s) => s.period);
+  const timeFormat = useCalendarStore((s) => s.timeFormat);
   const router = useRouter();
   const isCompleted = todo.status === 'completed';
   const c = useColors();
@@ -45,7 +47,7 @@ function TodoItemRaw({ todo }: { todo: Todo }) {
     router.push(`/todo/${todo.id}`);
   }, [todo.id, router]);
 
-  const meta = formatTodoMeta(todo.datetime, period);
+  const meta = formatTodoMeta(todo.datetime, period, timeFormat === '24h');
 
   return (
     <Animated.View style={rowAnimStyle} className="mb-2">

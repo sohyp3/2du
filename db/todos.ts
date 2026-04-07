@@ -128,6 +128,21 @@ export function updateTodo(id: string, updates: Partial<Omit<Todo, 'id' | 'creat
   db.runSync(`UPDATE todos SET ${fields.join(', ')} WHERE id = ?`, ...values);
 }
 
+export function getTodoCountsByMonth(year: number, month: number): Record<string, number> {
+  const start = new Date(year, month, 1).toISOString();
+  const end = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
+  const rows = db.getAllSync<{ day: string; count: number }>(
+    `SELECT substr(datetime, 1, 10) as day, COUNT(*) as count FROM todos WHERE datetime BETWEEN ? AND ? AND status != 'cancelled' GROUP BY day`,
+    start,
+    end
+  );
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    result[row.day] = row.count;
+  }
+  return result;
+}
+
 export function deleteTodo(id: string): void {
   db.runSync(`DELETE FROM todos WHERE id = ?`, id);
 }
