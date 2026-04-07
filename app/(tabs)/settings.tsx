@@ -1,19 +1,28 @@
-import { Text, View, Pressable, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { Text, View, Pressable, ScrollView, Switch, TextInput, Alert } from 'react-native';
 import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarStore } from '@/store/calendarStore';
+import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const themeKey = useThemeStore((s) => s.themeKey);
   const fontKey = useThemeStore((s) => s.fontKey);
   const setTheme = useThemeStore((s) => s.setTheme);
   const setFont = useThemeStore((s) => s.setFont);
+  const isPlus = useThemeStore((s) => s.isPlus);
+  const setIsPlus = useThemeStore((s) => s.setIsPlus);
+  const zenMode = useThemeStore((s) => s.zenMode);
+  const setZenMode = useThemeStore((s) => s.setZenMode);
+  const [showPlusPrompt, setShowPlusPrompt] = useState(false);
+  const [plusPassword, setPlusPassword] = useState('');
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const setDayViewStartHour = useCalendarStore((s) => s.setDayViewStartHour);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
   const setTimeFormat = useCalendarStore((s) => s.setTimeFormat);
   const c = useColors();
   const fonts = useFontFamily();
+  const router = useRouter();
 
   const formatHour = (h: number) => {
     if (timeFormat === '24h') {
@@ -26,7 +35,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.surface }} className="px-5 pt-14">
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.surface }}
+      className="px-5 pt-14"
+      contentContainerStyle={{ paddingBottom: 120 }}>
       <Text style={{ fontFamily: fonts.bold, color: c.onSurface }} className="mb-8 text-3xl">
         Settings
       </Text>
@@ -152,6 +164,47 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <Text
+        style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+        className="mb-3 text-xs uppercase tracking-[3px]">
+        Plus
+      </Text>
+
+      <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <View className="flex-row items-center gap-2">
+              <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+                Zen Mode
+              </Text>
+              {!isPlus && (
+                <View style={{ backgroundColor: c.primaryContainer }} className="rounded-md px-2 py-0.5">
+                  <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-[10px]">
+                    PLUS
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text
+              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+              className="mt-1 text-xs">
+              Hide tabs and swipe to navigate
+            </Text>
+          </View>
+          <Switch
+            value={zenMode}
+            onValueChange={(v) => {
+              if (!isPlus) return;
+              setZenMode(v);
+              if (v) router.replace('/');
+            }}
+            disabled={!isPlus}
+            trackColor={{ false: c.outlineVariant, true: c.primary }}
+            thumbColor={zenMode ? c.onPrimary : c.surfaceContainerHighest}
+          />
+        </View>
+      </View>
+
       <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
         <View className="mb-2 flex-row justify-between">
           <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
@@ -189,6 +242,76 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
       </View>
+
+      {!isPlus && !showPlusPrompt && (
+        <Pressable
+          onPress={() => setShowPlusPrompt(true)}
+          style={{ backgroundColor: c.primary }}
+          className="mb-4 items-center rounded-2xl py-4">
+          <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-base">
+            Activate Plus
+          </Text>
+        </Pressable>
+      )}
+
+      {!isPlus && showPlusPrompt && (
+        <View style={{ backgroundColor: c.surfaceContainer }} className="mb-4 rounded-2xl p-4">
+          <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="mb-3 text-sm">
+            Enter activation code
+          </Text>
+          <TextInput
+            value={plusPassword}
+            onChangeText={setPlusPassword}
+            secureTextEntry
+            placeholder="Password"
+            placeholderTextColor={c.outline}
+            style={{
+              fontFamily: fonts.regular,
+              color: c.onSurface,
+              backgroundColor: c.surfaceContainerHigh,
+            }}
+            className="mb-3 rounded-xl px-4 py-3 text-sm"
+          />
+          <View className="flex-row gap-2">
+            <Pressable
+              onPress={() => {
+                setShowPlusPrompt(false);
+                setPlusPassword('');
+              }}
+              style={{ backgroundColor: c.surfaceContainerHigh }}
+              className="flex-1 items-center rounded-xl py-3">
+              <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+                Cancel
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (plusPassword === 'hehe') {
+                  setIsPlus(true);
+                  setShowPlusPrompt(false);
+                  setPlusPassword('');
+                } else {
+                  Alert.alert('Wrong code', 'That activation code is incorrect.');
+                  setPlusPassword('');
+                }
+              }}
+              style={{ backgroundColor: c.primary }}
+              className="flex-1 items-center rounded-xl py-3">
+              <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
+                Activate
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {isPlus && (
+        <View className="mb-4 items-center py-4">
+          <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-sm">
+            Plus is active
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
