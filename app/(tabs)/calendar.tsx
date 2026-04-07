@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { getTodosByDateRange, getTodoCountsByMonth, Todo } from '@/db/todos';
@@ -12,6 +12,7 @@ import {
 } from '@/utils/dates';
 import { useTodoStore } from '@/store/todoStore';
 import { useCalendarStore } from '@/store/calendarStore';
+import { DatabaseError } from '@/db/database';
 
 type CalendarView = 'day' | 'week' | 'month';
 
@@ -84,28 +85,46 @@ export default function CalendarScreen() {
   const [view, setView] = useState<CalendarView>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const today = useMemo(() => new Date(), []);
 
   // Todos for selected range
   const [todos, setTodos] = useState<Todo[]>([]);
   const [monthCounts, setMonthCounts] = useState<Record<string, number>>({});
 
-  const loadData = useCallback(() => {
-    if (view === 'month') {
-      const counts = getTodoCountsByMonth(selectedDate.getFullYear(), selectedDate.getMonth());
-      setMonthCounts(counts);
-      // Also load todos for the selected day
-      const start = getStartOfDay(selectedDate);
-      const end = getEndOfDay(selectedDate);
-      setTodos(getTodosByDateRange(start.toISOString(), end.toISOString()));
-    } else if (view === 'week') {
-      const start = getStartOfWeek(selectedDate);
-      const end = getEndOfWeek(selectedDate);
-      setTodos(getTodosByDateRange(start.toISOString(), end.toISOString()));
-    } else {
-      const start = getStartOfDay(selectedDate);
-      const end = getEndOfDay(selectedDate);
-      setTodos(getTodosByDateRange(start.toISOString(), end.toISOString()));
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (view === 'month') {
+        const counts = await getTodoCountsByMonth(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth()
+        );
+        setMonthCounts(counts);
+        // Also load todos for the selected day
+        const start = getStartOfDay(selectedDate);
+        const end = getEndOfDay(selectedDate);
+        const dayTodos = await getTodosByDateRange(start.toISOString(), end.toISOString());
+        setTodos(dayTodos);
+      } else if (view === 'week') {
+        const start = getStartOfWeek(selectedDate);
+        const end = getEndOfWeek(selectedDate);
+        const weekTodos = await getTodosByDateRange(start.toISOString(), end.toISOString());
+        setTodos(weekTodos);
+      } else {
+        const start = getStartOfDay(selectedDate);
+        const end = getEndOfDay(selectedDate);
+        const dayTodos = await getTodosByDateRange(start.toISOString(), end.toISOString());
+        setTodos(dayTodos);
+      }
+    } catch (err) {
+      const message = err instanceof DatabaseError ? err.message : 'Failed to load calendar data';
+      setError(message);
+      console.error('Error loading calendar data:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [view, selectedDate]);
 
@@ -113,9 +132,9 @@ export default function CalendarScreen() {
     loadData();
   }, [loadData]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadData();
+    await loadData();
     setRefreshing(false);
   }, [loadData]);
 
@@ -160,6 +179,61 @@ export default function CalendarScreen() {
     }
     return map;
   }, [todos, view]);
+
+  // Show loading state
+  if (isLoading && !refreshing && todos.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: c.surface,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        <ActivityIndicator color={c.primary} size="large" />
+        <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, marginTop: 16 }}>
+          Loading calendar...
+        </Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error && !refreshing && todos.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: c.surface,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}>
+        <Text style={{ fontFamily: fonts.bold, color: c.error, fontSize: 18, marginBottom: 8 }}>
+          Error Loading Calendar
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.regular,
+            color: c.onSurfaceVariant,
+            textAlign: 'center',
+            marginBottom: 24,
+          }}>
+          {error}
+        </Text>
+        <Pressable
+          onPress={loadData}
+          style={{
+            backgroundColor: c.primary,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 20,
+          }}>
+          <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: c.surface }}>
@@ -485,9 +559,7 @@ function WeekView({
         renderItem={({ item: hour }) => (
           <View className="flex-row" style={{ minHeight: 44 }}>
             <View className="w-11 items-end justify-start pr-1.5 pt-0.5">
-              <Text
-                style={{ fontFamily: fonts.regular, color: c.outline }}
-                className="text-[10px]">
+              <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-[10px]">
                 {formatHour(hour, is24h)}
               </Text>
             </View>
@@ -506,7 +578,9 @@ function WeekView({
                         key={t.id}
                         onPress={() => onTodoPress(t.id)}
                         style={{
-                          backgroundColor: isCompleted ? c.surfaceContainerHigh : c.primaryContainer,
+                          backgroundColor: isCompleted
+                            ? c.surfaceContainerHigh
+                            : c.primaryContainer,
                           opacity: isCompleted ? 0.6 : 1,
                         }}
                         className="mb-0.5 rounded px-1 py-0.5">

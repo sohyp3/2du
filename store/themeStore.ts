@@ -26,15 +26,15 @@ export interface ThemeColors {
 }
 
 const SILVER_COLORS: ThemeColors = {
-  surface: '#F8F9FA', // Brighter, cleaner base
+  surface: '#F8F9FA',
   surfaceDim: '#E9ECEF',
-  surfaceContainer: '#FFFFFF', // Elevated elements
+  surfaceContainer: '#FFFFFF',
   surfaceContainerLow: '#F1F3F5',
   surfaceContainerHigh: '#DEE2E6',
   surfaceContainerHighest: '#CED4DA',
-  onSurface: '#1A1C1E', // High contrast text
-  onSurfaceVariant: '#44474E', // Secondary text
-  primary: '#5D5E61', // Sophisticated Silver-Grey
+  onSurface: '#1A1C1E',
+  onSurfaceVariant: '#44474E',
+  primary: '#5D5E61',
   primaryContainer: '#E1E2E5',
   primaryDim: '#2E3133',
   onPrimary: '#FFFFFF',
@@ -47,15 +47,15 @@ const SILVER_COLORS: ThemeColors = {
 };
 
 const GOLD_COLORS: ThemeColors = {
-  surface: '#141311', // Deep charcoal-gold
+  surface: '#141311',
   surfaceDim: '#0F0E0D',
-  surfaceContainer: '#1F1D1A', // Elevated cards
+  surfaceContainer: '#1F1D1A',
   surfaceContainerLow: '#1A1816',
   surfaceContainerHigh: '#2A2723',
   surfaceContainerHighest: '#35322E',
-  onSurface: '#E6E1D9', // Soft cream (easier on eyes than pure white)
-  onSurfaceVariant: '#CDC6B4', // Muted gold-grey for secondary text
-  primary: '#D4AF37', // Refined Metallic Gold
+  onSurface: '#E6E1D9',
+  onSurfaceVariant: '#CDC6B4',
+  primary: '#D4AF37',
   primaryContainer: '#4F4218',
   primaryDim: '#EFCB68',
   onPrimary: '#3A2E00',
@@ -106,11 +106,12 @@ interface ThemeState {
   fontKey: FontKey;
   isPlus: boolean;
   zenMode: boolean;
-  setTheme: (key: ThemeKey) => void;
-  setFont: (key: FontKey) => void;
-  setIsPlus: (v: boolean) => void;
-  setZenMode: (v: boolean) => void;
-  loadSettings: () => void;
+  isLoading: boolean;
+  setTheme: (key: ThemeKey) => Promise<void>;
+  setFont: (key: FontKey) => Promise<void>;
+  setIsPlus: (v: boolean) => Promise<void>;
+  setZenMode: (v: boolean) => Promise<void>;
+  loadSettings: () => Promise<void>;
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
@@ -118,42 +119,70 @@ export const useThemeStore = create<ThemeState>((set) => ({
   fontKey: 'inter',
   isPlus: false,
   zenMode: false,
+  isLoading: false,
 
-  loadSettings: () => {
-    const savedTheme = getSetting('theme') as ThemeKey | null;
-    const savedFont = getSetting('font') as FontKey | null;
-    if (savedTheme && (savedTheme === 'silver' || savedTheme === 'gold')) {
-      set({ themeKey: savedTheme });
+  loadSettings: async () => {
+    set({ isLoading: true });
+    try {
+      const savedTheme = await getSetting('theme');
+      const savedFont = await getSetting('font');
+      const savedPlus = await getSetting('isPlus');
+      const savedZen = await getSetting('zenMode');
+
+      const updates: Partial<ThemeState> = { isLoading: false };
+
+      if (savedTheme && (savedTheme === 'silver' || savedTheme === 'gold')) {
+        updates.themeKey = savedTheme as ThemeKey;
+      }
+      if (
+        savedFont &&
+        (savedFont === 'inter' || savedFont === 'playfair' || savedFont === 'cormorant')
+      ) {
+        updates.fontKey = savedFont as FontKey;
+      }
+      if (savedPlus === 'true') updates.isPlus = true;
+      if (savedZen === 'true') updates.zenMode = true;
+
+      set(updates);
+    } catch (error) {
+      console.error('Failed to load theme settings:', error);
+      set({ isLoading: false });
     }
-    if (
-      savedFont &&
-      (savedFont === 'inter' || savedFont === 'playfair' || savedFont === 'cormorant')
-    ) {
-      set({ fontKey: savedFont });
-    }
-    const savedPlus = getSetting('isPlus');
-    if (savedPlus === 'true') set({ isPlus: true });
-    const savedZen = getSetting('zenMode');
-    if (savedZen === 'true') set({ zenMode: true });
   },
 
-  setTheme: (key) => {
+  setTheme: async (key) => {
     set({ themeKey: key });
-    setSetting('theme', key);
+    try {
+      await setSetting('theme', key);
+    } catch (error) {
+      console.error('Failed to save theme setting:', error);
+    }
   },
 
-  setFont: (key) => {
+  setFont: async (key) => {
     set({ fontKey: key });
-    setSetting('font', key);
+    try {
+      await setSetting('font', key);
+    } catch (error) {
+      console.error('Failed to save font setting:', error);
+    }
   },
 
-  setIsPlus: (v) => {
+  setIsPlus: async (v) => {
     set({ isPlus: v });
-    setSetting('isPlus', v ? 'true' : 'false');
+    try {
+      await setSetting('isPlus', v ? 'true' : 'false');
+    } catch (error) {
+      console.error('Failed to save plus setting:', error);
+    }
   },
 
-  setZenMode: (v) => {
+  setZenMode: async (v) => {
     set({ zenMode: v });
-    setSetting('zenMode', v ? 'true' : 'false');
+    try {
+      await setSetting('zenMode', v ? 'true' : 'false');
+    } catch (error) {
+      console.error('Failed to save zen mode setting:', error);
+    }
   },
 }));

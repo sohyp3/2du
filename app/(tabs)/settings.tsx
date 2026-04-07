@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Text, View, Pressable, ScrollView, Switch, TextInput, Alert, Platform } from 'react-native';
+import {
+  Text,
+  View,
+  Pressable,
+  ScrollView,
+  Switch,
+  TextInput,
+  Alert,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import { sendTestNotification } from '@/utils/notifications';
 import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore';
 import { useColors, useFontFamily } from '@/utils/theme';
@@ -15,13 +25,16 @@ export default function SettingsScreen() {
   const setIsPlus = useThemeStore((s) => s.setIsPlus);
   const zenMode = useThemeStore((s) => s.zenMode);
   const setZenMode = useThemeStore((s) => s.setZenMode);
+  const themeLoading = useThemeStore((s) => s.isLoading);
   const [showPlusPrompt, setShowPlusPrompt] = useState(false);
   const [plusPassword, setPlusPassword] = useState('');
   const [testMinutes, setTestMinutes] = useState('0');
+  const [isActivating, setIsActivating] = useState(false);
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const setDayViewStartHour = useCalendarStore((s) => s.setDayViewStartHour);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
   const setTimeFormat = useCalendarStore((s) => s.setTimeFormat);
+  const calendarLoading = useCalendarStore((s) => s.isLoading);
   const c = useColors();
   const fonts = useFontFamily();
   const router = useRouter();
@@ -36,6 +49,22 @@ export default function SettingsScreen() {
     return `${h - 12} PM`;
   };
 
+  const handleActivatePlus = async () => {
+    setIsActivating(true);
+    try {
+      if (plusPassword === 'hehe') {
+        await setIsPlus(true);
+        setShowPlusPrompt(false);
+        setPlusPassword('');
+      } else {
+        Alert.alert('Wrong code', 'That activation code is incorrect.');
+        setPlusPassword('');
+      }
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.surface }}
@@ -44,6 +73,13 @@ export default function SettingsScreen() {
       <Text style={{ fontFamily: fonts.bold, color: c.onSurface }} className="mb-8 text-3xl">
         Settings
       </Text>
+
+      {/* Loading indicator */}
+      {(themeLoading || calendarLoading) && (
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <ActivityIndicator color={c.primary} size="small" />
+        </View>
+      )}
 
       <Text
         style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
@@ -58,9 +94,11 @@ export default function SettingsScreen() {
             <Pressable
               key={t.key}
               onPress={() => setTheme(t.key)}
+              disabled={themeLoading}
               style={{
                 backgroundColor: t.preview.bg,
                 borderColor: selected ? c.primary : c.outlineVariant,
+                opacity: themeLoading ? 0.5 : 1,
               }}
               className={`flex-1 items-center rounded-2xl border-2 p-5`}>
               <View
@@ -100,8 +138,10 @@ export default function SettingsScreen() {
             <Pressable
               key={f.key}
               onPress={() => setFont(f.key)}
+              disabled={themeLoading}
               style={{
                 backgroundColor: selected ? c.surfaceContainerHigh : c.surfaceContainer,
+                opacity: themeLoading ? 0.5 : 1,
               }}
               className="flex-row items-center rounded-xl px-4 py-4">
               <View className="flex-1">
@@ -148,8 +188,10 @@ export default function SettingsScreen() {
               <Pressable
                 key={f}
                 onPress={() => setTimeFormat(f)}
+                disabled={calendarLoading}
                 style={{
                   backgroundColor: selected ? c.primary : c.surfaceContainerHigh,
+                  opacity: calendarLoading ? 0.5 : 1,
                 }}
                 className="flex-1 rounded-lg py-2">
                 <Text
@@ -180,8 +222,12 @@ export default function SettingsScreen() {
                 Zen Mode
               </Text>
               {!isPlus && (
-                <View style={{ backgroundColor: c.primaryContainer }} className="rounded-md px-2 py-0.5">
-                  <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-[10px]">
+                <View
+                  style={{ backgroundColor: c.primaryContainer }}
+                  className="rounded-md px-2 py-0.5">
+                  <Text
+                    style={{ fontFamily: fonts.medium, color: c.primary }}
+                    className="text-[10px]">
                     PLUS
                   </Text>
                 </View>
@@ -195,12 +241,12 @@ export default function SettingsScreen() {
           </View>
           <Switch
             value={zenMode}
-            onValueChange={(v) => {
+            onValueChange={async (v) => {
               if (!isPlus) return;
-              setZenMode(v);
+              await setZenMode(v);
               if (v) router.replace('/');
             }}
-            disabled={!isPlus}
+            disabled={!isPlus || themeLoading}
             trackColor={{ false: c.outlineVariant, true: c.primary }}
             thumbColor={zenMode ? c.onPrimary : c.surfaceContainerHighest}
           />
@@ -219,8 +265,11 @@ export default function SettingsScreen() {
         <View className="h-8 flex-row items-center">
           <Pressable
             onPress={() => setDayViewStartHour(Math.max(0, dayViewStartHour - 1))}
+            disabled={calendarLoading}
             className="w-8 items-center justify-center">
-            <Text style={{ color: c.primary }} className="text-xl font-bold">
+            <Text
+              style={{ color: c.primary, opacity: calendarLoading ? 0.5 : 1 }}
+              className="text-xl font-bold">
               ‹
             </Text>
           </Pressable>
@@ -237,8 +286,11 @@ export default function SettingsScreen() {
           </View>
           <Pressable
             onPress={() => setDayViewStartHour(Math.min(23, dayViewStartHour + 1))}
+            disabled={calendarLoading}
             className="w-8 items-center justify-center">
-            <Text style={{ color: c.primary }} className="text-xl font-bold">
+            <Text
+              style={{ color: c.primary, opacity: calendarLoading ? 0.5 : 1 }}
+              className="text-xl font-bold">
               ›
             </Text>
           </Pressable>
@@ -267,6 +319,7 @@ export default function SettingsScreen() {
             secureTextEntry
             placeholder="Password"
             placeholderTextColor={c.outline}
+            editable={!isActivating}
             style={{
               fontFamily: fonts.regular,
               color: c.onSurface,
@@ -280,28 +333,25 @@ export default function SettingsScreen() {
                 setShowPlusPrompt(false);
                 setPlusPassword('');
               }}
-              style={{ backgroundColor: c.surfaceContainerHigh }}
+              disabled={isActivating}
+              style={{ backgroundColor: c.surfaceContainerHigh, opacity: isActivating ? 0.5 : 1 }}
               className="flex-1 items-center rounded-xl py-3">
               <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
                 Cancel
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => {
-                if (plusPassword === 'hehe') {
-                  setIsPlus(true);
-                  setShowPlusPrompt(false);
-                  setPlusPassword('');
-                } else {
-                  Alert.alert('Wrong code', 'That activation code is incorrect.');
-                  setPlusPassword('');
-                }
-              }}
-              style={{ backgroundColor: c.primary }}
+              onPress={handleActivatePlus}
+              disabled={isActivating}
+              style={{ backgroundColor: c.primary, opacity: isActivating ? 0.5 : 1 }}
               className="flex-1 items-center rounded-xl py-3">
-              <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
-                Activate
-              </Text>
+              {isActivating ? (
+                <ActivityIndicator color={c.onPrimary} size="small" />
+              ) : (
+                <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
+                  Activate
+                </Text>
+              )}
             </Pressable>
           </View>
         </View>
@@ -343,7 +393,9 @@ export default function SettingsScreen() {
                 }}
                 className="flex-1 rounded-xl px-4 py-3 text-sm"
               />
-              <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }} className="text-sm">
+              <Text
+                style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+                className="text-sm">
                 min
               </Text>
               <Pressable
@@ -355,7 +407,7 @@ export default function SettingsScreen() {
                       'Sent',
                       mins === 0
                         ? 'Test notification sent!'
-                        : `Test notification scheduled in ${mins} minute${mins === 1 ? '' : 's'}.`,
+                        : `Test notification scheduled in ${mins} minute${mins === 1 ? '' : 's'}.`
                     );
                   } else {
                     Alert.alert('Error', 'Notification permission denied.');

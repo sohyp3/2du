@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Animated, PanResponder, Dimensions, View } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -65,8 +65,7 @@ export default function TabLayout() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 15 && Math.abs(g.dy) < Math.abs(g.dx),
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 15 && Math.abs(g.dy) < Math.abs(g.dx),
       onPanResponderMove: Animated.event([null, { dx: panX }], { useNativeDriver: false }),
       onPanResponderRelease: (_, g) => {
         if (g.dx > SWIPE_THRESHOLD) {
@@ -76,17 +75,13 @@ export default function TabLayout() {
         }
         Animated.spring(panX, { toValue: 0, useNativeDriver: false }).start();
       },
-    }),
+    })
   ).current;
 
   return (
     <View style={{ flex: 1 }} {...(zenMode ? panResponder.panHandlers : {})}>
       <Animated.View
-        style={
-          zenMode
-            ? { flex: 1, transform: [{ translateX }], opacity }
-            : { flex: 1 }
-        }>
+        style={zenMode ? { flex: 1, transform: [{ translateX }], opacity } : { flex: 1 }}>
         <Tabs
           screenOptions={{
             headerShown: false,

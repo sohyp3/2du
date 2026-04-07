@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
@@ -17,6 +18,7 @@ import { formatTime } from '@/utils/dates';
 import { DatePicker } from '@/components/DatePicker';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { ThemeColors } from '@/store/themeStore';
+import { DatabaseError } from '@/db/database';
 
 const PRIORITIES: { key: Priority; label: string }[] = [
   { key: 'urgent', label: 'Urgent' },
@@ -27,13 +29,15 @@ const PRIORITIES: { key: Priority; label: string }[] = [
 export default function TodoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const updateTodo = useTodoStore((s) => s.updateTodo);
+  const updateTodoAction = useTodoStore((s) => s.updateTodo);
   const deleteTodoAction = useTodoStore((s) => s.deleteTodo);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
   const c = useColors();
   const fonts = useFontFamily();
 
   const [todo, setTodo] = useState<Todo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -44,65 +48,107 @@ export default function TodoDetailScreen() {
   const [remindMe, setRemindMe] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
-    const found = getTodoById(id);
-    if (found) {
-      setTodo(found);
-      setName(found.name);
-      setDescription(found.description ?? '');
-      setPriority(found.priority);
-      const dt = new Date(found.datetime);
-      setSelectedDate(dt);
-      setHour(dt.getHours());
-      setMinute(dt.getMinutes());
-      setRemindMe(found.remind_me);
+    async function loadTodo() {
+      if (!id) {
+        setError('No todo ID provided');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const found = await getTodoById(id);
+        if (found) {
+          setTodo(found);
+          setName(found.name);
+          setDescription(found.description ?? '');
+          setPriority(found.priority);
+          const dt = new Date(found.datetime);
+          setSelectedDate(dt);
+          setHour(dt.getHours());
+          setMinute(dt.getMinutes());
+          setRemindMe(found.remind_me);
+        } else {
+          setError('Todo not found');
+        }
+      } catch (err) {
+        const message = err instanceof DatabaseError ? err.message : 'Failed to load todo';
+        setError(message);
+        console.error('Error loading todo:', err);
+      } finally {
+        setIsLoading(false);
+      }
     }
+
+    loadTodo();
   }, [id]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!id || !name.trim()) return;
-    const dt = new Date(selectedDate);
-    dt.setHours(hour, minute, 0, 0);
-    const datetime = dt.toISOString();
-    updateTodo(id, {
-      name: name.trim(),
-      description: description.trim() || null,
-      priority,
-      datetime,
-      remind_me: remindMe,
-    });
-    setTodo((prev) =>
-      prev
-        ? {
-            ...prev,
-            name: name.trim(),
-            description: description.trim() || null,
-            priority,
-            datetime,
-            remind_me: remindMe,
-          }
-        : prev
-    );
-    setEditing(false);
-  }, [id, name, description, priority, selectedDate, hour, minute, remindMe, updateTodo]);
+    setIsLoading(true);
+    try {
+      const dt = new Date(selectedDate);
+      dt.setHours(hour, minute, 0, 0);
+      const datetime = dt.toISOString();
+      await updateTodoAction(id, {
+        name: name.trim(),
+        description: description.trim() || null,
+        priority,
+        datetime,
+        remind_me: remindMe,
+      });
+      setTodo((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: name.trim(),
+              description: description.trim() || null,
+              priority,
+              datetime,
+              remind_me: remindMe,
+            }
+          : prev
+      );
+      setEditing(false);
+    } catch (err) {
+      const message = err instanceof DatabaseError ? err.message : 'Failed to update todo';
+      Alert.alert('Error', message);
+      console.error('Error saving todo:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id, name, description, priority, selectedDate, hour, minute, remindMe, updateTodoAction]);
 
-  const handleDelete = useCallback(() => {
-    const doDelete = () => {
+  const handleDelete = useCallback(async () => {
+    const doDelete = async () => {
       if (!id) return;
-      deleteTodoAction(id);
-      router.back();
+      setIsLoading(true);
+      try {
+        await deleteTodoAction(id);
+        router.back();
+      } catch (err) {
+        const message = err instanceof DatabaseError ? err.message : 'Failed to delete todo';
+        Alert.alert('Error', message);
+        console.error('Error deleting todo:', err);
+        setIsLoading(false);
+      }
     };
+
     if (Platform.OS === 'web') {
-      doDelete();
+      await doDelete();
       return;
     }
+
     Alert.alert('Delete Todo', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: doDelete },
     ]);
   }, [id, deleteTodoAction, router]);
 
-  if (!todo) {
+  // Loading state
+  if (isLoading && !todo) {
     return (
       <View
         style={{
@@ -111,8 +157,41 @@ export default function TodoDetailScreen() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <Stack.Screen options={{ title: 'Todo' }} />
-        <Text style={{ fontFamily: fonts.regular, color: c.outline }}>Todo not found</Text>
+        <Stack.Screen options={{ title: 'Loading...' }} />
+        <ActivityIndicator color={c.primary} size="large" />
+        <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, marginTop: 16 }}>
+          Loading todo...
+        </Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error || !todo) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: c.surface,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}>
+        <Stack.Screen options={{ title: 'Error' }} />
+        <Text style={{ fontFamily: fonts.bold, color: c.error, fontSize: 18, marginBottom: 8 }}>
+          {error || 'Todo not found'}
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: c.primary,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 20,
+            marginTop: 16,
+          }}>
+          <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -148,6 +227,7 @@ export default function TodoDetailScreen() {
               value={name}
               onChangeText={setName}
               autoFocus
+              editable={!isLoading}
             />
 
             <Text
@@ -168,6 +248,7 @@ export default function TodoDetailScreen() {
               onChangeText={setDescription}
               multiline
               textAlignVertical="top"
+              editable={!isLoading}
             />
 
             <Text
@@ -179,7 +260,7 @@ export default function TodoDetailScreen() {
               {PRIORITIES.map(({ key, label }) => (
                 <Pressable
                   key={key}
-                  onPress={() => setPriority(key)}
+                  onPress={() => !isLoading && setPriority(key)}
                   style={{
                     backgroundColor:
                       priority === key ? c.surfaceContainerHighest : c.surfaceContainerLow,
@@ -214,7 +295,10 @@ export default function TodoDetailScreen() {
             <View
               style={{ backgroundColor: c.surfaceContainerLow }}
               className="mb-4 flex-row items-center justify-center gap-2 rounded-lg py-3">
-              <Pressable onPress={() => setHour((h) => (h - 1 + 24) % 24)} className="px-3">
+              <Pressable
+                onPress={() => setHour((h) => (h - 1 + 24) % 24)}
+                disabled={isLoading}
+                className="px-3">
                 <Text style={{ color: c.outline }} className="text-xl">
                   ‹
                 </Text>
@@ -224,7 +308,10 @@ export default function TodoDetailScreen() {
                 className="w-8 text-center text-lg">
                 {(hour % 12 || 12).toString()}
               </Text>
-              <Pressable onPress={() => setHour((h) => (h + 1) % 24)} className="px-3">
+              <Pressable
+                onPress={() => setHour((h) => (h + 1) % 24)}
+                disabled={isLoading}
+                className="px-3">
                 <Text style={{ color: c.outline }} className="text-xl">
                   ›
                 </Text>
@@ -234,7 +321,10 @@ export default function TodoDetailScreen() {
                 :
               </Text>
 
-              <Pressable onPress={() => setMinute((m) => (m - 5 + 60) % 60)} className="px-3">
+              <Pressable
+                onPress={() => setMinute((m) => (m - 5 + 60) % 60)}
+                disabled={isLoading}
+                className="px-3">
                 <Text style={{ color: c.outline }} className="text-xl">
                   ‹
                 </Text>
@@ -244,7 +334,10 @@ export default function TodoDetailScreen() {
                 className="w-8 text-center text-lg">
                 {minute.toString().padStart(2, '0')}
               </Text>
-              <Pressable onPress={() => setMinute((m) => (m + 5) % 60)} className="px-3">
+              <Pressable
+                onPress={() => setMinute((m) => (m + 5) % 60)}
+                disabled={isLoading}
+                className="px-3">
                 <Text style={{ color: c.outline }} className="text-xl">
                   ›
                 </Text>
@@ -252,6 +345,7 @@ export default function TodoDetailScreen() {
 
               <Pressable
                 onPress={() => setHour((h) => (h < 12 ? h + 12 : h - 12))}
+                disabled={isLoading}
                 style={{ backgroundColor: c.surfaceContainerHighest }}
                 className="ml-1 rounded-lg px-3 py-1">
                 <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-sm">
@@ -262,6 +356,7 @@ export default function TodoDetailScreen() {
 
             <Pressable
               onPress={() => setRemindMe((v) => !v)}
+              disabled={isLoading}
               style={{ backgroundColor: c.surfaceContainerLow }}
               className="mb-6 flex-row items-center gap-3 rounded-lg px-4 py-3">
               <View
@@ -285,15 +380,21 @@ export default function TodoDetailScreen() {
             <View className="mb-8 flex-row gap-3">
               <Pressable
                 onPress={() => setEditing(false)}
+                disabled={isLoading}
                 style={{ backgroundColor: c.surfaceContainerHighest }}
                 className="flex-1 items-center rounded-full py-3">
                 <Text style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={handleSave}
+                disabled={isLoading}
                 style={{ backgroundColor: c.primary }}
                 className="flex-1 items-center rounded-full py-3">
-                <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Save</Text>
+                {isLoading ? (
+                  <ActivityIndicator color={c.onPrimary} size="small" />
+                ) : (
+                  <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Save</Text>
+                )}
               </Pressable>
             </View>
           </>
@@ -358,15 +459,21 @@ export default function TodoDetailScreen() {
             <View className="mb-8 mt-6 flex-row gap-3">
               <Pressable
                 onPress={() => setEditing(true)}
+                disabled={isLoading}
                 style={{ backgroundColor: c.primary }}
                 className="flex-1 items-center rounded-full py-3.5">
                 <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Edit</Text>
               </Pressable>
               <Pressable
                 onPress={handleDelete}
+                disabled={isLoading}
                 style={{ backgroundColor: c.errorContainer }}
                 className="flex-1 items-center rounded-full py-3.5">
-                <Text style={{ fontFamily: fonts.medium, color: c.error }}>Delete</Text>
+                {isLoading ? (
+                  <ActivityIndicator color={c.error} size="small" />
+                ) : (
+                  <Text style={{ fontFamily: fonts.medium, color: c.error }}>Delete</Text>
+                )}
               </Pressable>
             </View>
           </>
