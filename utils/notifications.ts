@@ -89,6 +89,34 @@ export async function cancelTodoReminders(todoId: string): Promise<void> {
   }
 }
 
+/** Send a test notification after N minutes (0 = immediate). */
+export async function sendTestNotification(minutes: number): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
+  const granted = await requestPermissions();
+  if (!granted) return false;
+
+  if (minutes === 0) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '2du Test',
+        body: 'Notifications are working!',
+      },
+      trigger: null,
+    });
+  } else {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '2du Test',
+        body: `Test notification (${minutes}m delay)`,
+      },
+      trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 },
+    });
+  }
+
+  return true;
+}
+
 /** Snooze: schedule a new notification N minutes from now. */
 export async function snoozeTodoReminder(todo: Todo, minutes: number): Promise<void> {
   if (Platform.OS === 'web') return;

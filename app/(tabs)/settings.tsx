@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Text, View, Pressable, ScrollView, Switch, TextInput, Alert } from 'react-native';
+import { Text, View, Pressable, ScrollView, Switch, TextInput, Alert, Platform } from 'react-native';
+import { sendTestNotification } from '@/utils/notifications';
 import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarStore } from '@/store/calendarStore';
@@ -16,6 +17,7 @@ export default function SettingsScreen() {
   const setZenMode = useThemeStore((s) => s.setZenMode);
   const [showPlusPrompt, setShowPlusPrompt] = useState(false);
   const [plusPassword, setPlusPassword] = useState('');
+  const [testMinutes, setTestMinutes] = useState('0');
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const setDayViewStartHour = useCalendarStore((s) => s.setDayViewStartHour);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
@@ -311,6 +313,63 @@ export default function SettingsScreen() {
             Plus is active
           </Text>
         </View>
+      )}
+
+      {isPlus && Platform.OS !== 'web' && (
+        <>
+          <Text
+            style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+            className="mb-3 text-xs uppercase tracking-[3px]">
+            Notification Test
+          </Text>
+
+          <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
+            <Text
+              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+              className="mb-3 text-xs">
+              Send a test notification after N minutes (0 = immediate)
+            </Text>
+            <View className="flex-row items-center gap-3">
+              <TextInput
+                value={testMinutes}
+                onChangeText={(t) => setTestMinutes(t.replace(/[^0-9]/g, ''))}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={c.outline}
+                style={{
+                  fontFamily: fonts.regular,
+                  color: c.onSurface,
+                  backgroundColor: c.surfaceContainerHigh,
+                }}
+                className="flex-1 rounded-xl px-4 py-3 text-sm"
+              />
+              <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }} className="text-sm">
+                min
+              </Text>
+              <Pressable
+                onPress={async () => {
+                  const mins = parseInt(testMinutes, 10) || 0;
+                  const ok = await sendTestNotification(mins);
+                  if (ok) {
+                    Alert.alert(
+                      'Sent',
+                      mins === 0
+                        ? 'Test notification sent!'
+                        : `Test notification scheduled in ${mins} minute${mins === 1 ? '' : 's'}.`,
+                    );
+                  } else {
+                    Alert.alert('Error', 'Notification permission denied.');
+                  }
+                }}
+                style={{ backgroundColor: c.primary }}
+                className="rounded-xl px-5 py-3">
+                <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
+                  Send
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </>
       )}
     </ScrollView>
   );
