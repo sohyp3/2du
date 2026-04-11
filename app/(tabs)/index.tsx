@@ -26,7 +26,6 @@ export default function TodosScreen() {
   const clearError = useTodoStore((s) => s.clearError);
   const c = useColors();
   const fonts = useFontFamily();
-
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);

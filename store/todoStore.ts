@@ -103,25 +103,28 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   },
 
   toggleComplete: async (id) => {
-    set({ isLoading: true, error: null });
+    const todo = get().todos.find((t) => t.id === id);
+    if (!todo) return;
+    const newStatus = todo.status === 'completed' ? 'pending' : 'completed';
+
+    set((state) => ({
+      todos: state.todos.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
+    }));
+
     try {
-      const todo = get().todos.find((t) => t.id === id);
-      if (!todo) return;
-      const newStatus = todo.status === 'completed' ? 'pending' : 'completed';
       await updateTodo(id, { status: newStatus });
 
       if (newStatus === 'completed') {
         await cancelTodoReminders(id);
       } else {
-        // Re-schedule reminders when uncompleting
         const refreshed = await getTodoById(id);
         if (refreshed) await scheduleTodoReminders(refreshed);
       }
-
-      await get().loadTodos();
     } catch (error) {
-      const message = error instanceof DatabaseError ? error.message : 'Failed to update todo';
-      set({ error: message, isLoading: false });
+      set((state) => ({
+        todos: state.todos.map((t) => (t.id === id ? { ...t, status: todo.status } : t)),
+        error: error instanceof DatabaseError ? error.message : 'Failed to update todo',
+      }));
       console.error('Error toggling complete:', error);
     }
   },

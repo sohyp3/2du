@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -7,14 +7,16 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
-  withDelay,
   runOnJS,
 } from 'react-native-reanimated';
+import { Audio } from 'expo-av';
 import { Todo } from '@/db/todos';
 import { formatTodoMeta } from '@/utils/dates';
 import { useTodoStore } from '@/store/todoStore';
 import { useCalendarStore } from '@/store/calendarStore';
 import { useColors, useFontFamily } from '@/utils/theme';
+
+const tingSound = require('@/assets/ting.mp3');
 
 function TodoItemRaw({ todo }: { todo: Todo }) {
   const toggleComplete = useTodoStore((s) => s.toggleComplete);
@@ -26,62 +28,48 @@ function TodoItemRaw({ todo }: { todo: Todo }) {
   const fonts = useFontFamily();
 
   const checkScale = useSharedValue(1);
-  const rowOpacity = useSharedValue(isCompleted ? 0.5 : 1);
+  const tickOpacity = useSharedValue(0);
+  const tickScale = useSharedValue(0);
 
   const checkAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
   }));
 
-  const rowAnimStyle = useAnimatedStyle(() => ({
-    opacity: rowOpacity.value,
+  const tickAnimStyle = useAnimatedStyle(() => ({
+    opacity: tickOpacity.value,
+    transform: [{ scale: tickScale.value }],
   }));
 
-  const pendingRef = useRef(false);
-
-  const doToggle = useCallback(() => {
-    toggleComplete(todo.id);
-    pendingRef.current = false;
-  }, [todo.id, toggleComplete]);
-
   const onCheck = useCallback(() => {
-    if (pendingRef.current) return;
-
     if (!isCompleted) {
-      // Marking as done: sound + 1s animation, then toggle
-      pendingRef.current = true;
-
-      // Play ting sound
-      try {
-        const { Audio } = require('expo-av');
-        Audio.Sound.createAsync(require('@/assets/ting.mp3')).then(({ sound }: { sound: any }) => {
-          sound.playAsync();
-          sound.setOnPlaybackStatusUpdate((s: any) => {
-            if (s.didJustFinish) sound.unloadAsync();
-          });
+      Audio.Sound.createAsync(tingSound, { shouldPlay: true }).then(({ sound }) => {
+        sound.setOnPlaybackStatusUpdate((s) => {
+          if (s.isLoaded && s.didJustFinish) sound.unloadAsync();
         });
-      } catch {}
+      });
 
-      // Animate: bounce check + fade, then trigger toggle after 1s
+      tickScale.value = withTiming(1.3, { duration: 300 });
+      tickOpacity.value = withTiming(1, { duration: 300 }, () => {
+        runOnJS(toggleComplete)(todo.id);
+        tickOpacity.value = withTiming(0, { duration: 500 });
+        tickScale.value = withTiming(0, { duration: 500 });
+      });
+
       checkScale.value = withSequence(
-        withSpring(1.6, { damping: 4, stiffness: 300 }),
-        withSpring(1, { damping: 8, stiffness: 200 })
-      );
-      rowOpacity.value = withDelay(
-        700,
-        withTiming(0.5, { duration: 300 }, (finished) => {
-          if (finished) runOnJS(doToggle)();
-        })
+        withTiming(0.9, { duration: 200 }),
+        withTiming(1.1, { duration: 300 }),
+        withTiming(1, { duration: 200 })
       );
     } else {
-      // Un-completing: immediate
+      tickOpacity.value = 0;
+      tickScale.value = 0;
       checkScale.value = withSequence(
-        withSpring(1.4, { damping: 4, stiffness: 300 }),
-        withSpring(1, { damping: 8, stiffness: 200 })
+        withTiming(1.4, { duration: 120 }),
+        withTiming(1, { duration: 120 })
       );
-      rowOpacity.value = withTiming(1, { duration: 300 });
       toggleComplete(todo.id);
     }
-  }, [todo.id, isCompleted, toggleComplete, doToggle, checkScale, rowOpacity]);
+  }, [todo.id, isCompleted, toggleComplete, checkScale, tickOpacity, tickScale]);
 
   const onPress = useCallback(() => {
     router.push(`/todo/${todo.id}`);
@@ -90,7 +78,7 @@ function TodoItemRaw({ todo }: { todo: Todo }) {
   const meta = formatTodoMeta(todo.datetime, period, timeFormat === '24h');
 
   return (
-    <Animated.View style={rowAnimStyle} className="mb-2">
+    <View className="mb-2">
       <View
         style={{ backgroundColor: c.surfaceContainer, opacity: isCompleted ? 0.5 : 1 }}
         className="rounded-lg p-4">
@@ -111,6 +99,19 @@ function TodoItemRaw({ todo }: { todo: Todo }) {
                 </Text>
               )}
             </Animated.View>
+            <Animated.Text
+              style={[
+                tickAnimStyle,
+                {
+                  position: 'absolute',
+                  color: c.primary,
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                },
+              ]}
+              className="left-1 top-0">
+              ✓
+            </Animated.Text>
           </Pressable>
 
           <Pressable onPress={onPress} className="flex-1 flex-row items-center">
@@ -151,7 +152,7 @@ function TodoItemRaw({ todo }: { todo: Todo }) {
           </Pressable>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

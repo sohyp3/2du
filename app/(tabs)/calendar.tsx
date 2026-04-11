@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View, ActivityIndicator } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { getTodosByDateRange, getTodoCountsByMonth, Todo } from '@/db/todos';
@@ -379,7 +387,12 @@ function MonthView({
   );
 
   return (
-    <View className="flex-1">
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: 16 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
+      }>
       {/* Weekday headers */}
       <View className="flex-row px-4">
         {WEEKDAYS.map((d) => (
@@ -445,7 +458,7 @@ function MonthView({
       </View>
 
       {/* Selected day's todos */}
-      <View className="mt-2 flex-1 px-4">
+      <View className="mt-2 px-4">
         <Text
           style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
           className="mb-2 text-xs uppercase tracking-[2px]">
@@ -455,15 +468,16 @@ function MonthView({
             day: 'numeric',
           })}
         </Text>
-        <FlatList
-          data={todos}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 16 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
-          }
-          renderItem={({ item }) => (
+        {todos.length === 0 ? (
+          <Text
+            style={{ fontFamily: fonts.regular, color: c.outline }}
+            className="py-4 text-center text-sm">
+            No todos
+          </Text>
+        ) : (
+          todos.map((item) => (
             <TodoRow
+              key={item.id}
               todo={item}
               timeFormat={timeFormat}
               onPress={onTodoPress}
@@ -471,17 +485,10 @@ function MonthView({
               c={c}
               fonts={fonts}
             />
-          )}
-          ListEmptyComponent={
-            <Text
-              style={{ fontFamily: fonts.regular, color: c.outline }}
-              className="py-4 text-center text-sm">
-              No todos
-            </Text>
-          }
-        />
+          ))
+        )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
