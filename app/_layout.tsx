@@ -57,7 +57,12 @@ export default function Layout() {
         await initDatabase();
 
         // Then setup other services in parallel
-        await Promise.all([setupNotifications(), loadSettings(), loadCalendarSettings()]);
+        await Promise.all([
+          setupNotifications(),
+          loadSettings(),
+          loadCalendarSettings(),
+          useTodoStore.getState().loadSettings(),
+        ]);
 
         setIsInitializing(false);
       } catch (error) {
@@ -169,6 +174,7 @@ export default function Layout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="add-todo" options={{ presentation: 'modal' }} />
           <Stack.Screen name="todo/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="note/[id]" options={{ presentation: 'card', headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </ErrorBoundary>

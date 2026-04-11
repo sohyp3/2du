@@ -15,7 +15,7 @@ import {
   cancelTodoReminders,
   snoozeTodoReminder,
 } from '@/utils/notifications';
-import { DatabaseError } from '@/db/database';
+import { DatabaseError, getSetting, setSetting } from '@/db/database';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -49,6 +49,7 @@ interface TodoState {
   setStatusFilter: (filter: StatusFilter) => void;
   navigatePeriod: (direction: 'prev' | 'next') => Promise<void>;
   goToToday: () => Promise<void>;
+  loadSettings: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -56,7 +57,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   todos: [],
   period: 'day',
   referenceDate: new Date(),
-  statusFilter: 'active',
+  statusFilter: 'all',
   isLoading: false,
   error: null,
 
@@ -174,6 +175,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
 
   setStatusFilter: (statusFilter) => {
     set({ statusFilter, error: null });
+    setSetting('statusFilter', statusFilter).catch(() => {});
     get().loadTodos();
   },
 
@@ -186,6 +188,15 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   goToToday: async () => {
     set({ referenceDate: new Date(), error: null });
     await get().loadTodos();
+  },
+
+  loadSettings: async () => {
+    try {
+      const savedFilter = await getSetting('statusFilter');
+      if (savedFilter && ['active', 'completed', 'all'].includes(savedFilter)) {
+        set({ statusFilter: savedFilter as StatusFilter });
+      }
+    } catch {}
   },
 
   clearError: () => set({ error: null }),

@@ -7,28 +7,28 @@ import {
   Switch,
   TextInput,
   Alert,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
-import { sendTestNotification } from '@/utils/notifications';
 import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarStore } from '@/store/calendarStore';
 import { useRouter } from 'expo-router';
+import { exportData, importData, ImportExportError } from '@/db/importExport';
+import { useTodoStore } from '@/store/todoStore';
+import { useNoteStore } from '@/store/noteStore';
 
 export default function SettingsScreen() {
   const themeKey = useThemeStore((s) => s.themeKey);
   const fontKey = useThemeStore((s) => s.fontKey);
   const setTheme = useThemeStore((s) => s.setTheme);
   const setFont = useThemeStore((s) => s.setFont);
-  const isPlus = useThemeStore((s) => s.isPlus);
-  const setIsPlus = useThemeStore((s) => s.setIsPlus);
+  const debugMode = useThemeStore((s) => s.debugMode);
+  const setDebugMode = useThemeStore((s) => s.setDebugMode);
   const zenMode = useThemeStore((s) => s.zenMode);
   const setZenMode = useThemeStore((s) => s.setZenMode);
   const themeLoading = useThemeStore((s) => s.isLoading);
   const [showPlusPrompt, setShowPlusPrompt] = useState(false);
   const [plusPassword, setPlusPassword] = useState('');
-  const [testMinutes, setTestMinutes] = useState('0');
   const [isActivating, setIsActivating] = useState(false);
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const setDayViewStartHour = useCalendarStore((s) => s.setDayViewStartHour);
@@ -38,6 +38,10 @@ export default function SettingsScreen() {
   const c = useColors();
   const fonts = useFontFamily();
   const router = useRouter();
+  const loadTodos = useTodoStore((s) => s.loadTodos);
+  const loadNotes = useNoteStore((s) => s.loadNotes);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const formatHour = (h: number) => {
     if (timeFormat === '24h') {
@@ -49,11 +53,11 @@ export default function SettingsScreen() {
     return `${h - 12} PM`;
   };
 
-  const handleActivatePlus = async () => {
+  const handleActivateDebug = async () => {
     setIsActivating(true);
     try {
       if (plusPassword === 'hehe') {
-        await setIsPlus(true);
+        await setDebugMode(true);
         setShowPlusPrompt(false);
         setPlusPassword('');
       } else {
@@ -63,6 +67,52 @@ export default function SettingsScreen() {
     } finally {
       setIsActivating(false);
     }
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await exportData();
+    } catch (error) {
+      const message = error instanceof ImportExportError ? error.message : 'Failed to export data';
+      Alert.alert('Export Failed', message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    Alert.alert(
+      'Import Data',
+      'This will replace all your current todos, notes, and settings. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          style: 'destructive',
+          onPress: async () => {
+            setIsImporting(true);
+            try {
+              const result = await importData();
+              if (result.success) {
+                await loadTodos();
+                await loadNotes();
+                Alert.alert(
+                  'Import Successful',
+                  `Imported ${result.todosImported} todos and ${result.notesImported} notes.`
+                );
+              }
+            } catch (error) {
+              const message =
+                error instanceof ImportExportError ? error.message : 'Failed to import data';
+              Alert.alert('Import Failed', message);
+            } finally {
+              setIsImporting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -211,47 +261,86 @@ export default function SettingsScreen() {
       <Text
         style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
         className="mb-3 text-xs uppercase tracking-[3px]">
-        Plus
+        Data
       </Text>
 
-      <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <View className="flex-row items-center gap-2">
+      <View style={{ backgroundColor: c.surfaceContainer }} className="mb-4 rounded-xl p-4">
+        <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="mb-3 text-sm">
+          Backup & Restore
+        </Text>
+        <Text
+          style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+          className="mb-4 text-xs">
+          Export your data to a JSON file for backup, or import from a previous backup.
+        </Text>
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={handleExport}
+            disabled={isExporting || isImporting}
+            style={{
+              backgroundColor: c.primary,
+              opacity: isExporting || isImporting ? 0.5 : 1,
+            }}
+            className="flex-1 items-center rounded-lg py-3">
+            {isExporting ? (
+              <ActivityIndicator color={c.onPrimary} size="small" />
+            ) : (
+              <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
+                Export
+              </Text>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={handleImport}
+            disabled={isExporting || isImporting}
+            style={{
+              backgroundColor: c.surfaceContainerHigh,
+              opacity: isExporting || isImporting ? 0.5 : 1,
+            }}
+            className="flex-1 items-center rounded-lg py-3">
+            {isImporting ? (
+              <ActivityIndicator color={c.primary} size="small" />
+            ) : (
+              <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+                Import
+              </Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+
+      <Text
+        style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+        className="mb-3 text-xs uppercase tracking-[3px]">
+        Debug
+      </Text>
+
+      {debugMode && (
+        <View style={{ backgroundColor: c.surfaceContainer }} className="mb-4 rounded-xl p-4">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
               <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
                 Zen Mode
               </Text>
-              {!isPlus && (
-                <View
-                  style={{ backgroundColor: c.primaryContainer }}
-                  className="rounded-md px-2 py-0.5">
-                  <Text
-                    style={{ fontFamily: fonts.medium, color: c.primary }}
-                    className="text-[10px]">
-                    PLUS
-                  </Text>
-                </View>
-              )}
+              <Text
+                style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+                className="mt-1 text-xs">
+                Hide tabs and swipe to navigate
+              </Text>
             </View>
-            <Text
-              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
-              className="mt-1 text-xs">
-              Hide tabs and swipe to navigate
-            </Text>
+            <Switch
+              value={zenMode}
+              onValueChange={async (v) => {
+                await setZenMode(v);
+                if (v) router.replace('/');
+              }}
+              disabled={themeLoading}
+              trackColor={{ false: c.outlineVariant, true: c.primary }}
+              thumbColor={zenMode ? c.onPrimary : c.surfaceContainerHighest}
+            />
           </View>
-          <Switch
-            value={zenMode}
-            onValueChange={async (v) => {
-              if (!isPlus) return;
-              await setZenMode(v);
-              if (v) router.replace('/');
-            }}
-            disabled={!isPlus || themeLoading}
-            trackColor={{ false: c.outlineVariant, true: c.primary }}
-            thumbColor={zenMode ? c.onPrimary : c.surfaceContainerHighest}
-          />
         </View>
-      </View>
+      )}
 
       <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
         <View className="mb-2 flex-row justify-between">
@@ -297,18 +386,18 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {!isPlus && !showPlusPrompt && (
+      {!debugMode && !showPlusPrompt && (
         <Pressable
           onPress={() => setShowPlusPrompt(true)}
           style={{ backgroundColor: c.primary }}
           className="mb-4 items-center rounded-2xl py-4">
           <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-base">
-            Activate Plus
+            Activate Debug
           </Text>
         </Pressable>
       )}
 
-      {!isPlus && showPlusPrompt && (
+      {!debugMode && showPlusPrompt && (
         <View style={{ backgroundColor: c.surfaceContainer }} className="mb-4 rounded-2xl p-4">
           <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="mb-3 text-sm">
             Enter activation code
@@ -341,7 +430,7 @@ export default function SettingsScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={handleActivatePlus}
+              onPress={handleActivateDebug}
               disabled={isActivating}
               style={{ backgroundColor: c.primary, opacity: isActivating ? 0.5 : 1 }}
               className="flex-1 items-center rounded-xl py-3">
@@ -357,71 +446,12 @@ export default function SettingsScreen() {
         </View>
       )}
 
-      {isPlus && (
+      {debugMode && (
         <View className="mb-4 items-center py-4">
           <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-sm">
-            Plus is active
+            Debug mode active
           </Text>
         </View>
-      )}
-
-      {isPlus && Platform.OS !== 'web' && (
-        <>
-          <Text
-            style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-            className="mb-3 text-xs uppercase tracking-[3px]">
-            Notification Test
-          </Text>
-
-          <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
-            <Text
-              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
-              className="mb-3 text-xs">
-              Send a test notification after N minutes (0 = immediate)
-            </Text>
-            <View className="flex-row items-center gap-3">
-              <TextInput
-                value={testMinutes}
-                onChangeText={(t) => setTestMinutes(t.replace(/[^0-9]/g, ''))}
-                keyboardType="number-pad"
-                placeholder="0"
-                placeholderTextColor={c.outline}
-                style={{
-                  fontFamily: fonts.regular,
-                  color: c.onSurface,
-                  backgroundColor: c.surfaceContainerHigh,
-                }}
-                className="flex-1 rounded-xl px-4 py-3 text-sm"
-              />
-              <Text
-                style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
-                className="text-sm">
-                min
-              </Text>
-              <Pressable
-                onPress={async () => {
-                  const mins = parseInt(testMinutes, 10) || 0;
-                  const ok = await sendTestNotification(mins);
-                  if (ok) {
-                    Alert.alert(
-                      'Sent',
-                      mins === 0
-                        ? 'Test notification sent!'
-                        : `Test notification scheduled in ${mins} minute${mins === 1 ? '' : 's'}.`
-                    );
-                  } else {
-                    Alert.alert('Error', 'Notification permission denied.');
-                  }
-                }}
-                style={{ backgroundColor: c.primary }}
-                className="rounded-xl px-5 py-3">
-                <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
-                  Send
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </>
       )}
     </ScrollView>
   );

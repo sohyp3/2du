@@ -37,6 +37,17 @@ export async function initDatabase(): Promise<void> {
     await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_todos_parent_id ON todos(parent_id);`);
 
     await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        pinned INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+
+    await db.execAsync(`
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL

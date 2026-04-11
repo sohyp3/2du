@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -7,6 +7,8 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
+  withDelay,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Todo } from '@/db/todos';
 import { formatTodoMeta } from '@/utils/dates';
@@ -34,14 +36,52 @@ function TodoItemRaw({ todo }: { todo: Todo }) {
     opacity: rowOpacity.value,
   }));
 
-  const onCheck = useCallback(() => {
-    checkScale.value = withSequence(
-      withSpring(1.4, { damping: 4, stiffness: 300 }),
-      withSpring(1, { damping: 8, stiffness: 200 })
-    );
-    rowOpacity.value = withTiming(isCompleted ? 1 : 0.5, { duration: 300 });
+  const pendingRef = useRef(false);
+
+  const doToggle = useCallback(() => {
     toggleComplete(todo.id);
-  }, [todo.id, isCompleted, toggleComplete, checkScale, rowOpacity]);
+    pendingRef.current = false;
+  }, [todo.id, toggleComplete]);
+
+  const onCheck = useCallback(() => {
+    if (pendingRef.current) return;
+
+    if (!isCompleted) {
+      // Marking as done: sound + 1s animation, then toggle
+      pendingRef.current = true;
+
+      // Play ting sound
+      try {
+        const { Audio } = require('expo-av');
+        Audio.Sound.createAsync(require('@/assets/ting.mp3')).then(({ sound }: { sound: any }) => {
+          sound.playAsync();
+          sound.setOnPlaybackStatusUpdate((s: any) => {
+            if (s.didJustFinish) sound.unloadAsync();
+          });
+        });
+      } catch {}
+
+      // Animate: bounce check + fade, then trigger toggle after 1s
+      checkScale.value = withSequence(
+        withSpring(1.6, { damping: 4, stiffness: 300 }),
+        withSpring(1, { damping: 8, stiffness: 200 })
+      );
+      rowOpacity.value = withDelay(
+        700,
+        withTiming(0.5, { duration: 300 }, (finished) => {
+          if (finished) runOnJS(doToggle)();
+        })
+      );
+    } else {
+      // Un-completing: immediate
+      checkScale.value = withSequence(
+        withSpring(1.4, { damping: 4, stiffness: 300 }),
+        withSpring(1, { damping: 8, stiffness: 200 })
+      );
+      rowOpacity.value = withTiming(1, { duration: 300 });
+      toggleComplete(todo.id);
+    }
+  }, [todo.id, isCompleted, toggleComplete, doToggle, checkScale, rowOpacity]);
 
   const onPress = useCallback(() => {
     router.push(`/todo/${todo.id}`);

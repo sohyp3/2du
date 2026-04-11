@@ -104,12 +104,12 @@ export const FONT_FAMILIES: Record<FontKey, { regular: string; medium: string; b
 interface ThemeState {
   themeKey: ThemeKey;
   fontKey: FontKey;
-  isPlus: boolean;
+  debugMode: boolean;
   zenMode: boolean;
   isLoading: boolean;
   setTheme: (key: ThemeKey) => Promise<void>;
   setFont: (key: FontKey) => Promise<void>;
-  setIsPlus: (v: boolean) => Promise<void>;
+  setDebugMode: (v: boolean) => Promise<void>;
   setZenMode: (v: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
@@ -117,7 +117,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>((set) => ({
   themeKey: 'silver',
   fontKey: 'inter',
-  isPlus: false,
+  debugMode: false,
   zenMode: false,
   isLoading: false,
 
@@ -126,7 +126,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
     try {
       const savedTheme = await getSetting('theme');
       const savedFont = await getSetting('font');
-      const savedPlus = await getSetting('isPlus');
+      const savedPlus = await getSetting('debugMode');
       const savedZen = await getSetting('zenMode');
 
       const updates: Partial<ThemeState> = { isLoading: false };
@@ -140,7 +140,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
       ) {
         updates.fontKey = savedFont as FontKey;
       }
-      if (savedPlus === 'true') updates.isPlus = true;
+      if (savedPlus === 'true') updates.debugMode = true;
       if (savedZen === 'true') updates.zenMode = true;
 
       set(updates);
@@ -168,10 +168,10 @@ export const useThemeStore = create<ThemeState>((set) => ({
     }
   },
 
-  setIsPlus: async (v) => {
-    set({ isPlus: v });
+  setDebugMode: async (v) => {
+    set({ debugMode: v });
     try {
-      await setSetting('isPlus', v ? 'true' : 'false');
+      await setSetting('debugMode', v ? 'true' : 'false');
     } catch (error) {
       console.error('Failed to save plus setting:', error);
     }

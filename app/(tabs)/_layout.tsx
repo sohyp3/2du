@@ -4,7 +4,7 @@ import { Tabs, usePathname, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useThemeStore, THEME_COLORS, FONT_FAMILIES } from '@/store/themeStore';
 
-const TAB_ROUTES = ['/', '/calendar', '/settings'] as const;
+const TAB_ROUTES = ['/', '/calendar', '/notes', '/settings'] as const;
 const SWIPE_THRESHOLD = 50;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -99,8 +99,12 @@ export default function TabLayout() {
             name="index"
             options={{
               title: 'Todos',
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="checkbox-outline" size={size} color={color} />
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons
+                  name={focused ? 'checkbox' : 'checkbox-outline'}
+                  size={size}
+                  color={color}
+                />
               ),
             }}
           />
@@ -108,8 +112,25 @@ export default function TabLayout() {
             name="calendar"
             options={{
               title: 'Calendar',
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="calendar-outline" size={size} color={color} />
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons
+                  name={focused ? 'calendar' : 'calendar-outline'}
+                  size={size}
+                  color={color}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="notes"
+            options={{
+              title: 'Notes',
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons
+                  name={focused ? 'document-text' : 'document-text-outline'}
+                  size={size}
+                  color={color}
+                />
               ),
             }}
           />
@@ -117,8 +138,12 @@ export default function TabLayout() {
             name="settings"
             options={{
               title: 'Settings',
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="settings-outline" size={size} color={color} />
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons
+                  name={focused ? 'settings' : 'settings-outline'}
+                  size={size}
+                  color={color}
+                />
               ),
             }}
           />
