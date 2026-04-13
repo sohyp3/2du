@@ -76,28 +76,44 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   },
 
   addTodo: async (params) => {
-    set({ isLoading: true, error: null });
+    const now = new Date().toISOString();
+    const todo: Todo = {
+      id: generateId(),
+      name: params.name,
+      description: params.description ?? null,
+      time_needed: params.time_needed ?? null,
+      priority: params.priority ?? 'moderate',
+      datetime: params.datetime ?? now,
+      status: 'pending',
+      parent_id: params.parent_id ?? null,
+      remind_me: params.remind_me ?? true,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { period, referenceDate, statusFilter } = get();
+    const { start, end } = getDateRange(period, referenceDate);
+    const todoDate = new Date(todo.datetime);
+    const inRange = todoDate >= start && todoDate <= end;
+    const matchesStatus = statusFilter === 'all' || statusFilter === 'active';
+
+    if (inRange && matchesStatus && !todo.parent_id) {
+      set((state) => ({
+        todos: [...state.todos, todo].sort(
+          (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+        ),
+        error: null,
+      }));
+    }
+
     try {
-      const now = new Date().toISOString();
-      const todo: Todo = {
-        id: generateId(),
-        name: params.name,
-        description: params.description ?? null,
-        time_needed: params.time_needed ?? null,
-        priority: params.priority ?? 'moderate',
-        datetime: params.datetime ?? now,
-        status: 'pending',
-        parent_id: params.parent_id ?? null,
-        remind_me: params.remind_me ?? true,
-        created_at: now,
-        updated_at: now,
-      };
       await insertTodo(todo);
-      await scheduleTodoReminders(todo);
-      await get().loadTodos();
+      scheduleTodoReminders(todo).catch((e) => console.error('reminder schedule failed:', e));
     } catch (error) {
-      const message = error instanceof DatabaseError ? error.message : 'Failed to add todo';
-      set({ error: message, isLoading: false });
+      set((state) => ({
+        todos: state.todos.filter((t) => t.id !== todo.id),
+        error: error instanceof DatabaseError ? error.message : 'Failed to add todo',
+      }));
       console.error('Error adding todo:', error);
     }
   },

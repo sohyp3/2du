@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Animated, PanResponder, Dimensions, View } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -20,18 +20,20 @@ export default function TabLayout() {
   const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
   const prevPath = useRef(pathname);
+  const zenModeRef = useRef(zenMode);
+  zenModeRef.current = zenMode;
 
   // Animate on route change
   useEffect(() => {
-    if (!zenMode || prevPath.current === pathname) {
-      prevPath.current = pathname;
-      return;
-    }
-
-    const prevIdx = TAB_ROUTES.indexOf(prevPath.current as (typeof TAB_ROUTES)[number]);
-    const currIdx = TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
-    const direction = currIdx > prevIdx ? 1 : -1;
+    if (prevPath.current === pathname) return;
+    const prev = prevPath.current;
     prevPath.current = pathname;
+    if (!zenMode) return;
+
+    const prevIdx = TAB_ROUTES.indexOf(prev as (typeof TAB_ROUTES)[number]);
+    const currIdx = TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
+    if (prevIdx === -1 || currIdx === -1) return;
+    const direction = currIdx > prevIdx ? 1 : -1;
 
     // Start from the incoming side
     translateX.setValue(direction * SCREEN_WIDTH * 0.3);
@@ -65,9 +67,11 @@ export default function TabLayout() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 15 && Math.abs(g.dy) < Math.abs(g.dx),
+      onMoveShouldSetPanResponder: (_, g) =>
+        zenModeRef.current && Math.abs(g.dx) > 15 && Math.abs(g.dy) < Math.abs(g.dx),
       onPanResponderMove: Animated.event([null, { dx: panX }], { useNativeDriver: false }),
       onPanResponderRelease: (_, g) => {
+        if (!zenModeRef.current) return;
         if (g.dx > SWIPE_THRESHOLD) {
           navigateRef.current(-1);
         } else if (g.dx < -SWIPE_THRESHOLD) {
@@ -78,10 +82,14 @@ export default function TabLayout() {
     })
   ).current;
 
+  const animatedStyle = useMemo(
+    () => (zenMode ? { flex: 1, transform: [{ translateX }], opacity } : { flex: 1 }),
+    [zenMode, translateX, opacity]
+  );
+
   return (
-    <View style={{ flex: 1 }} {...(zenMode ? panResponder.panHandlers : {})}>
-      <Animated.View
-        style={zenMode ? { flex: 1, transform: [{ translateX }], opacity } : { flex: 1 }}>
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+      <Animated.View style={animatedStyle}>
         <Tabs
           screenOptions={{
             headerShown: false,

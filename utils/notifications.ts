@@ -5,6 +5,10 @@ import { Todo } from '@/db/todos';
 
 const REMINDER_OFFSET_MINUTES = 30;
 const CATEGORY_ID = 'todo-reminder';
+const SOUND_BEFORE = 'default';
+const SOUND_ONTIME = 'default';
+const CHANNEL_BEFORE = 'todo-before';
+const CHANNEL_ONTIME = 'todo-ontime';
 
 /** Configure how notifications display and register snooze actions. */
 export async function setupNotifications() {
@@ -19,6 +23,19 @@ export async function setupNotifications() {
       shouldShowList: true,
     }),
   });
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(CHANNEL_BEFORE, {
+      name: 'Upcoming reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: SOUND_BEFORE,
+    });
+    await Notifications.setNotificationChannelAsync(CHANNEL_ONTIME, {
+      name: 'On-time reminders',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: SOUND_ONTIME,
+    });
+  }
 
   await Notifications.setNotificationCategoryAsync(CATEGORY_ID, [
     { identifier: 'snooze-5', buttonTitle: 'Snooze 5m' },
@@ -57,6 +74,8 @@ export async function scheduleTodoReminders(todo: Todo): Promise<void> {
         title: `Upcoming: ${todo.name}`,
         body: `Starting in ${REMINDER_OFFSET_MINUTES} minutes`,
         categoryIdentifier: CATEGORY_ID,
+        sound: SOUND_BEFORE,
+        ...(Platform.OS === 'android' && { channelId: CHANNEL_BEFORE }),
         data: { todoId: todo.id, type: 'before' },
       },
       trigger: { type: SchedulableTriggerInputTypes.DATE, date: new Date(beforeMs) },
@@ -70,6 +89,8 @@ export async function scheduleTodoReminders(todo: Todo): Promise<void> {
         title: todo.name,
         body: 'Time to start!',
         categoryIdentifier: CATEGORY_ID,
+        sound: SOUND_ONTIME,
+        ...(Platform.OS === 'android' && { channelId: CHANNEL_ONTIME }),
         data: { todoId: todo.id, type: 'ontime' },
       },
       trigger: { type: SchedulableTriggerInputTypes.DATE, date: todoDate },
@@ -126,6 +147,8 @@ export async function snoozeTodoReminder(todo: Todo, minutes: number): Promise<v
       title: todo.name,
       body: `Snoozed — ${minutes}m reminder`,
       categoryIdentifier: CATEGORY_ID,
+      sound: SOUND_ONTIME,
+      ...(Platform.OS === 'android' && { channelId: CHANNEL_ONTIME }),
       data: { todoId: todo.id, type: 'snooze' },
     },
     trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 },
