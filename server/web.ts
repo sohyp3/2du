@@ -1,6 +1,6 @@
 import { resolve, extname } from 'node:path';
 // Static Expo hosting needs isolation headers for SQLite's web worker.
-const root = resolve('dist');
+const root = resolve('build/web');
 const server = Bun.serve({
   port: Number(process.env.WEB_PORT || 8080),
   hostname: process.env.HOST || '127.0.0.1',

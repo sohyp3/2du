@@ -1,0 +1,6 @@
+Mode: built-in image_gen
+Master: logo-master.png (1254 x 1254, transparent PNG)
+App assets: logo.png (transparent), icon.png (dark background), adaptive-icon.png (transparent foreground with safe padding).
+
+Prompt:
+Use case: logo-brand. Create the FINAL high-resolution 2048x2048 master logo for the 2du app, faithfully reproducing ONLY concept 05 Two leaves in the attached reference. Reference image: design reference, isolate the green two-leaf sprout at bottom right. Two elegant solid lime/sage green leaves joined at a short narrow central stem: smaller leaf sweeps up-left, larger taller leaf sweeps up-right with a sharply pointed tip; distinctive curved transparent negative-space slit rises through the right leaf from the junction. Match the silhouette and graceful asymmetry closely. Crisp immaculate vector-like edges, uniform flat green #A4C763, no grain or texture, no shadows, no outlines, no gradients, no lettering. Single centered mark on a genuinely transparent background, generous even padding with mark filling about 68% of square width and height. No presentation board, labels, border, tile, or extra symbols. Production-ready minimal app brand logo.

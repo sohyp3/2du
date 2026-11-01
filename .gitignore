@@ -1,59 +1,42 @@
+# Dependencies and generated output
 node_modules/
 .expo/
-dist/
-npm-debug.*
+/build/
+/dist/
+/web-build/
+/out/
+/output/
+/android/
+/ios/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Build artifacts and local tools
+*.apk
+*.aab
+*.apks
+*.jar
+/toc.pb
+/build-*.aab
+
+# Credentials and local data
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
-web-build/
-# expo router
-expo-env.d.ts
-
-
-
-ios
-android
-
-# macOS
-.DS_Store
-
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
-
-.gitignore
-fix
-
-do
-do_plan
-build*
-bundletool.jar
-
-# Android build artifacts
-*.apk
-*.aab
-
-# Images
-*.[pP][nN][gG]
-*.[jJ][pP][gG]
-*.[jJ][pP][eE][gG]
-*.[gG][iI][fF]
-*.[wW][eE][bB][pP]
-*.[sS][vV][gG]
-*.[iI][cC][oO]
-*.[aA][vV][iI][fF]
-*.[hH][eE][iI][cC]
-*.[bB][mM][pP]
-*.[tT][iI][fF]
-*.[tT][iI][fF][fF]
-
-
-# Local sync server data and secrets
-server/data/
-server/.env
 .env
+.env.*
+!.env.example
+server/data/
+
+# Local tooling, logs, and editor files
+.claude/
+.impeccable/
 .playwright-cli/
-output/
-.impeccable/review/
+*.log
+npm-debug.*
+.metro-health-check*
+*.orig.*
+.DS_Store

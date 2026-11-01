@@ -1,0 +1,46 @@
+# Keep generated output, credentials, and local tooling out of EAS uploads.
+# Dependencies and generated output
+node_modules/
+.expo/
+/build/
+/dist/
+/web-build/
+/out/
+/output/
+/android/
+/ios/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Build artifacts and local tools
+*.apk
+*.aab
+*.apks
+*.jar
+/toc.pb
+/build-*.aab
+
+# Credentials and local data
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.env
+.env.*
+!.env.example
+server/data/
+
+# Local tooling, logs, and editor files
+.claude/
+.impeccable/
+.playwright-cli/
+*.log
+npm-debug.*
+.metro-health-check*
+*.orig.*
+.DS_Store
+
+# EAS builds regenerate native projects from app.json.
+.git/

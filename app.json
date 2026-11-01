@@ -2,7 +2,7 @@
   "expo": {
     "name": "2du",
     "slug": "2du",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "x2du",
     "platforms": ["ios", "android", "web"],
     "web": {
@@ -15,7 +15,7 @@
       "typedRoutes": true,
       "tsconfigPaths": true
     },
-    "icon": "./assets/logo.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/logo.png",
@@ -31,10 +31,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0d0c0a"
       },
-      "package": "cafe.hyp3.x2du"
+      "package": "com.hyp3.x2du"
     },
     "extra": {
       "router": {},

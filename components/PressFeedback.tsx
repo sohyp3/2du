@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Platform, Pressable, type PressableProps } from 'react-native';
-import Animated, { useReducedMotion } from 'react-native-reanimated';
+import Animated, { cubicBezier, useReducedMotion } from 'react-native-reanimated';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function PressFeedback({ style, onPressIn, onPressOut, ...props }: PressableProps) {
   const [pressed, setPressed] = useState(false);
@@ -36,7 +36,7 @@ export function PressFeedback({ style, onPressIn, onPressOut, ...props }: Pressa
           transform: [{ scale: pressed && !reduced ? 0.98 : 1 }],
           transitionProperty: ['transform', 'opacity'],
           transitionDuration: 120,
-          transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+          transitionTimingFunction: cubicBezier(0.23, 1, 0.32, 1),
         },
       ]}
     />
