@@ -1,6 +1,13 @@
+import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { useNoteStore } from '@/store/noteStore';
 import '../global.css';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { startSync } from '@/store/syncStore';
+import { useCalendarsStore } from '@/store/calendarsStore';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Platform } from 'react-native';
+import { PressFeedback } from '@/components/PressFeedback';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
@@ -26,6 +33,7 @@ import { useCalendarStore } from '@/store/calendarStore';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function Layout() {
+  const reducedMotion = useReducedMotion();
   const themeKey = useThemeStore((s) => s.themeKey);
   const loadSettings = useThemeStore((s) => s.loadSettings);
   const loadCalendarSettings = useCalendarStore((s) => s.loadSettings);
@@ -34,6 +42,7 @@ export default function Layout() {
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
+  const [initAttempt, setInitAttempt] = useState(0);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -61,6 +70,8 @@ export default function Layout() {
           setupNotifications(),
           loadSettings(),
           loadCalendarSettings(),
+          useCalendarsStore.getState().load(),
+          useNoteStore.getState().loadNotes(),
           useTodoStore.getState().loadSettings(),
         ]);
 
@@ -77,10 +88,10 @@ export default function Layout() {
     }
 
     initialize();
-  }, [loadSettings, loadCalendarSettings]);
+  }, [loadSettings, loadCalendarSettings, initAttempt]);
 
   useEffect(() => {
-    setColorScheme(themeKey === 'gold' ? 'dark' : 'light');
+    setColorScheme(themeKey === 'silver' ? 'light' : 'dark');
   }, [themeKey, setColorScheme]);
 
   useEffect(() => {
@@ -109,6 +120,10 @@ export default function Layout() {
 
     return () => sub.remove();
   }, []);
+
+  useEffect(() => {
+    if (!isInitializing && !initError) return startSync();
+  }, [isInitializing, initError]);
 
   // Show initialization loading state
   if (isInitializing || !fontsLoaded) {
@@ -156,27 +171,63 @@ export default function Layout() {
           }}>
           {initError}
         </Text>
-        <ActivityIndicator color={c.primary} />
+        <PressFeedback
+          accessibilityRole="button"
+          onPress={() => {
+            if (Platform.OS === 'web') window.location.reload();
+            else setInitAttempt((attempt) => attempt + 1);
+          }}
+          style={{
+            backgroundColor: c.primary,
+            paddingHorizontal: 28,
+            minHeight: 48,
+            justifyContent: 'center',
+            borderRadius: 10,
+          }}>
+          <Text style={{ color: c.onPrimary, fontFamily: 'Inter_500Medium', fontSize: 16 }}>
+            Retry
+          </Text>
+        </PressFeedback>
       </View>
     );
   }
 
+  const navigationTheme = themeKey === 'silver' ? DefaultTheme : DarkTheme;
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: c.surfaceDim },
-            headerTintColor: c.primary,
-            headerTitleStyle: { color: c.onSurface },
-            contentStyle: { backgroundColor: c.surface },
-          }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="add-todo" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="todo/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="note/[id]" options={{ presentation: 'card', headerShown: false }} />
-        </Stack>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <ThemeProvider
+      value={{
+        ...navigationTheme,
+        colors: {
+          ...navigationTheme.colors,
+          background: c.surface,
+          card: c.surfaceDim,
+          text: c.onSurface,
+          border: c.outlineVariant,
+          primary: c.primary,
+        },
+      }}>
+      <ErrorBoundary>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <Stack
+              screenOptions={{
+                animation: reducedMotion ? 'fade' : 'default',
+                headerStyle: { backgroundColor: c.surfaceDim },
+                headerTintColor: c.primary,
+                headerTitleStyle: { color: c.onSurface },
+                contentStyle: { backgroundColor: c.surface },
+              }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="add-todo" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="todo/[id]" options={{ presentation: 'card' }} />
+              <Stack.Screen
+                name="note/[id]"
+                options={{ presentation: 'card', headerShown: false }}
+              />
+            </Stack>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }

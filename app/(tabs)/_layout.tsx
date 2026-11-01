@@ -1,162 +1,174 @@
-import { useRef, useEffect, useMemo } from 'react';
-import { Animated, PanResponder, Dimensions, View } from 'react-native';
-import { Tabs, usePathname, useRouter } from 'expo-router';
+import { useWindowDimensions, View, Text } from 'react-native';
+import { Tabs, useRouter, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useThemeStore, THEME_COLORS, FONT_FAMILIES } from '@/store/themeStore';
-
-const TAB_ROUTES = ['/', '/calendar', '/notes', '/settings'] as const;
-const SWIPE_THRESHOLD = 50;
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
+import { useColors, useFontFamily } from '@/utils/theme';
+import { useCalendarsStore } from '@/store/calendarsStore';
+import { useSyncStore } from '@/store/syncStore';
+import { PressFeedback } from '@/components/PressFeedback';
+const routes = [
+  { name: 'index', path: '/', label: 'Tasks', icon: 'checkmark-circle-outline' },
+  { name: 'calendar', path: '/calendar', label: 'Calendar', icon: 'calendar-outline' },
+  { name: 'notes', path: '/notes', label: 'Notes & thoughts', icon: 'document-text-outline' },
+  { name: 'settings', path: '/settings', label: 'Settings', icon: 'options-outline' },
+] as const;
 export default function TabLayout() {
-  const themeKey = useThemeStore((s) => s.themeKey);
-  const fontKey = useThemeStore((s) => s.fontKey);
-  const zenMode = useThemeStore((s) => s.zenMode);
-  const c = THEME_COLORS[themeKey];
-  const fonts = FONT_FAMILIES[fontKey];
-  const pathname = usePathname();
-  const router = useRouter();
-
-  const translateX = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-  const prevPath = useRef(pathname);
-  const zenModeRef = useRef(zenMode);
-  zenModeRef.current = zenMode;
-
-  // Animate on route change
-  useEffect(() => {
-    if (prevPath.current === pathname) return;
-    const prev = prevPath.current;
-    prevPath.current = pathname;
-    if (!zenMode) return;
-
-    const prevIdx = TAB_ROUTES.indexOf(prev as (typeof TAB_ROUTES)[number]);
-    const currIdx = TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
-    if (prevIdx === -1 || currIdx === -1) return;
-    const direction = currIdx > prevIdx ? 1 : -1;
-
-    // Start from the incoming side
-    translateX.setValue(direction * SCREEN_WIDTH * 0.3);
-    opacity.setValue(0);
-
-    Animated.parallel([
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 60,
-        friction: 12,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [pathname, zenMode, translateX, opacity]);
-
-  const navigateRef = useRef<(dir: -1 | 1) => void>(() => {});
-  navigateRef.current = (direction: -1 | 1) => {
-    const currentIdx = TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
-    if (currentIdx === -1) return;
-    const nextIdx = currentIdx + direction;
-    if (nextIdx < 0 || nextIdx >= TAB_ROUTES.length) return;
-    router.replace(TAB_ROUTES[nextIdx]);
-  };
-
-  const panX = useRef(new Animated.Value(0)).current;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        zenModeRef.current && Math.abs(g.dx) > 15 && Math.abs(g.dy) < Math.abs(g.dx),
-      onPanResponderMove: Animated.event([null, { dx: panX }], { useNativeDriver: false }),
-      onPanResponderRelease: (_, g) => {
-        if (!zenModeRef.current) return;
-        if (g.dx > SWIPE_THRESHOLD) {
-          navigateRef.current(-1);
-        } else if (g.dx < -SWIPE_THRESHOLD) {
-          navigateRef.current(1);
-        }
-        Animated.spring(panX, { toValue: 0, useNativeDriver: false }).start();
-      },
-    })
-  ).current;
-
-  const animatedStyle = useMemo(
-    () => (zenMode ? { flex: 1, transform: [{ translateX }], opacity } : { flex: 1 }),
-    [zenMode, translateX, opacity]
-  );
-
+  const desktop = useWindowDimensions().width >= 1000;
+  const c = useColors(),
+    fonts = useFontFamily(),
+    router = useRouter(),
+    pathname = usePathname();
+  const { calendars, selected, select } = useCalendarsStore();
+  const connected = useSyncStore((s) => !!s.token),
+    syncError = useSyncStore((s) => s.error);
   return (
-    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <Animated.View style={animatedStyle}>
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.surface }}>
+      {desktop && (
+        <View
+          style={{
+            width: 240,
+            backgroundColor: c.surfaceDim,
+            borderRightWidth: 1,
+            borderRightColor: c.outlineVariant,
+            paddingHorizontal: 24,
+            paddingTop: 40,
+            paddingBottom: 24,
+          }}>
+          <Text
+            style={{
+              fontFamily: 'PlayfairDisplay_500Medium',
+              fontSize: 38,
+              color: c.onSurface,
+              letterSpacing: -1,
+            }}>
+            2du<Text style={{ color: c.primary }}>.</Text>
+          </Text>
+          <Text
+            style={{
+              color: c.onSurfaceVariant,
+              fontFamily: fonts.regular,
+              fontSize: 12,
+              marginTop: 4,
+              marginBottom: 46,
+            }}>
+            A little more intentional.
+          </Text>
+          <View style={{ gap: 6 }}>
+            {routes.map((r) => (
+              <PressFeedback
+                key={r.name}
+                accessibilityRole="link"
+                onPress={() => router.navigate(r.path)}
+                style={{
+                  minHeight: 48,
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  backgroundColor: pathname === r.path ? c.surfaceContainerHigh : 'transparent',
+                }}>
+                <Ionicons
+                  name={r.icon}
+                  color={pathname === r.path ? c.primary : c.onSurfaceVariant}
+                  size={20}
+                />
+                <Text
+                  style={{
+                    fontFamily: fonts.medium,
+                    fontSize: 14,
+                    color: pathname === r.path ? c.onSurface : c.onSurfaceVariant,
+                  }}>
+                  {r.label}
+                </Text>
+              </PressFeedback>
+            ))}
+          </View>
+          <Text
+            style={{
+              color: c.onSurfaceVariant,
+              fontFamily: fonts.medium,
+              fontSize: 12,
+              marginTop: 42,
+              marginBottom: 12,
+            }}>
+            Your calendars
+          </Text>
+          {calendars.map((item) => (
+            <PressFeedback
+              key={item.id}
+              accessibilityRole="button"
+              onPress={() => {
+                select(selected === item.id ? null : item.id);
+                router.navigate('/');
+              }}
+              style={{
+                flexDirection: 'row',
+                gap: 12,
+                alignItems: 'center',
+                minHeight: 44,
+                paddingHorizontal: 12,
+                backgroundColor: selected === item.id ? c.surfaceContainerHigh : 'transparent',
+                borderRadius: 8,
+              }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.color }} />
+              <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, flex: 1 }}>
+                {item.name}
+              </Text>
+            </PressFeedback>
+          ))}
+          <View style={{ flex: 1 }} />
+          <PressFeedback
+            accessibilityRole="button"
+            onPress={() => router.navigate({ pathname: '/settings', params: { tab: 'sync' } })}
+            style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Ionicons
+              name={connected ? 'cloud-done-outline' : 'phone-portrait-outline'}
+              size={18}
+              color={syncError ? c.error : c.primary}
+            />
+            <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 }}>
+              {syncError
+                ? 'Sync needs attention'
+                : connected
+                  ? 'Sync connected'
+                  : 'Saved on this device'}
+            </Text>
+          </PressFeedback>
+        </View>
+      )}
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Tabs
           screenOptions={{
+            animation: 'none',
+            sceneStyle: { backgroundColor: c.surface },
             headerShown: false,
             tabBarActiveTintColor: c.primary,
-            tabBarInactiveTintColor: c.outline,
-            tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 10 },
-            tabBarStyle: zenMode
+            tabBarInactiveTintColor: c.onSurfaceVariant,
+            tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
+            tabBarStyle: desktop
               ? { display: 'none' }
               : {
-                  backgroundColor: c.surfaceContainer,
+                  backgroundColor: c.surfaceDim,
                   borderTopColor: c.outlineVariant,
+                  paddingTop: 8,
+                  height: 78,
+                  paddingBottom: 12,
                 },
           }}>
-          <Tabs.Screen
-            name="index"
-            options={{
-              title: 'Todos',
-              tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons
-                  name={focused ? 'checkbox' : 'checkbox-outline'}
-                  size={size}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="calendar"
-            options={{
-              title: 'Calendar',
-              tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons
-                  name={focused ? 'calendar' : 'calendar-outline'}
-                  size={size}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="notes"
-            options={{
-              title: 'Notes',
-              tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons
-                  name={focused ? 'document-text' : 'document-text-outline'}
-                  size={size}
-                  color={color}
-                />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="settings"
-            options={{
-              title: 'Settings',
-              tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons
-                  name={focused ? 'settings' : 'settings-outline'}
-                  size={size}
-                  color={color}
-                />
-              ),
-            }}
-          />
+          <Tabs.Screen name="sync" options={{ href: null }} />
+          {routes.map((r) => (
+            <Tabs.Screen
+              key={r.name}
+              name={r.name}
+              options={{
+                title: r.label,
+                tabBarLabel: r.name === 'notes' ? 'Notes' : r.label,
+                tabBarIcon: ({ color }) => <Ionicons name={r.icon} color={color} size={22} />,
+              }}
+            />
+          ))}
         </Tabs>
-      </Animated.View>
+      </View>
     </View>
   );
 }

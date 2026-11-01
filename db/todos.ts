@@ -1,4 +1,4 @@
-import { db, DatabaseError } from './database';
+import { db, DatabaseError, withDatabaseWrite } from './database';
 
 export type Priority = 'urgent' | 'moderate' | 'low';
 export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -12,6 +12,7 @@ export interface Todo {
   priority: Priority;
   datetime: string;
   status: TodoStatus;
+  calendar_id?: string;
   parent_id: string | null;
   remind_me: boolean;
   created_at: string;
@@ -26,6 +27,7 @@ interface TodoRow {
   priority: string;
   datetime: string;
   status: string;
+  calendar_id?: string;
   parent_id: string | null;
   remind_me: number;
   created_at: string;
@@ -81,11 +83,11 @@ export async function getTodoById(id: string): Promise<Todo | null> {
   }
 }
 
-export async function insertTodo(todo: Todo): Promise<void> {
+async function insertTodoLocal(todo: Todo): Promise<void> {
   try {
     await db.runAsync(
-      `INSERT INTO todos (id, name, description, time_needed, priority, datetime, status, parent_id, remind_me, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO todos (id, name, description, time_needed, priority, datetime, status, parent_id, remind_me, calendar_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         todo.id,
         todo.name,
@@ -96,6 +98,7 @@ export async function insertTodo(todo: Todo): Promise<void> {
         todo.status,
         todo.parent_id,
         todo.remind_me ? 1 : 0,
+        todo.calendar_id ?? 'daily',
         todo.created_at,
         todo.updated_at,
       ]
@@ -109,7 +112,7 @@ export async function insertTodo(todo: Todo): Promise<void> {
   }
 }
 
-export async function updateTodo(
+async function updateTodoLocal(
   id: string,
   updates: Partial<Omit<Todo, 'id' | 'created_at'>>
 ): Promise<void> {
@@ -117,6 +120,10 @@ export async function updateTodo(
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
 
+    if (updates.calendar_id !== undefined) {
+      fields.push('calendar_id = ?');
+      values.push(updates.calendar_id);
+    }
     if (updates.name !== undefined) {
       fields.push('name = ?');
       values.push(updates.name);
@@ -194,7 +201,7 @@ export async function getTodoCountsByMonth(
   }
 }
 
-export async function deleteTodo(id: string): Promise<void> {
+async function deleteTodoLocal(id: string): Promise<void> {
   try {
     await db.runAsync(`DELETE FROM todos WHERE id = ?`, id);
   } catch (error) {
@@ -205,3 +212,12 @@ export async function deleteTodo(id: string): Promise<void> {
     );
   }
 }
+
+export const insertTodo: typeof insertTodoLocal = (...args) =>
+  withDatabaseWrite(() => insertTodoLocal(...args));
+
+export const updateTodo: typeof updateTodoLocal = (...args) =>
+  withDatabaseWrite(() => updateTodoLocal(...args));
+
+export const deleteTodo: typeof deleteTodoLocal = (...args) =>
+  withDatabaseWrite(() => deleteTodoLocal(...args));

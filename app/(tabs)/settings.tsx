@@ -1,3 +1,8 @@
+import { useCalendarsStore } from '@/store/calendarsStore';
+import { CalendarSettings } from '@/components/CalendarSettings';
+import { SyncSettings } from '@/components/SyncSettings';
+import { PressFeedback } from '@/components/PressFeedback';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import {
   Text,
@@ -8,16 +13,119 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarStore } from '@/store/calendarStore';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { exportData, importData, ImportExportError } from '@/db/importExport';
 import { useTodoStore } from '@/store/todoStore';
 import { useNoteStore } from '@/store/noteStore';
 
 export default function SettingsScreen() {
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const selected = tab === 'sync' || tab === 'agent' ? tab : 'general';
+  const router = useRouter();
+  const c = useColors();
+  const fonts = useFontFamily();
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.surface }}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{
+        paddingHorizontal: 24,
+        paddingTop: 56,
+        paddingBottom: 120,
+        maxWidth: 840,
+        width: '100%',
+        alignSelf: 'center',
+      }}>
+      <Text
+        accessibilityRole="header"
+        style={{ fontFamily: 'PlayfairDisplay_400Regular', color: c.onSurface, fontSize: 36 }}>
+        Settings
+      </Text>
+      <Text
+        style={{
+          color: c.onSurfaceVariant,
+          fontFamily: fonts.regular,
+          marginTop: 12,
+          lineHeight: 22,
+        }}>
+        Make this space your own.
+      </Text>
+      <View
+        accessibilityRole="tablist"
+        style={{
+          flexDirection: 'row',
+          backgroundColor: c.surfaceContainer,
+          padding: 4,
+          borderRadius: 14,
+          marginTop: 28,
+          marginBottom: 32,
+          gap: 4,
+        }}>
+        {(['general', 'sync', 'agent'] as const).map((item) => (
+          <PressFeedback
+            key={item}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: selected === item }}
+            onPress={() => router.setParams({ tab: item })}
+            style={{
+              flex: 1,
+              minHeight: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 10,
+              backgroundColor: selected === item ? c.surfaceContainerHigh : 'transparent',
+            }}>
+            <Text
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: 14,
+                color: selected === item ? c.primary : c.onSurfaceVariant,
+              }}>
+              {item === 'general' ? 'General' : item === 'sync' ? 'Sync' : 'Agent'}
+            </Text>
+          </PressFeedback>
+        ))}
+      </View>
+      {selected === 'general' ? (
+        <GeneralSettings />
+      ) : selected === 'sync' ? (
+        <SyncSettings />
+      ) : (
+        <View
+          style={{
+            alignItems: 'center',
+            paddingVertical: 56,
+            paddingHorizontal: 24,
+            backgroundColor: c.surfaceContainer,
+            borderRadius: 20,
+          }}>
+          <Ionicons name="sparkles-outline" size={36} color={c.primary} />
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontFamily: 'PlayfairDisplay_400Regular',
+              fontSize: 28,
+              color: c.onSurface,
+              marginTop: 20,
+            }}>
+            Agent
+          </Text>
+          <Text style={{ fontFamily: fonts.medium, color: c.primary, fontSize: 14, marginTop: 12 }}>
+            Coming soon
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+function GeneralSettings() {
   const themeKey = useThemeStore((s) => s.themeKey);
   const fontKey = useThemeStore((s) => s.fontKey);
   const setTheme = useThemeStore((s) => s.setTheme);
@@ -82,48 +190,26 @@ export default function SettingsScreen() {
   };
 
   const handleImport = async () => {
-    Alert.alert(
-      'Import Data',
-      'This will replace all your current todos, notes, and settings. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Import',
-          style: 'destructive',
-          onPress: async () => {
-            setIsImporting(true);
-            try {
-              const result = await importData();
-              if (result.success) {
-                await loadTodos();
-                await loadNotes();
-                Alert.alert(
-                  'Import Successful',
-                  `Imported ${result.todosImported} todos and ${result.notesImported} notes.`
-                );
-              }
-            } catch (error) {
-              const message =
-                error instanceof ImportExportError ? error.message : 'Failed to import data';
-              Alert.alert('Import Failed', message);
-            } finally {
-              setIsImporting(false);
-            }
-          },
-        },
-      ]
-    );
+    setIsImporting(true);
+    try {
+      const result = await importData();
+      if (result.success) {
+        await loadTodos();
+        await loadNotes();
+        await useCalendarsStore.getState().load();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Import failed';
+      if (Platform.OS === 'web') window.alert(message);
+      else Alert.alert('Import failed', message);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: c.surface }}
-      className="px-5 pt-14"
-      contentContainerStyle={{ paddingBottom: 120 }}>
-      <Text style={{ fontFamily: fonts.bold, color: c.onSurface }} className="mb-8 text-3xl">
-        Settings
-      </Text>
-
+    <View>
+      <CalendarSettings />
       {/* Loading indicator */}
       {(themeLoading || calendarLoading) && (
         <View style={{ alignItems: 'center', marginBottom: 16 }}>
@@ -158,7 +244,7 @@ export default function SettingsScreen() {
               <Text
                 style={{
                   fontFamily: fonts.medium,
-                  color: t.key === 'gold' ? '#ece4d4' : '#1a1a1a',
+                  color: t.key !== 'silver' ? '#ece4d4' : '#1a1a1a',
                 }}
                 className="text-sm">
                 {t.label}
@@ -271,7 +357,8 @@ export default function SettingsScreen() {
         <Text
           style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
           className="mb-4 text-xs">
-          Export your data to a JSON file for backup, or import from a previous backup.
+          Export your data to a JSON file for backup, or merge a previous backup without removing
+          other records.
         </Text>
         <View className="flex-row gap-2">
           <Pressable
@@ -325,7 +412,7 @@ export default function SettingsScreen() {
               <Text
                 style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
                 className="mt-1 text-xs">
-                Hide tabs and swipe to navigate
+                Hide the contextual notes rail on desktop
               </Text>
             </View>
             <Switch
@@ -453,6 +540,6 @@ export default function SettingsScreen() {
           </Text>
         </View>
       )}
-    </ScrollView>
+    </View>
   );
 }

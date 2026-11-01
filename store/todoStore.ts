@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useCalendarsStore } from './calendarsStore';
 import {
   Todo,
   Priority,
@@ -23,6 +24,7 @@ function generateId(): string {
 
 export interface AddTodoParams {
   name: string;
+  calendar_id?: string;
   description?: string | null;
   priority?: Priority;
   datetime?: string;
@@ -80,6 +82,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     const todo: Todo = {
       id: generateId(),
       name: params.name,
+      calendar_id: params.calendar_id ?? useCalendarsStore.getState().selected ?? 'daily',
       description: params.description ?? null,
       time_needed: params.time_needed ?? null,
       priority: params.priority ?? 'moderate',
@@ -119,7 +122,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   },
 
   toggleComplete: async (id) => {
-    const todo = get().todos.find((t) => t.id === id);
+    const todo = get().todos.find((t) => t.id === id) ?? (await getTodoById(id));
     if (!todo) return;
     const newStatus = todo.status === 'completed' ? 'pending' : 'completed';
 

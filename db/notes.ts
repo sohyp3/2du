@@ -1,4 +1,4 @@
-import { db, DatabaseError } from './database';
+import { db, DatabaseError, withDatabaseWrite } from './database';
 
 export interface Note {
   id: string;
@@ -50,7 +50,7 @@ export async function getNoteById(id: string): Promise<Note | null> {
   }
 }
 
-export async function insertNote(note: Note): Promise<void> {
+async function insertNoteLocal(note: Note): Promise<void> {
   try {
     await db.runAsync(
       'INSERT INTO notes (id, title, content, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -65,7 +65,7 @@ export async function insertNote(note: Note): Promise<void> {
   }
 }
 
-export async function updateNote(id: string, updates: Partial<Note>): Promise<void> {
+async function updateNoteLocal(id: string, updates: Partial<Note>): Promise<void> {
   try {
     const fields: string[] = [];
     const values: (string | number)[] = [];
@@ -97,7 +97,7 @@ export async function updateNote(id: string, updates: Partial<Note>): Promise<vo
   }
 }
 
-export async function deleteNote(id: string): Promise<void> {
+async function deleteNoteLocal(id: string): Promise<void> {
   try {
     await db.runAsync('DELETE FROM notes WHERE id = ?', [id]);
   } catch (error) {
@@ -108,3 +108,12 @@ export async function deleteNote(id: string): Promise<void> {
     );
   }
 }
+
+export const insertNote: typeof insertNoteLocal = (...args) =>
+  withDatabaseWrite(() => insertNoteLocal(...args));
+
+export const updateNote: typeof updateNoteLocal = (...args) =>
+  withDatabaseWrite(() => updateNoteLocal(...args));
+
+export const deleteNote: typeof deleteNoteLocal = (...args) =>
+  withDatabaseWrite(() => deleteNoteLocal(...args));

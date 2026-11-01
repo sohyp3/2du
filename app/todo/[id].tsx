@@ -1,3 +1,5 @@
+import { PriorityPicker, PRIORITIES } from '@/components/PriorityPicker';
+import { CalendarPicker } from '@/components/CalendarPicker';
 import { useState, useCallback, useEffect } from 'react';
 import {
   Text,
@@ -20,12 +22,6 @@ import { useColors, useFontFamily } from '@/utils/theme';
 import { ThemeColors } from '@/store/themeStore';
 import { DatabaseError } from '@/db/database';
 
-const PRIORITIES: { key: Priority; label: string }[] = [
-  { key: 'urgent', label: 'Urgent' },
-  { key: 'moderate', label: 'Moderate' },
-  { key: 'low', label: 'Can wait' },
-];
-
 export default function TodoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -39,6 +35,7 @@ export default function TodoDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [calendarId, setCalendarId] = useState<string | null>('daily');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('moderate');
@@ -62,6 +59,7 @@ export default function TodoDetailScreen() {
         const found = await getTodoById(id);
         if (found) {
           setTodo(found);
+          setCalendarId(found.calendar_id || 'daily');
           setName(found.name);
           setDescription(found.description ?? '');
           setPriority(found.priority);
@@ -93,16 +91,19 @@ export default function TodoDetailScreen() {
       dt.setHours(hour, minute, 0, 0);
       const datetime = dt.toISOString();
       await updateTodoAction(id, {
+        calendar_id: calendarId || 'daily',
         name: name.trim(),
         description: description.trim() || null,
         priority,
         datetime,
         remind_me: remindMe,
       });
+      if (useTodoStore.getState().error) throw new Error(useTodoStore.getState().error!);
       setTodo((prev) =>
         prev
           ? {
               ...prev,
+              calendar_id: calendarId || 'daily',
               name: name.trim(),
               description: description.trim() || null,
               priority,
@@ -119,7 +120,18 @@ export default function TodoDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, name, description, priority, selectedDate, hour, minute, remindMe, updateTodoAction]);
+  }, [
+    calendarId,
+    id,
+    name,
+    description,
+    priority,
+    selectedDate,
+    hour,
+    minute,
+    remindMe,
+    updateTodoAction,
+  ]);
 
   const handleDelete = useCallback(async () => {
     const doDelete = async () => {
@@ -209,7 +221,16 @@ export default function TodoDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: editing ? 'Edit' : '', headerBackTitle: 'Back' }} />
 
-      <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+      <ScrollView
+        className="flex-1 px-4 pt-4"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          width: '100%',
+          maxWidth: 840,
+          alignSelf: 'center',
+          paddingBottom: 40,
+        }}>
+        {editing && <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />}
         {editing ? (
           <>
             <Text
@@ -256,27 +277,7 @@ export default function TodoDetailScreen() {
               className="mb-1 text-sm">
               Priority
             </Text>
-            <View className="mb-4 flex-row gap-2">
-              {PRIORITIES.map(({ key, label }) => (
-                <Pressable
-                  key={key}
-                  onPress={() => !isLoading && setPriority(key)}
-                  style={{
-                    backgroundColor:
-                      priority === key ? c.surfaceContainerHighest : c.surfaceContainerLow,
-                  }}
-                  className="flex-1 items-center rounded-lg py-2.5">
-                  <Text
-                    style={{
-                      fontFamily: fonts.medium,
-                      color: priority === key ? c.onSurface : c.outline,
-                    }}
-                    className="text-sm">
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <PriorityPicker value={priority} onChange={setPriority} disabled={isLoading} />
 
             <Text
               style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}

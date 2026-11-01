@@ -1,3 +1,6 @@
+import { PriorityPicker } from '@/components/PriorityPicker';
+import { CalendarPicker } from '@/components/CalendarPicker';
+import { useCalendarsStore } from '@/store/calendarsStore';
 import { useState, useMemo, useCallback } from 'react';
 import {
   Text,
@@ -14,18 +17,15 @@ import { Priority } from '@/db/todos';
 import { DatePicker } from '@/components/DatePicker';
 import { useColors, useFontFamily } from '@/utils/theme';
 
-const PRIORITIES: { key: Priority; label: string }[] = [
-  { key: 'urgent', label: 'Urgent' },
-  { key: 'moderate', label: 'Moderate' },
-  { key: 'low', label: 'Can wait' },
-];
-
 function getDefaultHour(): number {
   return (new Date().getHours() + 1) % 24;
 }
 
 export default function AddTodoScreen() {
   const params = useLocalSearchParams<{ name?: string }>();
+  const [calendarId, setCalendarId] = useState<string | null>(
+    useCalendarsStore.getState().selected || 'daily'
+  );
   const [name, setName] = useState(params.name ?? '');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('moderate');
@@ -46,10 +46,11 @@ export default function AddTodoScreen() {
     return d.toISOString();
   }, [selectedDate, hour, minute]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    addTodo({
+    await addTodo({
+      calendar_id: calendarId || 'daily',
       name: trimmed,
       description: description.trim() || null,
       priority,
@@ -57,8 +58,8 @@ export default function AddTodoScreen() {
       time_needed: timeNeeded ? parseInt(timeNeeded, 10) : null,
       remind_me: remindMe,
     });
-    router.back();
-  }, [name, description, priority, datetime, timeNeeded, remindMe, addTodo, router]);
+    if (!useTodoStore.getState().error) router.back();
+  }, [calendarId, name, description, priority, datetime, timeNeeded, remindMe, addTodo, router]);
 
   const formatHour = (h: number) => (h % 12 || 12).toString();
   const ampm = hour < 12 ? 'AM' : 'PM';
@@ -68,9 +69,18 @@ export default function AddTodoScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.surface }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: 'New Todo' }} />
+      <Stack.Screen options={{ title: 'New task' }} />
 
-      <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+      <ScrollView
+        className="flex-1 px-4 pt-4"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
+          paddingBottom: 40,
+        }}>
+        <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
         <Text
           style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
           className="mb-1 text-sm">
@@ -115,27 +125,7 @@ export default function AddTodoScreen() {
           className="mb-1 text-sm">
           Priority
         </Text>
-        <View className="mb-4 flex-row gap-2">
-          {PRIORITIES.map(({ key, label }) => (
-            <Pressable
-              key={key}
-              onPress={() => setPriority(key)}
-              style={{
-                backgroundColor:
-                  priority === key ? c.surfaceContainerHighest : c.surfaceContainerLow,
-              }}
-              className="flex-1 items-center rounded-lg py-2.5">
-              <Text
-                style={{
-                  fontFamily: fonts.medium,
-                  color: priority === key ? c.onSurface : c.outline,
-                }}
-                className="text-sm">
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <PriorityPicker value={priority} onChange={setPriority} />
 
         <Text
           style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}

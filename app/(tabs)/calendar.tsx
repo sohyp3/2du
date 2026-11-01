@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-  ActivityIndicator,
-} from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { CalendarPicker } from '@/components/CalendarPicker';
+import { useCalendarsStore } from '@/store/calendarsStore';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useColors, useFontFamily } from '@/utils/theme';
-import { getTodosByDateRange, getTodoCountsByMonth, Todo } from '@/db/todos';
+import { getTodosByDateRange, Todo } from '@/db/todos';
 import {
   getStartOfDay,
   getEndOfDay,
@@ -86,59 +83,83 @@ export default function CalendarScreen() {
   const c = useColors();
   const fonts = useFontFamily();
   const router = useRouter();
-  const toggleComplete = useTodoStore((s) => s.toggleComplete);
+  const selectedCalendar = useCalendarsStore((s) => s.selected);
+  const isFocused = useIsFocused();
+  const revision = useCalendarsStore((s) => s.revision);
+  const filterTasks = useCallback(
+    (items: Todo[]) =>
+      items.filter((t) => !selectedCalendar || (t.calendar_id || 'daily') === selectedCalendar),
+    [selectedCalendar]
+  );
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
 
-  const [view, setView] = useState<CalendarView>('week');
+  const [view, setView] = useState<CalendarView>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const today = useMemo(() => new Date(), []);
 
-  // Todos for selected range
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [monthCounts, setMonthCounts] = useState<Record<string, number>>({});
-
+  const [rangeTodos, setRangeTodos] = useState<Todo[]>([]);
+  const requestId = useRef(0);
+  const start =
+    view === 'month'
+      ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+      : view === 'week'
+        ? getStartOfWeek(selectedDate)
+        : getStartOfDay(selectedDate);
+  const end =
+    view === 'month'
+      ? new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999)
+      : view === 'week'
+        ? getEndOfWeek(selectedDate)
+        : getEndOfDay(selectedDate);
+  const startISO = start.toISOString(),
+    endISO = end.toISOString();
+  const selectedKey = toDateKey(selectedDate);
+  const todos = useMemo(
+    () =>
+      view === 'month'
+        ? rangeTodos.filter((t) => toDateKey(new Date(t.datetime)) === selectedKey)
+        : rangeTodos,
+    [rangeTodos, view, selectedKey]
+  );
+  const monthCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const task of rangeTodos) {
+      if (task.status === 'cancelled') continue;
+      const key = toDateKey(new Date(task.datetime));
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [rangeTodos]);
   const loadData = useCallback(async () => {
+    const request = ++requestId.current;
     setIsLoading(true);
     setError(null);
     try {
-      if (view === 'month') {
-        const counts = await getTodoCountsByMonth(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth()
-        );
-        setMonthCounts(counts);
-        // Also load todos for the selected day
-        const start = getStartOfDay(selectedDate);
-        const end = getEndOfDay(selectedDate);
-        const dayTodos = await getTodosByDateRange(start.toISOString(), end.toISOString());
-        setTodos(dayTodos);
-      } else if (view === 'week') {
-        const start = getStartOfWeek(selectedDate);
-        const end = getEndOfWeek(selectedDate);
-        const weekTodos = await getTodosByDateRange(start.toISOString(), end.toISOString());
-        setTodos(weekTodos);
-      } else {
-        const start = getStartOfDay(selectedDate);
-        const end = getEndOfDay(selectedDate);
-        const dayTodos = await getTodosByDateRange(start.toISOString(), end.toISOString());
-        setTodos(dayTodos);
-      }
+      const result = await getTodosByDateRange(startISO, endISO);
+      if (request === requestId.current) setRangeTodos(filterTasks(result));
     } catch (err) {
-      const message = err instanceof DatabaseError ? err.message : 'Failed to load calendar data';
-      setError(message);
-      console.error('Error loading calendar data:', err);
+      if (request === requestId.current)
+        setError(err instanceof DatabaseError ? err.message : 'Failed to load calendar data');
     } finally {
-      setIsLoading(false);
+      if (request === requestId.current) setIsLoading(false);
     }
-  }, [view, selectedDate]);
+  }, [startISO, endISO, filterTasks]);
+
+  const toggleComplete = useCallback(
+    async (id: string) => {
+      await useTodoStore.getState().toggleComplete(id);
+      await loadData();
+    },
+    [loadData]
+  );
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (isFocused) void loadData();
+  }, [loadData, revision, isFocused]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -153,7 +174,12 @@ export default function CalendarScreen() {
         const offset = dir === 'next' ? 1 : -1;
         if (view === 'day') d.setDate(d.getDate() + offset);
         else if (view === 'week') d.setDate(d.getDate() + offset * 7);
-        else d.setMonth(d.getMonth() + offset);
+        else {
+          const day = d.getDate();
+          d.setDate(1);
+          d.setMonth(d.getMonth() + offset);
+          d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+        }
         return d;
       });
     },
@@ -188,117 +214,118 @@ export default function CalendarScreen() {
     return map;
   }, [todos, view]);
 
-  // Show loading state
-  if (isLoading && !refreshing && todos.length === 0) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: c.surface,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <ActivityIndicator color={c.primary} size="large" />
-        <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, marginTop: 16 }}>
-          Loading calendar...
-        </Text>
-      </View>
-    );
-  }
-
-  // Show error state
-  if (error && !refreshing && todos.length === 0) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: c.surface,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-        }}>
-        <Text style={{ fontFamily: fonts.bold, color: c.error, fontSize: 18, marginBottom: 8 }}>
-          Error Loading Calendar
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.regular,
-            color: c.onSurfaceVariant,
-            textAlign: 'center',
-            marginBottom: 24,
-          }}>
-          {error}
-        </Text>
-        <Pressable
-          onPress={loadData}
-          style={{
-            backgroundColor: c.primary,
-            paddingHorizontal: 24,
-            paddingVertical: 12,
-            borderRadius: 20,
-          }}>
-          <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Retry</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   return (
-    <View style={{ flex: 1, backgroundColor: c.surface }}>
-      <View className="px-4 pt-12">
-        {/* Header */}
-        <View className="mb-2 items-center">
-          <Text
-            style={{ fontFamily: fonts.medium, color: c.primary }}
-            className="mb-2 text-xs uppercase tracking-[3px]">
-            {headerLabel}
-          </Text>
-
-          <View
-            style={{ backgroundColor: c.surfaceContainer }}
-            className="mb-2 flex-row items-center rounded-lg p-1">
-            <Pressable onPress={() => navigate('prev')} className="px-3 py-2">
-              <Text style={{ color: c.onSurfaceVariant }} className="text-lg font-semibold">
-                ‹
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: c.surface,
+        maxWidth: 1500,
+        width: '100%',
+        alignSelf: 'center',
+      }}>
+      <View className="px-6 pt-12">
+        <Text
+          accessibilityRole="header"
+          style={{
+            fontFamily: 'PlayfairDisplay_400Regular',
+            color: c.onSurface,
+            fontSize: 36,
+            marginBottom: 10,
+          }}>
+          A view of what’s ahead.
+        </Text>
+        <CalendarPicker />
+        <View style={{ minHeight: 24, justifyContent: 'center' }}>
+          {error ? (
+            <Pressable accessibilityRole="button" onPress={loadData}>
+              <Text accessibilityRole="alert" style={{ color: c.error, fontFamily: fonts.regular }}>
+                {error} · Retry
               </Text>
             </Pressable>
-
-            <View className="flex-1 flex-row justify-center gap-1">
+          ) : isLoading ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={{ color: c.onSurfaceVariant, fontSize: 12 }}>
+              Updating calendar…
+            </Text>
+          ) : null}
+        </View>
+        <View style={{ marginTop: 12, marginBottom: 16, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ flex: 1, color: c.onSurface, fontFamily: fonts.medium, fontSize: 16 }}>
+              {headerLabel}
+            </Text>
+            {(['prev', 'next'] as const).map((dir) => (
+              <Pressable
+                key={dir}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  dir === 'prev' ? 'Previous calendar period' : 'Next calendar period'
+                }
+                onPress={() => navigate(dir)}
+                style={{
+                  minWidth: 48,
+                  minHeight: 48,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: c.surfaceContainer,
+                  borderRadius: 8,
+                }}>
+                <Ionicons
+                  name={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
+                  size={18}
+                  color={c.onSurfaceVariant}
+                />
+              </Pressable>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                backgroundColor: c.surfaceContainer,
+                borderRadius: 10,
+                padding: 4,
+              }}>
               {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
                 <Pressable
                   key={v}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${v} view`}
+                  accessibilityState={{ selected: view === v }}
+                  aria-selected={view === v}
                   onPress={() => setView(v)}
-                  style={view === v ? { backgroundColor: c.primary } : undefined}
-                  className="rounded-md px-4 py-1.5">
+                  style={{
+                    flex: 1,
+                    minHeight: 48,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: view === v ? c.surfaceContainerHighest : 'transparent',
+                    borderRadius: 7,
+                  }}>
                   <Text
                     style={{
-                      fontFamily: fonts.bold,
-                      color: view === v ? c.onPrimary : c.onSurfaceVariant,
-                    }}
-                    className="text-xs uppercase tracking-[2px]">
+                      color: view === v ? c.onSurface : c.onSurfaceVariant,
+                      fontFamily: fonts.medium,
+                      fontSize: 13,
+                      textTransform: 'capitalize',
+                    }}>
                     {v}
                   </Text>
                 </Pressable>
               ))}
             </View>
-
-            <Pressable onPress={() => navigate('next')} className="px-3 py-2">
-              <Text style={{ color: c.onSurfaceVariant }} className="text-lg font-semibold">
-                ›
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go to today"
+              onPress={() => setSelectedDate(new Date())}
+              style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: 'center' }}>
+              <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>
+                Today
               </Text>
             </Pressable>
           </View>
-
-          <Pressable
-            onPress={() => setSelectedDate(new Date())}
-            style={{ backgroundColor: c.surfaceContainer }}
-            className="rounded-md px-3 py-1.5">
-            <Text
-              style={{ fontFamily: fonts.bold, color: c.primary }}
-              className="text-xs uppercase tracking-[2px]">
-              Today
-            </Text>
-          </Pressable>
         </View>
       </View>
 
@@ -419,6 +446,16 @@ function MonthView({
               return (
                 <Pressable
                   key={di}
+                  accessibilityRole="button"
+                  accessibilityLabel={day.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                  accessibilityState={{ selected: isSameDay(day, selectedDate) }}
+                  aria-selected={isSameDay(day, selectedDate)}
+                  style={{ minHeight: 48 }}
                   onPress={() => onSelectDate(day)}
                   className="flex-1 items-center p-1">
                   <View
@@ -583,12 +620,14 @@ function WeekView({
                     return (
                       <Pressable
                         key={t.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open ${t.name}`}
                         onPress={() => onTodoPress(t.id)}
                         style={{
+                          minHeight: 48,
                           backgroundColor: isCompleted
                             ? c.surfaceContainerHigh
                             : c.primaryContainer,
-                          opacity: isCompleted ? 0.6 : 1,
                         }}
                         className="mb-0.5 rounded px-1 py-0.5">
                         <Text
@@ -664,13 +703,18 @@ function DayView({
                 return (
                   <Pressable
                     key={t.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${t.name}`}
                     onPress={() => onTodoPress(t.id)}
-                    style={{ backgroundColor: isCompleted ? c.errorContainer : c.primaryContainer }}
+                    style={{
+                      minHeight: 48,
+                      backgroundColor: isCompleted ? c.surfaceContainerLow : c.primaryContainer,
+                    }}
                     className="mb-1 rounded-md px-3 py-2">
                     <Text
                       style={{
                         fontFamily: fonts.medium,
-                        color: isCompleted ? c.onErrorContainer : c.onSurface,
+                        color: isCompleted ? c.onSurfaceVariant : c.onSurface,
                       }}
                       className="text-sm">
                       {t.name}
@@ -711,38 +755,57 @@ function TodoRow({
 }) {
   const isCompleted = todo.status === 'completed';
   return (
-    <Pressable
-      onPress={() => onPress(todo.id)}
-      style={{ backgroundColor: c.surfaceContainer, opacity: isCompleted ? 0.5 : 1 }}
-      className="mb-2 flex-row items-center rounded-lg p-3">
-      <Pressable onPress={() => toggleComplete(todo.id)} hitSlop={8} className="mr-3">
-        <View
-          style={{
-            borderColor: isCompleted ? c.primary : c.onSurfaceVariant,
-            backgroundColor: isCompleted ? c.primary : 'transparent',
-          }}
-          className="h-5 w-5 items-center justify-center rounded-full border-2">
-          {isCompleted && (
-            <Text style={{ color: c.onPrimary }} className="text-[10px]">
-              ✓
-            </Text>
-          )}
-        </View>
+    <View
+      style={{
+        backgroundColor: c.surfaceContainer,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 10,
+        marginBottom: 8,
+        paddingHorizontal: 4,
+      }}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityLabel={`Complete ${todo.name}`}
+        accessibilityState={{ checked: isCompleted }}
+        aria-checked={isCompleted}
+        onPress={() => toggleComplete(todo.id)}
+        style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons
+          name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+          size={24}
+          color={isCompleted ? c.primary : c.outline}
+        />
       </Pressable>
-      <View className="flex-1">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${todo.name}`}
+        onPress={() => onPress(todo.id)}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 48,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingVertical: 12,
+          paddingRight: 12,
+        }}>
         <Text
           style={{
+            flex: 1,
             fontFamily: fonts.medium,
             color: isCompleted ? c.onSurfaceVariant : c.onSurface,
             textDecorationLine: isCompleted ? 'line-through' : 'none',
-          }}
-          className="text-sm">
+            fontSize: 14,
+            lineHeight: 22,
+          }}>
           {todo.name}
         </Text>
-      </View>
-      <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }} className="text-xs">
-        {formatTime(todo.datetime, timeFormat === '24h')}
-      </Text>
-    </Pressable>
+        <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 }}>
+          {formatTime(todo.datetime, timeFormat === '24h')}
+        </Text>
+      </Pressable>
+    </View>
   );
 }

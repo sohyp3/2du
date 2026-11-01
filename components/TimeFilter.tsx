@@ -1,107 +1,119 @@
-import { useCallback } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTodoStore } from '@/store/todoStore';
-import { FilterPeriod, getFilterLabel } from '@/utils/dates';
-import { StatusFilter } from '@/db/todos';
+import { getFilterLabel, type FilterPeriod } from '@/utils/dates';
 import { useColors, useFontFamily } from '@/utils/theme';
-
-const PERIODS: { key: FilterPeriod; label: string }[] = [
-  { key: 'day', label: 'Day' },
-  { key: 'week', label: 'Week' },
-  { key: 'month', label: 'Month' },
-];
-
-const STATUS_CYCLE: StatusFilter[] = ['active', 'completed', 'all'];
-const STATUS_LABEL: Record<StatusFilter, string> = {
-  active: 'Active',
-  completed: 'Done',
-  all: 'All',
-};
-
+import { PressFeedback } from './PressFeedback';
 export function TimeFilter() {
-  const period = useTodoStore((s) => s.period);
-  const referenceDate = useTodoStore((s) => s.referenceDate);
-  const statusFilter = useTodoStore((s) => s.statusFilter);
-  const setPeriod = useTodoStore((s) => s.setPeriod);
-  const setStatusFilter = useTodoStore((s) => s.setStatusFilter);
-  const navigatePeriod = useTodoStore((s) => s.navigatePeriod);
-  const goToToday = useTodoStore((s) => s.goToToday);
-  const c = useColors();
-  const fonts = useFontFamily();
-
-  const cycleStatus = useCallback(() => {
-    const i = STATUS_CYCLE.indexOf(statusFilter);
-    setStatusFilter(STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length]);
-  }, [statusFilter, setStatusFilter]);
-
-  const onPrev = useCallback(() => navigatePeriod('prev'), [navigatePeriod]);
-  const onNext = useCallback(() => navigatePeriod('next'), [navigatePeriod]);
-
+  const {
+    period,
+    referenceDate,
+    statusFilter,
+    setPeriod,
+    setStatusFilter,
+    navigatePeriod,
+    goToToday,
+  } = useTodoStore();
+  const c = useColors(),
+    fonts = useFontFamily();
   return (
-    <View className="mb-4 items-center">
-      <Text
-        style={{ fontFamily: fonts.medium, color: c.primary }}
-        className="mb-2 text-xs uppercase tracking-[3px]">
-        {getFilterLabel(period, referenceDate)}
-      </Text>
-
+    <View style={{ gap: 12, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <Text style={{ flex: 1, color: c.onSurface, fontFamily: fonts.medium, fontSize: 18 }}>
+          {getFilterLabel(period, referenceDate)}
+        </Text>
+        {(['prev', 'next'] as const).map((dir) => (
+          <PressFeedback
+            key={dir}
+            accessibilityRole="button"
+            accessibilityLabel={dir === 'prev' ? 'Previous period' : 'Next period'}
+            onPress={() => navigatePeriod(dir)}
+            style={{
+              width: 44,
+              minHeight: 44,
+              borderRadius: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: c.surfaceContainer,
+            }}>
+            <Ionicons
+              name={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
+              size={16}
+              color={c.onSurfaceVariant}
+            />
+          </PressFeedback>
+        ))}
+        <PressFeedback
+          accessibilityRole="button"
+          onPress={goToToday}
+          style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
+          <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>Today</Text>
+        </PressFeedback>
+      </View>
       <View
-        style={{ backgroundColor: c.surfaceContainer }}
-        className="mb-2 flex-row items-center rounded-lg p-1">
-        <Pressable onPress={onPrev} className="px-3 py-2">
-          <Text style={{ color: c.onSurfaceVariant }} className="text-lg font-semibold">
-            ‹
-          </Text>
-        </Pressable>
-
-        <View className="flex-1 flex-row justify-center gap-1">
-          {PERIODS.map(({ key, label }) => (
-            <Pressable
-              key={key}
-              onPress={() => setPeriod(key)}
-              style={period === key ? { backgroundColor: c.primary } : undefined}
-              className="rounded-md px-4 py-1.5">
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: c.surfaceContainer,
+            padding: 4,
+            borderRadius: 10,
+          }}>
+          {(['day', 'week', 'month'] as FilterPeriod[]).map((p) => (
+            <PressFeedback
+              key={p}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === p }}
+              onPress={() => setPeriod(p)}
+              style={{
+                minHeight: 40,
+                paddingHorizontal: 18,
+                borderRadius: 7,
+                justifyContent: 'center',
+                backgroundColor: period === p ? c.surfaceContainerHighest : 'transparent',
+              }}>
               <Text
                 style={{
-                  fontFamily: fonts.bold,
-                  color: period === key ? c.onPrimary : c.onSurfaceVariant,
-                }}
-                className="text-xs uppercase tracking-[2px]">
-                {label}
+                  color: period === p ? c.onSurface : c.onSurfaceVariant,
+                  fontFamily: fonts.medium,
+                  fontSize: 13,
+                  textTransform: 'capitalize',
+                }}>
+                {p}
               </Text>
-            </Pressable>
+            </PressFeedback>
           ))}
         </View>
-
-        <Pressable onPress={onNext} className="px-3 py-2">
-          <Text style={{ color: c.onSurfaceVariant }} className="text-lg font-semibold">
-            ›
+        <PressFeedback
+          accessibilityRole="button"
+          accessibilityLabel={`Status filter: ${statusFilter}. Change filter`}
+          onPress={() =>
+            setStatusFilter(
+              statusFilter === 'all' ? 'active' : statusFilter === 'active' ? 'completed' : 'all'
+            )
+          }
+          style={{
+            minHeight: 44,
+            paddingHorizontal: 10,
+            flexDirection: 'row',
+            gap: 8,
+            alignItems: 'center',
+          }}>
+          <Ionicons name="filter-outline" color={c.onSurfaceVariant} size={16} />
+          <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 13 }}>
+            {statusFilter === 'all'
+              ? 'All tasks'
+              : statusFilter === 'active'
+                ? 'Active tasks'
+                : 'Completed'}
           </Text>
-        </Pressable>
-      </View>
-
-      <View className="flex-row items-center gap-3">
-        <Pressable
-          onPress={goToToday}
-          style={{ backgroundColor: c.surfaceContainer }}
-          className="rounded-md px-3 py-1.5">
-          <Text
-            style={{ fontFamily: fonts.bold, color: c.primary }}
-            className="text-xs uppercase tracking-[2px]">
-            Today
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={cycleStatus}
-          style={{ backgroundColor: c.surfaceContainerHighest }}
-          className="rounded-md px-3 py-1.5">
-          <Text
-            style={{ fontFamily: fonts.bold, color: c.onSurface }}
-            className="text-xs uppercase tracking-[2px]">
-            {STATUS_LABEL[statusFilter]}
-          </Text>
-        </Pressable>
+        </PressFeedback>
       </View>
     </View>
   );

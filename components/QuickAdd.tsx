@@ -1,5 +1,6 @@
+import { PressFeedback as Pressable } from './PressFeedback';
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { TextInput, Pressable, View, Text } from 'react-native';
+import { TextInput, View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
 import { useColors, useFontFamily } from '@/utils/theme';
@@ -27,19 +28,23 @@ export function QuickAdd() {
     return d.toISOString();
   }, [timeMinutes]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     const trimmed = name.trim();
     if (!trimmed) {
       router.push('/add-todo');
       return;
     }
-    addTodo({ name: trimmed, datetime });
+    const date = new Date(useTodoStore.getState().referenceDate);
+    const time = new Date(datetime);
+    date.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    await addTodo({ name: trimmed, datetime: date.toISOString() });
+    if (useTodoStore.getState().error) return;
     setName('');
     inputRef.current?.focus();
   }, [name, datetime, addTodo, router]);
 
   return (
-    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-md p-3">
+    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-xl p-2">
       <View className="flex-row items-center gap-2">
         <TextInput
           ref={inputRef}
@@ -47,12 +52,13 @@ export function QuickAdd() {
             fontFamily: fonts.regular,
             backgroundColor: c.surfaceContainerHigh,
             color: c.onSurface,
-            height: 40,
+            minWidth: 0,
+            minHeight: 48,
             lineHeight: 20,
           }}
           placeholderTextColor={c.outline}
           className="flex-1 rounded-md px-3 text-base"
-          placeholder="Add todo..."
+          placeholder="What’s the next small step?"
           value={name}
           onChangeText={setName}
           onSubmitEditing={handleSubmit}
@@ -61,13 +67,15 @@ export function QuickAdd() {
           blurOnSubmit={false}
         />
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add task"
           onPress={handleSubmit}
           onLongPress={() => {
             const trimmed = name.trim();
             router.push({ pathname: '/add-todo', params: trimmed ? { name: trimmed } : {} });
             setName('');
           }}
-          style={{ backgroundColor: c.primary, height: 40, justifyContent: 'center' }}
+          style={{ backgroundColor: c.primary, minHeight: 48, justifyContent: 'center' }}
           className="rounded-md px-4">
           <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
             Add

@@ -1,0 +1,37 @@
+# 2du
+
+A local-first Expo workspace for tasks, notes, thoughts, and multiple calendars. Runs on iOS, Android, and responsive desktop/mobile web.
+
+```sh
+bun install
+bun start           # Expo development
+bun run web         # web development, localhost:8081
+bun run android
+bun run ios         # requires macOS/Xcode
+bun run check
+bun test
+```
+
+Quest is the default theme, inspired by autismaxer.quest: warm black, ivory type, moss and plum accents. Silver and Gold remain in Settings. Local SQLite data is migrated without replacing existing tasks/notes. Tasks can be assigned to named/color-coded calendars, filtered together or individually, and viewed by day/week/month. Notes support Markdown and pinning.
+
+For optional cross-device sync: [server setup](docs/SERVER.md). For external AI agents: [REST API](docs/AGENT-API.md). For motion decisions and remaining hardware checks: [motion notes](docs/MOTION.md).
+
+## Web deployment
+
+```sh
+bun run build:web
+bun run serve:web   # http://localhost:8080
+```
+
+The bundled static server sets the headers required by expo-sqlite's web worker. Keep one 2du tab open per browser profile: the local SQLite file is locked while that tab is open. If another tab cannot start, close the first one and use **Retry**; do not clear browser storage. Use HTTPS or localhost. With another host, serve `.wasm` as `application/wasm` and set these on every response:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+SQLite web requires SharedArrayBuffer and a secure browser context (HTTPS or localhost). Use HTTPS for deployment; a plain LAN IP over HTTP will not work for web SQLite. The Metro development server already sets these headers. Storage stays in the browser's origin; changing domains does not carry local data—use sync or JSON export/import. Clearing browser site data deletes the local workspace. Web supports local persistence and offline editing in an already loaded tab; a service worker/installable PWA is not included.
+
+In Settings → Sync, enter the sync server origin and credentials. On first use create an account if the server permits registration; other devices sign in. Sync runs while the app is open. Generate revocable read-only or read/write keys for agents; no AI provider account is required by 2du.
+
+Native reminder scheduling stays device-local. New native dependencies require rebuilding your development/production client. File, font, and sharing packages are aligned with Expo SDK 54. Test a release build on your physical devices before distributing.

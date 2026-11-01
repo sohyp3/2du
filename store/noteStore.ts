@@ -61,6 +61,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   },
 
   updateNote: async (id, updates) => {
+    set({ error: null });
     try {
       await dbUpdateNote(id, updates);
       set({
@@ -75,6 +76,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   },
 
   deleteNote: async (id) => {
+    set({ error: null });
     try {
       await dbDeleteNote(id);
       set({ notes: get().notes.filter((n) => n.id !== id) });
