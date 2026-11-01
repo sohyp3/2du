@@ -3,14 +3,14 @@
     "name": "2du",
     "slug": "2du",
     "version": "1.0.0",
-    "scheme": "2du",
+    "scheme": "x2du",
     "platforms": ["ios", "android", "web"],
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/logo.png"
     },
-    "plugins": ["expo-router", "expo-sqlite", "expo-secure-store", "expo-font"],
+    "plugins": ["expo-router", "expo-sqlite", "expo-secure-store", "expo-font", "expo-web-browser"],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
@@ -34,7 +34,7 @@
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.hyp3.x2du"
+      "package": "cafe.hyp3.x2du"
     },
     "extra": {
       "router": {},
