@@ -44,7 +44,7 @@ export function QuickAdd() {
   }, [name, datetime, addTodo, router]);
 
   return (
-    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-xl p-2">
+    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-xl p-1.5">
       <View className="flex-row items-center gap-2">
         <TextInput
           ref={inputRef}
@@ -53,11 +53,11 @@ export function QuickAdd() {
             backgroundColor: c.surfaceContainerHigh,
             color: c.onSurface,
             minWidth: 0,
-            minHeight: 48,
+            minHeight: 42,
             lineHeight: 20,
           }}
           placeholderTextColor={c.outline}
-          className="flex-1 rounded-md px-3 text-base"
+          className="flex-1 rounded-md px-3 text-sm"
           placeholder="What’s the next small step?"
           value={name}
           onChangeText={setName}
@@ -75,7 +75,7 @@ export function QuickAdd() {
             router.push({ pathname: '/add-todo', params: trimmed ? { name: trimmed } : {} });
             setName('');
           }}
-          style={{ backgroundColor: c.primary, minHeight: 48, justifyContent: 'center' }}
+          style={{ backgroundColor: c.primary, minHeight: 42, justifyContent: 'center' }}
           className="rounded-md px-4">
           <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
             Add

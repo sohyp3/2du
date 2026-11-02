@@ -1,5 +1,9 @@
-import { useWindowDimensions, View, Text } from 'react-native';
+import { useMemo, useRef } from 'react';
+import { PanResponder, useWindowDimensions, View, Text } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useReducedMotion } from 'react-native-reanimated';
+import { useThemeStore } from '@/store/themeStore';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarsStore } from '@/store/calendarsStore';
@@ -11,6 +15,8 @@ const routes = [
   { name: 'notes', path: '/notes', label: 'Notes & thoughts', icon: 'document-text-outline' },
   { name: 'settings', path: '/settings', label: 'Settings', icon: 'options-outline' },
 ] as const;
+const SWIPE_DISTANCE = 60;
+const SWIPE_VELOCITY = 0.3;
 export default function TabLayout() {
   const desktop = useWindowDimensions().width >= 1000;
   const c = useColors(),
@@ -20,8 +26,38 @@ export default function TabLayout() {
   const { calendars, selected, select } = useCalendarsStore();
   const connected = useSyncStore((s) => !!s.token),
     syncError = useSyncStore((s) => s.error);
+  const zenMode = useThemeStore((s) => s.zenMode);
+  const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
+  // Zen mode on phones: no tab bar, swipe horizontally to move between tabs.
+  const swipeTabs = zenMode && !desktop;
+
+  // PanResponder callbacks are created once, so read live values through a ref.
+  const live = useRef({ swipeTabs, pathname, router });
+  live.current = { swipeTabs, pathname, router };
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) =>
+          live.current.swipeTabs && Math.abs(g.dx) > 20 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+        onPanResponderTerminationRequest: () => true,
+        onPanResponderRelease: (_, g) => {
+          const { swipeTabs: enabled, pathname: path, router: nav } = live.current;
+          if (!enabled) return;
+          const far = Math.abs(g.dx) > SWIPE_DISTANCE || Math.abs(g.vx) > SWIPE_VELOCITY;
+          if (!far || Math.abs(g.dx) < 20) return;
+          const index = routes.findIndex((r) => r.path === path);
+          if (index === -1) return;
+          const next = routes[index + (g.dx < 0 ? 1 : -1)];
+          if (next) nav.navigate(next.path);
+        },
+      }),
+    []
+  );
   return (
-    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.surface }}>
+    <View
+      style={{ flex: 1, flexDirection: 'row', backgroundColor: c.surface }}
+      {...(swipeTabs ? panResponder.panHandlers : {})}>
       {desktop && (
         <View
           style={{
@@ -139,21 +175,26 @@ export default function TabLayout() {
       <View style={{ flex: 1, minWidth: 0 }}>
         <Tabs
           screenOptions={{
-            animation: 'none',
-            sceneStyle: { backgroundColor: c.surface },
+            animation: swipeTabs && !reducedMotion ? 'shift' : 'none',
+            sceneStyle: {
+              backgroundColor: c.surface,
+              paddingBottom: swipeTabs ? insets.bottom : 0,
+            },
             headerShown: false,
             tabBarActiveTintColor: c.primary,
             tabBarInactiveTintColor: c.onSurfaceVariant,
             tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
-            tabBarStyle: desktop
-              ? { display: 'none' }
-              : {
-                  backgroundColor: c.surfaceDim,
-                  borderTopColor: c.outlineVariant,
-                  paddingTop: 8,
-                  height: 78,
-                  paddingBottom: 12,
-                },
+            tabBarStyle:
+              desktop || swipeTabs
+                ? { display: 'none' }
+                : {
+                    backgroundColor: c.surfaceDim,
+                    borderTopColor: c.outlineVariant,
+                    paddingTop: 6,
+                    // Keep labels clear of the Android navigation bar / iOS home indicator.
+                    height: 56 + Math.max(8, insets.bottom),
+                    paddingBottom: Math.max(8, insets.bottom),
+                  },
           }}>
           <Tabs.Screen name="sync" options={{ href: null }} />
           {routes.map((r) => (
@@ -163,7 +204,7 @@ export default function TabLayout() {
               options={{
                 title: r.label,
                 tabBarLabel: r.name === 'notes' ? 'Notes' : r.label,
-                tabBarIcon: ({ color }) => <Ionicons name={r.icon} color={color} size={22} />,
+                tabBarIcon: ({ color }) => <Ionicons name={r.icon} color={color} size={20} />,
               }}
             />
           ))}

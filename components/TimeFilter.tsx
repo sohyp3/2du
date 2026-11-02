@@ -17,9 +17,11 @@ export function TimeFilter() {
   const c = useColors(),
     fonts = useFontFamily();
   return (
-    <View style={{ gap: 12, marginBottom: 12 }}>
+    <View style={{ gap: 6, marginBottom: 4 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <Text style={{ flex: 1, color: c.onSurface, fontFamily: fonts.medium, fontSize: 18 }}>
+        <Text
+          accessibilityRole="header"
+          style={{ flex: 1, color: c.onSurface, fontFamily: fonts.medium, fontSize: 16 }}>
           {getFilterLabel(period, referenceDate)}
         </Text>
         {(['prev', 'next'] as const).map((dir) => (
@@ -29,8 +31,8 @@ export function TimeFilter() {
             accessibilityLabel={dir === 'prev' ? 'Previous period' : 'Next period'}
             onPress={() => navigatePeriod(dir)}
             style={{
-              width: 44,
-              minHeight: 44,
+              width: 38,
+              minHeight: 38,
               borderRadius: 8,
               alignItems: 'center',
               justifyContent: 'center',
@@ -46,7 +48,7 @@ export function TimeFilter() {
         <PressFeedback
           accessibilityRole="button"
           onPress={goToToday}
-          style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
+          style={{ minHeight: 38, paddingHorizontal: 10, justifyContent: 'center' }}>
           <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>Today</Text>
         </PressFeedback>
       </View>
@@ -62,8 +64,8 @@ export function TimeFilter() {
           style={{
             flexDirection: 'row',
             backgroundColor: c.surfaceContainer,
-            padding: 4,
-            borderRadius: 10,
+            padding: 3,
+            borderRadius: 9,
           }}>
           {(['day', 'week', 'month'] as FilterPeriod[]).map((p) => (
             <PressFeedback
@@ -72,8 +74,8 @@ export function TimeFilter() {
               accessibilityState={{ selected: period === p }}
               onPress={() => setPeriod(p)}
               style={{
-                minHeight: 40,
-                paddingHorizontal: 18,
+                minHeight: 32,
+                paddingHorizontal: 14,
                 borderRadius: 7,
                 justifyContent: 'center',
                 backgroundColor: period === p ? c.surfaceContainerHighest : 'transparent',
@@ -99,8 +101,8 @@ export function TimeFilter() {
             )
           }
           style={{
-            minHeight: 44,
-            paddingHorizontal: 10,
+            minHeight: 38,
+            paddingHorizontal: 8,
             flexDirection: 'row',
             gap: 8,
             alignItems: 'center',

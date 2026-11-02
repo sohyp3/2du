@@ -29,7 +29,7 @@ Local Android production build:
 ```sh
 mkdir -p build/out
 eas build --profile production --platform android --local --output build/out/2du-1.0.1.aab
-./apk.sh # Extract a universal APK; install if ADB has a connected device.
+./apk.sh # Newest .aab (build/out/ or root build-*.aab) -> universal APK; installs if ADB sees a device.
 ```
 
 For an Android update, keep package `com.hyp3.x2du` and the original signing key. EAS manages the Android version code remotely and increments it for production builds. Install updates over the existing app to retain its local data.

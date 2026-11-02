@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { entities, fields } from '../shared/records';
 import { Platform } from 'react-native';
-import { databaseStartupMessage } from './initializationError';
+import { DATABASE_LOCKED, databaseStartupMessage } from './initializationError';
 
 export let db: SQLite.SQLiteDatabase;
 
@@ -13,6 +13,20 @@ export class DatabaseError extends Error {
   ) {
     super(message);
     this.name = 'DatabaseError';
+  }
+}
+
+// On web, a page reload can start before the previous page's worker releases its
+// SQLite file lock. Wait briefly for it instead of failing immediately.
+async function openWithRetry(): Promise<SQLite.SQLiteDatabase> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await SQLite.openDatabaseAsync('2du.db');
+    } catch (error) {
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      if (Platform.OS !== 'web' || attempt >= 3 || !DATABASE_LOCKED.test(detail)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    }
   }
 }
 
@@ -30,7 +44,7 @@ export async function initDatabase(): Promise<void> {
           'This browser does not support local file storage. Try a current Chrome, Edge, Firefox, or Safari browser with storage enabled.'
         );
     }
-    db ??= await SQLite.openDatabaseAsync('2du.db');
+    db ??= await openWithRetry();
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS todos (
         id TEXT PRIMARY KEY,

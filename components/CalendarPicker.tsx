@@ -17,10 +17,10 @@ export function CalendarPicker({
     fonts = useFontFamily();
   return (
     <ScrollView
-      style={{ flexGrow: 0, flexShrink: 0, maxHeight: 64 }}
+      style={{ flexGrow: 0, flexShrink: 0, maxHeight: 48 }}
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 8, paddingVertical: 8, alignItems: 'center' }}>
+      contentContainerStyle={{ gap: 6, paddingVertical: 4, alignItems: 'center' }}>
       {(all
         ? [{ id: '', name: 'All calendars', color: c.onSurfaceVariant }, ...calendars]
         : calendars
@@ -33,9 +33,9 @@ export function CalendarPicker({
             accessibilityState={{ selected: chosen }}
             onPress={() => (onChange || select)(item.id || null)}
             style={{
-              minHeight: 44,
-              paddingHorizontal: 14,
-              borderRadius: 12,
+              minHeight: 34,
+              paddingHorizontal: 12,
+              borderRadius: 10,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 8,
@@ -48,7 +48,7 @@ export function CalendarPicker({
               style={{
                 fontFamily: fonts.medium,
                 color: chosen ? c.onSurface : c.onSurfaceVariant,
-                fontSize: 13,
+                fontSize: 12,
               }}>
               {item.name}
             </Text>

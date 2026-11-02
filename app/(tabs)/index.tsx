@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTodoStore } from '@/store/todoStore';
 import { useNoteStore } from '@/store/noteStore';
@@ -27,6 +28,8 @@ export default function TasksScreen() {
     fonts = useFontFamily(),
     router = useRouter();
   const zen = useThemeStore((s) => s.zenMode);
+  const showGreeting = useThemeStore((s) => s.showGreeting);
+  const insets = useSafeAreaInsets();
   const wide = useWindowDimensions().width >= 1280;
   useEffect(() => {
     void loadTodos();
@@ -53,38 +56,34 @@ export default function TasksScreen() {
           style={{
             flex: 1,
             minWidth: 0,
-            paddingHorizontal: wide ? 48 : 24,
-            paddingTop: Platform.OS === 'web' ? 40 : 56,
+            paddingHorizontal: wide ? 40 : 16,
+            paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12,
           }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              marginBottom: 10,
-            }}>
-            <Text
-              accessibilityRole="header"
-              style={{
-                fontFamily: 'PlayfairDisplay_400Regular',
-                color: c.onSurface,
-                fontSize: wide ? 46 : 36,
-                letterSpacing: -1,
-              }}>
-              Make room for today.
-            </Text>
-          </View>
-          <Text
-            style={{
-              color: c.onSurfaceVariant,
-              fontFamily: fonts.regular,
-              fontSize: 14,
-              lineHeight: 22,
-              marginBottom: 28,
-            }}>
-            A place for what matters. One thing at a time.
-          </Text>
+          {showGreeting && (
+            <>
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontFamily: 'PlayfairDisplay_400Regular',
+                  color: c.onSurface,
+                  fontSize: wide ? 32 : 26,
+                  letterSpacing: -0.5,
+                  marginBottom: 4,
+                }}>
+                Make room for today.
+              </Text>
+              <Text
+                style={{
+                  color: c.onSurfaceVariant,
+                  fontFamily: fonts.regular,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  marginBottom: 14,
+                }}>
+                A place for what matters. One thing at a time.
+              </Text>
+            </>
+          )}
           <TimeFilter />
           <CalendarPicker />
           <View
@@ -92,10 +91,10 @@ export default function TasksScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginTop: 24,
-              marginBottom: 12,
+              marginTop: 8,
+              marginBottom: 2,
             }}>
-            <Text style={{ color: c.onSurface, fontFamily: fonts.medium, fontSize: 15 }}>
+            <Text style={{ color: c.onSurface, fontFamily: fonts.medium, fontSize: 13 }}>
               Your focus
             </Text>
             <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
@@ -115,16 +114,16 @@ export default function TasksScreen() {
             keyExtractor={(t) => t.id}
             renderItem={({ item }) => <TodoItem todo={item} />}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 24, flexGrow: 1 }}
+            contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
             ListEmptyComponent={
-              <View style={{ paddingVertical: 60, alignItems: 'center' }}>
-                <Ionicons name="sunny-outline" color={c.primary} size={32} />
+              <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                <Ionicons name="sunny-outline" color={c.primary} size={24} />
                 <Text
                   style={{
                     color: c.onSurface,
                     fontFamily: 'PlayfairDisplay_400Regular',
-                    fontSize: 26,
-                    marginTop: 18,
+                    fontSize: 18,
+                    marginTop: 10,
                   }}>
                   A little breathing room.
                 </Text>
@@ -132,41 +131,33 @@ export default function TasksScreen() {
                   style={{
                     color: c.onSurfaceVariant,
                     fontFamily: fonts.regular,
-                    fontSize: 14,
-                    marginTop: 10,
+                    fontSize: 13,
+                    marginTop: 6,
                     textAlign: 'center',
-                    lineHeight: 22,
+                    lineHeight: 19,
                   }}>
                   No tasks in this view. Add something below,{'\n'}or give yourself a moment.
                 </Text>
               </View>
             }
           />
-          <View style={{ paddingBottom: 20 }}>
+          <View style={{ paddingBottom: 10 }}>
             <QuickAdd />
-            <PressFeedback
-              accessibilityRole="button"
-              onPress={() => router.push('/add-todo')}
-              style={{ paddingTop: 12, minHeight: 44, alignItems: 'center' }}>
-              <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
-                Set a date, priority, or reminder
-              </Text>
-            </PressFeedback>
           </View>
         </View>
         {wide && !zen && (
           <View
             style={{
               width: 300,
-              paddingHorizontal: 28,
-              paddingTop: 48,
+              paddingHorizontal: 24,
+              paddingTop: 24,
               borderLeftWidth: 1,
               borderLeftColor: c.outlineVariant,
             }}>
             <Text
               style={{
                 fontFamily: 'PlayfairDisplay_400Regular',
-                fontSize: 26,
+                fontSize: 20,
                 color: c.onSurface,
               }}>
               On your mind
@@ -176,9 +167,9 @@ export default function TasksScreen() {
                 fontFamily: fonts.regular,
                 color: c.onSurfaceVariant,
                 fontSize: 13,
-                lineHeight: 21,
-                marginTop: 10,
-                marginBottom: 30,
+                lineHeight: 19,
+                marginTop: 4,
+                marginBottom: 12,
               }}>
               Loose thoughts, ready when you are.
             </Text>
@@ -188,7 +179,7 @@ export default function TasksScreen() {
                 accessibilityRole="button"
                 onPress={() => router.push(`/note/${n.id}`)}
                 style={{
-                  paddingVertical: 18,
+                  paddingVertical: 10,
                   borderBottomWidth: 1,
                   borderBottomColor: c.outlineVariant,
                 }}>
@@ -203,8 +194,8 @@ export default function TasksScreen() {
                     fontFamily: fonts.regular,
                     color: c.onSurfaceVariant,
                     fontSize: 13,
-                    lineHeight: 21,
-                    marginTop: 8,
+                    lineHeight: 19,
+                    marginTop: 4,
                   }}>
                   {n.content || 'An idea waiting to happen.'}
                 </Text>

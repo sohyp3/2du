@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { useNoteStore } from '@/store/noteStore';
@@ -12,14 +13,16 @@ const SAVED_ENTER = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 const SAVED_EXIT = FadeOut.duration(140).reduceMotion(ReduceMotion.System);
 
 export default function NotesScreen() {
+  const insets = useSafeAreaInsets();
   const { notes, isLoading, error, loadNotes, addNote, togglePin, clearError } = useNoteStore();
   const theme = useThemeStore((s) => s.themeKey);
+  const showGreeting = useThemeStore((s) => s.showGreeting);
   const c = useColors(),
     fonts = useFontFamily(),
     router = useRouter();
   const { width } = useWindowDimensions();
   const desktop = width >= 1000;
-  const columns = width >= 1500 ? 3 : width >= 700 ? 2 : 1;
+  const columns = width >= 1500 ? 4 : width >= 1000 ? 3 : width >= 340 ? 2 : 1;
   const [query, setQuery] = useState(''),
     [pinnedOnly, setPinnedOnly] = useState(false);
   const [draft, setDraft] = useState(''),
@@ -101,30 +104,30 @@ export default function NotesScreen() {
       day: 'numeric',
     });
     return (
-      <View style={{ flex: 1, maxWidth: `${100 / columns}%`, padding: 8 }}>
+      <View style={{ flex: 1, maxWidth: `${100 / columns}%`, padding: 4 }}>
         <View
           testID="note-card"
           style={{
             flex: 1,
-            minHeight: 230,
+            minHeight: 120,
             backgroundColor: tone.surface,
             borderWidth: 1,
             borderColor: tone.outline,
-            borderRadius: 16,
+            borderRadius: 12,
           }}>
           <PressFeedback
             accessibilityRole="button"
             accessibilityLabel={`Open note ${item.title}`}
             onPress={() => router.push(`/note/${item.id}`)}
-            style={{ flex: 1, padding: 24, paddingBottom: 8 }}>
+            style={{ flex: 1, padding: 12, paddingBottom: 4 }}>
             <Text
               numberOfLines={2}
               style={{
                 color: tone.ink,
-                fontFamily: 'PlayfairDisplay_500Medium',
-                fontSize: 25,
-                lineHeight: 32,
-                marginBottom: 14,
+                fontFamily: fonts.medium,
+                fontSize: 15,
+                lineHeight: 20,
+                marginBottom: 4,
               }}>
               {item.title}
             </Text>
@@ -133,8 +136,8 @@ export default function NotesScreen() {
               style={{
                 color: tone.muted,
                 fontFamily: fonts.regular,
-                fontSize: 14,
-                lineHeight: 23,
+                fontSize: 12,
+                lineHeight: 17,
               }}>
               {preview || 'An idea with room to grow. Open it and keep going.'}
             </Text>
@@ -144,16 +147,16 @@ export default function NotesScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              paddingLeft: 24,
-              paddingRight: 12,
-              paddingBottom: 12,
+              paddingLeft: 12,
+              paddingRight: 2,
+              paddingBottom: 2,
               gap: 8,
             }}>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <View
                 style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: tone.accent }}
               />
-              <Text style={{ color: tone.muted, fontFamily: fonts.regular, fontSize: 12 }}>
+              <Text style={{ color: tone.muted, fontFamily: fonts.regular, fontSize: 11 }}>
                 {date}
               </Text>
             </View>
@@ -163,12 +166,12 @@ export default function NotesScreen() {
               accessibilityState={{ selected: item.pinned }}
               onPress={() => togglePin(item.id)}
               style={{
-                minHeight: 44,
-                minWidth: 44,
+                minHeight: 36,
+                minWidth: 36,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-              <Ionicons name={item.pinned ? 'pin' : 'pin-outline'} size={17} color={tone.accent} />
+              <Ionicons name={item.pinned ? 'pin' : 'pin-outline'} size={15} color={tone.accent} />
             </PressFeedback>
           </View>
         </View>
@@ -189,28 +192,28 @@ export default function NotesScreen() {
           width: '100%',
           maxWidth: 1280,
           alignSelf: 'center',
-          paddingHorizontal: desktop ? 40 : 16,
-          paddingTop: Platform.OS === 'web' ? 40 : 56,
+          paddingHorizontal: desktop ? 32 : 12,
+          paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12,
           paddingBottom: 40,
         }}
         ListHeaderComponent={
-          <View style={{ paddingHorizontal: 8 }}>
+          <View style={{ paddingHorizontal: 4 }}>
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 12,
-                marginBottom: 12,
+                marginBottom: 8,
               }}>
               <Text
                 accessibilityRole="header"
                 style={{
                   color: c.onSurface,
                   fontFamily: 'PlayfairDisplay_400Regular',
-                  fontSize: desktop ? 46 : 36,
+                  fontSize: desktop ? 30 : 24,
                   flexShrink: 1,
-                  letterSpacing: -1,
+                  letterSpacing: -0.5,
                 }}>
                 Notes & thoughts<Text style={{ color: c.primary }}>.</Text>
               </Text>
@@ -222,9 +225,9 @@ export default function NotesScreen() {
                   flexDirection: 'row',
                   gap: 10,
                   alignItems: 'center',
-                  minHeight: 48,
-                  paddingHorizontal: desktop ? 18 : 0,
-                  width: desktop ? undefined : 48,
+                  minHeight: 40,
+                  paddingHorizontal: desktop ? 14 : 0,
+                  width: desktop ? undefined : 40,
                   flexShrink: 0,
                   justifyContent: 'center',
                   borderRadius: 12,
@@ -238,48 +241,52 @@ export default function NotesScreen() {
                 )}
               </PressFeedback>
             </View>
-            <Text
-              style={{
-                color: c.onSurfaceVariant,
-                fontFamily: fonts.regular,
-                fontSize: 15,
-                lineHeight: 24,
-                marginBottom: 32,
-              }}>
-              Good ideas start as little thoughts. Make yourself at home.
-            </Text>
+            {showGreeting && (
+              <Text
+                style={{
+                  color: c.onSurfaceVariant,
+                  fontFamily: fonts.regular,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  marginBottom: 12,
+                }}>
+                Good ideas start as little thoughts. Make yourself at home.
+              </Text>
+            )}
             <View
               style={{
                 backgroundColor: '#eae3d4',
-                borderRadius: 16,
-                padding: desktop ? 28 : 20,
-                marginBottom: 28,
+                borderRadius: 12,
+                padding: desktop ? 16 : 12,
+                marginBottom: 12,
                 flexDirection: desktop ? 'row' : 'column',
-                gap: desktop ? 36 : 12,
+                gap: desktop ? 20 : 6,
               }}>
-              <View style={{ width: desktop ? 200 : undefined }}>
-                <Text
-                  style={{
-                    color: '#342c20',
-                    fontFamily: 'PlayfairDisplay_400Regular',
-                    fontSize: width < 700 ? 24 : 28,
-                    lineHeight: 36,
-                  }}>
-                  Leave it here.
-                </Text>
-                {width >= 700 && (
+              {showGreeting && (
+                <View style={{ width: desktop ? 200 : undefined }}>
                   <Text
                     style={{
-                      color: '#695d49',
-                      fontFamily: fonts.regular,
-                      fontSize: 13,
-                      lineHeight: 21,
-                      marginTop: 8,
+                      color: '#342c20',
+                      fontFamily: 'PlayfairDisplay_400Regular',
+                      fontSize: 20,
+                      lineHeight: 26,
                     }}>
-                    A passing idea, a tiny plan,{'\n'}something to come back to.
+                    Leave it here.
                   </Text>
-                )}
-              </View>
+                  {width >= 700 && (
+                    <Text
+                      style={{
+                        color: '#695d49',
+                        fontFamily: fonts.regular,
+                        fontSize: 13,
+                        lineHeight: 21,
+                        marginTop: 8,
+                      }}>
+                      A passing idea, a tiny plan,{'\n'}something to come back to.
+                    </Text>
+                  )}
+                </View>
+              )}
               <View style={{ flex: desktop ? 1 : undefined, minWidth: 0 }}>
                 <TextInput
                   ref={input}
@@ -293,9 +300,9 @@ export default function NotesScreen() {
                   style={{
                     color: '#342c20',
                     fontFamily: fonts.regular,
-                    fontSize: 17,
-                    lineHeight: 27,
-                    minHeight: desktop ? 76 : 60,
+                    fontSize: 14,
+                    lineHeight: 20,
+                    minHeight: 44,
                     padding: 0,
                     textAlignVertical: 'top',
                   }}
@@ -307,7 +314,7 @@ export default function NotesScreen() {
                     gap: 12,
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginTop: 16,
+                    marginTop: 6,
                   }}>
                   <View style={{ flex: 1, minWidth: 120, minHeight: 24, justifyContent: 'center' }}>
                     {saved ? (
@@ -334,9 +341,9 @@ export default function NotesScreen() {
                     disabled={!draft.trim() || saving}
                     onPress={saveThought}
                     style={{
-                      minHeight: 44,
-                      paddingHorizontal: 16,
-                      borderRadius: 10,
+                      minHeight: 36,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
                       backgroundColor: '#342c20',
                       opacity: !draft.trim() || saving ? 0.5 : 1,
                       flexDirection: 'row',
@@ -369,10 +376,10 @@ export default function NotesScreen() {
               style={{
                 flexDirection: 'row',
                 flexWrap: 'wrap',
-                gap: 16,
+                gap: 8,
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: 16,
+                marginBottom: 4,
               }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 {[
@@ -388,9 +395,9 @@ export default function NotesScreen() {
                       flexDirection: 'row',
                       gap: 8,
                       alignItems: 'center',
-                      minHeight: 44,
-                      paddingHorizontal: 14,
-                      borderRadius: 10,
+                      minHeight: 34,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
                       backgroundColor:
                         pinnedOnly === tab.pinned ? c.surfaceContainerHigh : 'transparent',
                     }}>

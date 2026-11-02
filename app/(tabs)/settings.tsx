@@ -19,6 +19,7 @@ import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore'
 import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarStore } from '@/store/calendarStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { exportData, importData, ImportExportError } from '@/db/importExport';
 import { useTodoStore } from '@/store/todoStore';
 import { useNoteStore } from '@/store/noteStore';
@@ -29,14 +30,15 @@ export default function SettingsScreen() {
   const router = useRouter();
   const c = useColors();
   const fonts = useFontFamily();
+  const insets = useSafeAreaInsets();
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.surface }}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{
-        paddingHorizontal: 24,
-        paddingTop: 56,
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12,
         paddingBottom: 120,
         maxWidth: 840,
         width: '100%',
@@ -44,15 +46,16 @@ export default function SettingsScreen() {
       }}>
       <Text
         accessibilityRole="header"
-        style={{ fontFamily: 'PlayfairDisplay_400Regular', color: c.onSurface, fontSize: 36 }}>
+        style={{ fontFamily: 'PlayfairDisplay_400Regular', color: c.onSurface, fontSize: 26 }}>
         Settings
       </Text>
       <Text
         style={{
           color: c.onSurfaceVariant,
           fontFamily: fonts.regular,
-          marginTop: 12,
-          lineHeight: 22,
+          marginTop: 4,
+          fontSize: 13,
+          lineHeight: 18,
         }}>
         Make this space your own.
       </Text>
@@ -63,8 +66,8 @@ export default function SettingsScreen() {
           backgroundColor: c.surfaceContainer,
           padding: 4,
           borderRadius: 14,
-          marginTop: 28,
-          marginBottom: 32,
+          marginTop: 16,
+          marginBottom: 20,
           gap: 4,
         }}>
         {(['general', 'sync', 'agent'] as const).map((item) => (
@@ -75,7 +78,7 @@ export default function SettingsScreen() {
             onPress={() => router.setParams({ tab: item })}
             style={{
               flex: 1,
-              minHeight: 48,
+              minHeight: 38,
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: 10,
@@ -134,6 +137,8 @@ function GeneralSettings() {
   const setDebugMode = useThemeStore((s) => s.setDebugMode);
   const zenMode = useThemeStore((s) => s.zenMode);
   const setZenMode = useThemeStore((s) => s.setZenMode);
+  const showGreeting = useThemeStore((s) => s.showGreeting);
+  const setShowGreeting = useThemeStore((s) => s.setShowGreeting);
   const themeLoading = useThemeStore((s) => s.isLoading);
   const [showPlusPrompt, setShowPlusPrompt] = useState(false);
   const [plusPassword, setPlusPassword] = useState('');
@@ -310,6 +315,35 @@ function GeneralSettings() {
       <Text
         style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
         className="mb-3 text-xs uppercase tracking-[3px]">
+        Layout
+      </Text>
+
+      <View style={{ backgroundColor: c.surfaceContainer }} className="mb-8 rounded-xl p-4">
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-1">
+            <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+              Screen greetings
+            </Text>
+            <Text
+              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
+              className="mt-1 text-xs">
+              Show the headings and taglines on Tasks, Calendar, and Notes
+            </Text>
+          </View>
+          <Switch
+            accessibilityLabel="Show screen greetings"
+            value={showGreeting}
+            onValueChange={setShowGreeting}
+            disabled={themeLoading}
+            trackColor={{ false: c.outlineVariant, true: c.primary }}
+            thumbColor={showGreeting ? c.onPrimary : c.surfaceContainerHighest}
+          />
+        </View>
+      </View>
+
+      <Text
+        style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+        className="mb-3 text-xs uppercase tracking-[3px]">
         Calendar
       </Text>
 
@@ -404,7 +438,7 @@ function GeneralSettings() {
 
       {debugMode && (
         <View style={{ backgroundColor: c.surfaceContainer }} className="mb-4 rounded-xl p-4">
-          <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1">
               <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
                 Zen Mode
@@ -412,10 +446,11 @@ function GeneralSettings() {
               <Text
                 style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
                 className="mt-1 text-xs">
-                Hide the contextual notes rail on desktop
+                Hide the tab bar and swipe left or right to move between tabs
               </Text>
             </View>
             <Switch
+              accessibilityLabel="Zen mode"
               value={zenMode}
               onValueChange={async (v) => {
                 await setZenMode(v);

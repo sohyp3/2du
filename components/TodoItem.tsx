@@ -9,6 +9,7 @@ import { useCalendarStore } from '@/store/calendarStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
+import { playTing } from '@/utils/ting';
 export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
   const toggle = useTodoStore((s) => s.toggleComplete),
     period = useTodoStore((s) => s.period);
@@ -27,18 +28,21 @@ export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
         alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: c.outlineVariant,
-        paddingVertical: 14,
-        gap: 12,
+        paddingVertical: 6,
+        gap: 6,
       }}>
       <PressFeedback
         accessibilityRole="checkbox"
         accessibilityLabel={`Complete ${todo.name}`}
         accessibilityState={{ checked: done }}
-        onPress={() => toggle(todo.id)}
-        style={{ width: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+        onPress={() => {
+          if (!done) void playTing();
+          void toggle(todo.id);
+        }}
+        style={{ width: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons
           name={done ? 'checkmark-circle' : 'ellipse-outline'}
-          size={24}
+          size={22}
           color={done ? c.primary : c.outline}
         />
       </PressFeedback>
@@ -46,20 +50,20 @@ export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
         accessibilityRole="button"
         accessibilityLabel={`Edit ${todo.name}`}
         onPress={() => router.push(`/todo/${todo.id}`)}
-        style={{ flex: 1, minWidth: 0, minHeight: 48, justifyContent: 'center' }}>
+        style={{ flex: 1, minWidth: 0, minHeight: 40, justifyContent: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text
             style={{
               flex: 1,
               fontFamily: fonts.medium,
-              fontSize: 16,
-              lineHeight: 24,
+              fontSize: 15,
+              lineHeight: 20,
               color: done ? c.onSurfaceVariant : c.onSurface,
               textDecorationLine: done ? 'line-through' : 'none',
             }}>
             {todo.name}
           </Text>
-          {todo.priority === 'urgent' && <Ionicons name="flag-outline" size={15} color={c.error} />}
+          {todo.priority === 'urgent' && <Ionicons name="flag-outline" size={14} color={c.error} />}
         </View>
         {todo.description ? (
           <Text
@@ -67,13 +71,14 @@ export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
             style={{
               fontFamily: fonts.regular,
               color: c.onSurfaceVariant,
-              fontSize: 13,
-              marginTop: 4,
+              fontSize: 12,
+              lineHeight: 16,
+              marginTop: 2,
             }}>
             {todo.description}
           </Text>
         ) : null}
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 }}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 2 }}>
           <View
             style={{
               width: 5,
@@ -82,7 +87,9 @@ export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
               backgroundColor: calendar?.color || c.primary,
             }}
           />
-          <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 }}>
+          <Text
+            numberOfLines={1}
+            style={{ flex: 1, fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 11 }}>
             {calendar?.name || 'Daily tasks'} ·{' '}
             {formatTodoMeta(todo.datetime, period, timeFormat === '24h')}
             {todo.time_needed ? ` · ${todo.time_needed}m` : ''}

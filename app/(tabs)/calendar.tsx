@@ -3,8 +3,17 @@ import { CalendarPicker } from '@/components/CalendarPicker';
 import { useCalendarsStore } from '@/store/calendarsStore';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { getTodosByDateRange, Todo } from '@/db/todos';
@@ -18,6 +27,8 @@ import {
 import { useTodoStore } from '@/store/todoStore';
 import { useCalendarStore } from '@/store/calendarStore';
 import { DatabaseError } from '@/db/database';
+import { playTing } from '@/utils/ting';
+import { useThemeStore } from '@/store/themeStore';
 
 type CalendarView = 'day' | 'week' | 'month';
 
@@ -80,6 +91,8 @@ function formatHour(hour: number, is24h: boolean) {
 }
 
 export default function CalendarScreen() {
+  const insets = useSafeAreaInsets();
+  const showGreeting = useThemeStore((st) => st.showGreeting);
   const c = useColors();
   const fonts = useFontFamily();
   const router = useRouter();
@@ -223,19 +236,21 @@ export default function CalendarScreen() {
         width: '100%',
         alignSelf: 'center',
       }}>
-      <View className="px-6 pt-12">
-        <Text
-          accessibilityRole="header"
-          style={{
-            fontFamily: 'PlayfairDisplay_400Regular',
-            color: c.onSurface,
-            fontSize: 36,
-            marginBottom: 10,
-          }}>
-          A view of what’s ahead.
-        </Text>
+      <View className="px-4" style={{ paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12 }}>
+        {showGreeting && (
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontFamily: 'PlayfairDisplay_400Regular',
+              color: c.onSurface,
+              fontSize: 26,
+              marginBottom: 6,
+            }}>
+            A view of what’s ahead.
+          </Text>
+        )}
         <CalendarPicker />
-        <View style={{ minHeight: 24, justifyContent: 'center' }}>
+        <View style={{ minHeight: 16, justifyContent: 'center' }}>
           {error ? (
             <Pressable accessibilityRole="button" onPress={loadData}>
               <Text accessibilityRole="alert" style={{ color: c.error, fontFamily: fonts.regular }}>
@@ -250,7 +265,7 @@ export default function CalendarScreen() {
             </Text>
           ) : null}
         </View>
-        <View style={{ marginTop: 12, marginBottom: 16, gap: 12 }}>
+        <View style={{ marginTop: 2, marginBottom: 8, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{ flex: 1, color: c.onSurface, fontFamily: fonts.medium, fontSize: 16 }}>
               {headerLabel}
@@ -264,8 +279,8 @@ export default function CalendarScreen() {
                 }
                 onPress={() => navigate(dir)}
                 style={{
-                  minWidth: 48,
-                  minHeight: 48,
+                  minWidth: 38,
+                  minHeight: 38,
                   alignItems: 'center',
                   justifyContent: 'center',
                   backgroundColor: c.surfaceContainer,
@@ -286,7 +301,7 @@ export default function CalendarScreen() {
                 flexDirection: 'row',
                 backgroundColor: c.surfaceContainer,
                 borderRadius: 10,
-                padding: 4,
+                padding: 3,
               }}>
               {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
                 <Pressable
@@ -298,7 +313,7 @@ export default function CalendarScreen() {
                   onPress={() => setView(v)}
                   style={{
                     flex: 1,
-                    minHeight: 48,
+                    minHeight: 32,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: view === v ? c.surfaceContainerHighest : 'transparent',
@@ -320,7 +335,7 @@ export default function CalendarScreen() {
               accessibilityRole="button"
               accessibilityLabel="Go to today"
               onPress={() => setSelectedDate(new Date())}
-              style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: 'center' }}>
+              style={{ minHeight: 38, paddingHorizontal: 10, justifyContent: 'center' }}>
               <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>
                 Today
               </Text>
@@ -455,7 +470,7 @@ function MonthView({
                   })}
                   accessibilityState={{ selected: isSameDay(day, selectedDate) }}
                   aria-selected={isSameDay(day, selectedDate)}
-                  style={{ minHeight: 48 }}
+                  style={{ minHeight: 40 }}
                   onPress={() => onSelectDate(day)}
                   className="flex-1 items-center p-1">
                   <View
@@ -624,7 +639,7 @@ function WeekView({
                         accessibilityLabel={`Open ${t.name}`}
                         onPress={() => onTodoPress(t.id)}
                         style={{
-                          minHeight: 48,
+                          minHeight: 28,
                           backgroundColor: isCompleted
                             ? c.surfaceContainerHigh
                             : c.primaryContainer,
@@ -691,8 +706,8 @@ function DayView({
         return (
           <View
             className="flex-row border-b py-1"
-            style={{ borderColor: c.outlineVariant, minHeight: 48 }}>
-            <View className="w-16 items-end pr-3 pt-1">
+            style={{ borderColor: c.outlineVariant, minHeight: 40 }}>
+            <View className="w-14 items-end pr-3 pt-1">
               <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-xs">
                 {formatHour(hour, timeFormat === '24h')}
               </Text>
@@ -707,10 +722,10 @@ function DayView({
                     accessibilityLabel={`Open ${t.name}`}
                     onPress={() => onTodoPress(t.id)}
                     style={{
-                      minHeight: 48,
+                      minHeight: 36,
                       backgroundColor: isCompleted ? c.surfaceContainerLow : c.primaryContainer,
                     }}
-                    className="mb-1 rounded-md px-3 py-2">
+                    className="mb-1 rounded-md px-2.5 py-1.5">
                     <Text
                       style={{
                         fontFamily: fonts.medium,
@@ -760,20 +775,23 @@ function TodoRow({
         backgroundColor: c.surfaceContainer,
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 10,
-        marginBottom: 8,
-        paddingHorizontal: 4,
+        borderRadius: 8,
+        marginBottom: 4,
+        paddingHorizontal: 2,
       }}>
       <Pressable
         accessibilityRole="checkbox"
         accessibilityLabel={`Complete ${todo.name}`}
         accessibilityState={{ checked: isCompleted }}
         aria-checked={isCompleted}
-        onPress={() => toggleComplete(todo.id)}
-        style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+        onPress={() => {
+          if (!isCompleted) void playTing();
+          toggleComplete(todo.id);
+        }}
+        style={{ minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons
           name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-          size={24}
+          size={22}
           color={isCompleted ? c.primary : c.outline}
         />
       </Pressable>
@@ -784,12 +802,12 @@ function TodoRow({
         style={{
           flex: 1,
           minWidth: 0,
-          minHeight: 48,
+          minHeight: 40,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 12,
-          paddingVertical: 12,
-          paddingRight: 12,
+          gap: 8,
+          paddingVertical: 8,
+          paddingRight: 10,
         }}>
         <Text
           style={{
@@ -798,7 +816,7 @@ function TodoRow({
             color: isCompleted ? c.onSurfaceVariant : c.onSurface,
             textDecorationLine: isCompleted ? 'line-through' : 'none',
             fontSize: 14,
-            lineHeight: 22,
+            lineHeight: 19,
           }}>
           {todo.name}
         </Text>

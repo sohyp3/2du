@@ -31,6 +31,10 @@ import { useTodoStore } from '@/store/todoStore';
 import { useThemeStore, THEME_COLORS } from '@/store/themeStore';
 import { useCalendarStore } from '@/store/calendarStore';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { preloadTing } from '@/utils/ting';
+import { DATABASE_LOCKED } from '@/db/initializationError';
+
+const LOCK_RELOAD_KEY = '2du-lock-reload';
 
 export default function Layout() {
   const reducedMotion = useReducedMotion();
@@ -64,6 +68,7 @@ export default function Layout() {
 
         // Initialize database first
         await initDatabase();
+        if (Platform.OS === 'web') sessionStorage.removeItem(LOCK_RELOAD_KEY);
 
         // Then setup other services in parallel
         await Promise.all([
@@ -77,6 +82,19 @@ export default function Layout() {
 
         setIsInitializing(false);
       } catch (error) {
+        // A reload can race the previous page's SQLite worker for the file lock, and a
+        // worker that lost that race stays unusable. Reload once before reporting it.
+        if (
+          Platform.OS === 'web' &&
+          error instanceof DatabaseError &&
+          error.originalError &&
+          DATABASE_LOCKED.test(`${error.originalError.name}: ${error.originalError.message}`) &&
+          !sessionStorage.getItem(LOCK_RELOAD_KEY)
+        ) {
+          sessionStorage.setItem(LOCK_RELOAD_KEY, '1');
+          setTimeout(() => window.location.reload(), 600);
+          return;
+        }
         const message =
           error instanceof DatabaseError
             ? error.message
@@ -124,6 +142,11 @@ export default function Layout() {
   useEffect(() => {
     if (!isInitializing && !initError) return startSync();
   }, [isInitializing, initError]);
+
+  useEffect(() => {
+    // Web browsers only allow audio after a user gesture, so load it lazily there.
+    if (Platform.OS !== 'web') preloadTing();
+  }, []);
 
   // Show initialization loading state
   if (isInitializing || !fontsLoaded) {
