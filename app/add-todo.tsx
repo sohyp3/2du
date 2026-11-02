@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
 import { Priority } from '@/db/todos';
@@ -39,6 +40,7 @@ export default function AddTodoScreen() {
 
   const addTodo = useTodoStore((s) => s.addTodo);
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
 
   const datetime = useMemo(() => {
     const d = new Date(selectedDate);
@@ -68,7 +70,8 @@ export default function AddTodoScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.surface }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      keyboardVerticalOffset={headerHeight}>
       <Stack.Screen options={{ title: 'New task' }} />
 
       <ScrollView

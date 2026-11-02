@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
 import { useCalendarStore } from '@/store/calendarStore';
@@ -25,6 +26,7 @@ import { DatabaseError } from '@/db/database';
 export default function TodoDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
   const updateTodoAction = useTodoStore((s) => s.updateTodo);
   const deleteTodoAction = useTodoStore((s) => s.deleteTodo);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
@@ -218,7 +220,8 @@ export default function TodoDetailScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.surface }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      keyboardVerticalOffset={headerHeight}>
       <Stack.Screen options={{ title: editing ? 'Edit' : '', headerBackTitle: 'Back' }} />
 
       <ScrollView

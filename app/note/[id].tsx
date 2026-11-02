@@ -193,7 +193,7 @@ export default function NoteScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: c.surface }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'web' ? undefined : 'padding'}>
         <View
           style={{
             width: '100%',

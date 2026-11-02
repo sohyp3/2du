@@ -43,7 +43,9 @@ export default function TasksScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.surface }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      // Android is edge-to-edge (Expo 54), so the window no longer resizes for the
+      // keyboard; pad on both platforms so the quick-add input rides up with it.
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}>
       <View
         style={{
           flex: 1,
