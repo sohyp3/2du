@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { CalendarPicker } from '@/components/CalendarPicker';
 import { useCalendarsStore } from '@/store/calendarsStore';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Platform,
@@ -29,6 +29,7 @@ import { useCalendarStore } from '@/store/calendarStore';
 import { DatabaseError } from '@/db/database';
 import { playTing } from '@/utils/ting';
 import { useThemeStore } from '@/store/themeStore';
+import { useSyncStore } from '@/store/syncStore';
 
 type CalendarView = 'day' | 'week' | 'month';
 
@@ -99,6 +100,7 @@ export default function CalendarScreen() {
   const selectedCalendar = useCalendarsStore((s) => s.selected);
   const isFocused = useIsFocused();
   const revision = useCalendarsStore((s) => s.revision);
+  const syncRevision = useSyncStore((s) => s.revision);
   const filterTasks = useCallback(
     (items: Todo[]) =>
       items.filter((t) => !selectedCalendar || (t.calendar_id || 'daily') === selectedCalendar),
@@ -162,17 +164,19 @@ export default function CalendarScreen() {
     }
   }, [startISO, endISO, filterTasks]);
 
-  const toggleComplete = useCallback(
-    async (id: string) => {
-      await useTodoStore.getState().toggleComplete(id);
-      await loadData();
-    },
-    [loadData]
-  );
+  // Flip the checkbox immediately; the store persists it and reverts on failure.
+  const toggleComplete = useCallback(async (id: string) => {
+    const flip = (t: Todo): Todo =>
+      t.id === id ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' } : t;
+    setRangeTodos((items) => items.map(flip));
+    if (!(await useTodoStore.getState().toggleComplete(id)))
+      setRangeTodos((items) => items.map(flip));
+  }, []);
+  const openTodo = useCallback((id: string) => router.push(`/todo/${id}`), [router]);
 
   useEffect(() => {
     if (isFocused) void loadData();
-  }, [loadData, revision, isFocused]);
+  }, [loadData, revision, syncRevision, isFocused]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -257,7 +261,7 @@ export default function CalendarScreen() {
                 {error} · Retry
               </Text>
             </Pressable>
-          ) : isLoading ? (
+          ) : isLoading && !rangeTodos.length ? (
             <Text
               accessibilityLiveRegion="polite"
               style={{ color: c.onSurfaceVariant, fontSize: 12 }}>
@@ -352,8 +356,8 @@ export default function CalendarScreen() {
           monthCounts={monthCounts}
           todos={todos}
           timeFormat={timeFormat}
-          onSelectDate={(d) => setSelectedDate(d)}
-          onTodoPress={(id) => router.push(`/todo/${id}`)}
+          onSelectDate={setSelectedDate}
+          onTodoPress={openTodo}
           toggleComplete={toggleComplete}
           refreshing={refreshing}
           onRefresh={onRefresh}
@@ -369,7 +373,7 @@ export default function CalendarScreen() {
           todosByHour={todosByHour}
           timeFormat={timeFormat}
           dayViewStartHour={dayViewStartHour}
-          onTodoPress={(id) => router.push(`/todo/${id}`)}
+          onTodoPress={openTodo}
           refreshing={refreshing}
           onRefresh={onRefresh}
           c={c}
@@ -382,7 +386,7 @@ export default function CalendarScreen() {
           selectedDate={selectedDate}
           todosByHour={todosByHour}
           timeFormat={timeFormat}
-          onTodoPress={(id) => router.push(`/todo/${id}`)}
+          onTodoPress={openTodo}
           dayViewStartHour={dayViewStartHour}
           refreshing={refreshing}
           onRefresh={onRefresh}
@@ -423,11 +427,6 @@ function MonthView({
   c: ReturnType<typeof useColors>;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
-  const weeks = useMemo(
-    () => getMonthGrid(selectedDate.getFullYear(), selectedDate.getMonth()),
-    [selectedDate]
-  );
-
   return (
     <ScrollView
       className="flex-1"
@@ -448,66 +447,14 @@ function MonthView({
         ))}
       </View>
 
-      {/* Grid */}
-      <View className="px-4">
-        {weeks.map((week, wi) => (
-          <View key={wi} className="flex-row">
-            {week.map((day, di) => {
-              if (!day) return <View key={di} className="flex-1 p-1" />;
-              const key = toDateKey(day);
-              const count = monthCounts[key] || 0;
-              const isToday = isSameDay(day, today);
-              const isSelected = isSameDay(day, selectedDate);
-              return (
-                <Pressable
-                  key={di}
-                  accessibilityRole="button"
-                  accessibilityLabel={day.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                  accessibilityState={{ selected: isSameDay(day, selectedDate) }}
-                  aria-selected={isSameDay(day, selectedDate)}
-                  style={{ minHeight: 40 }}
-                  onPress={() => onSelectDate(day)}
-                  className="flex-1 items-center p-1">
-                  <View
-                    style={[
-                      isSelected
-                        ? { backgroundColor: c.primary }
-                        : isToday
-                          ? { backgroundColor: c.surfaceContainerHigh }
-                          : undefined,
-                    ]}
-                    className="h-9 w-9 items-center justify-center rounded-full">
-                    <Text
-                      style={{
-                        fontFamily: isSelected || isToday ? fonts.bold : fonts.regular,
-                        color: isSelected ? c.onPrimary : isToday ? c.primary : c.onSurface,
-                      }}
-                      className="text-sm">
-                      {day.getDate()}
-                    </Text>
-                  </View>
-                  {count > 0 && (
-                    <View className="mt-0.5 flex-row gap-0.5">
-                      {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
-                        <View
-                          key={i}
-                          style={{ backgroundColor: c.primary }}
-                          className="h-1 w-1 rounded-full"
-                        />
-                      ))}
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </View>
+      <MonthGrid
+        selectedDate={selectedDate}
+        today={today}
+        monthCounts={monthCounts}
+        onSelectDate={onSelectDate}
+        c={c}
+        fonts={fonts}
+      />
 
       {/* Selected day's todos */}
       <View className="mt-2 px-4">
@@ -543,6 +490,87 @@ function MonthView({
     </ScrollView>
   );
 }
+
+const MonthGrid = memo(function MonthGrid({
+  selectedDate,
+  today,
+  monthCounts,
+  onSelectDate,
+  c,
+  fonts,
+}: {
+  selectedDate: Date;
+  today: Date;
+  monthCounts: Record<string, number>;
+  onSelectDate: (d: Date) => void;
+  c: ReturnType<typeof useColors>;
+  fonts: ReturnType<typeof useFontFamily>;
+}) {
+  const year = selectedDate.getFullYear(),
+    month = selectedDate.getMonth();
+  const weeks = useMemo(() => getMonthGrid(year, month), [year, month]);
+  return (
+    <View className="px-4">
+      {weeks.map((week, wi) => (
+        <View key={wi} className="flex-row">
+          {week.map((day, di) => {
+            if (!day) return <View key={di} className="flex-1 p-1" />;
+            const key = toDateKey(day);
+            const count = monthCounts[key] || 0;
+            const isToday = isSameDay(day, today);
+            const isSelected = isSameDay(day, selectedDate);
+            return (
+              <Pressable
+                key={di}
+                accessibilityRole="button"
+                accessibilityLabel={day.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+                accessibilityState={{ selected: isSelected }}
+                aria-selected={isSelected}
+                style={{ minHeight: 40 }}
+                onPress={() => onSelectDate(day)}
+                className="flex-1 items-center p-1">
+                <View
+                  style={[
+                    isSelected
+                      ? { backgroundColor: c.primary }
+                      : isToday
+                        ? { backgroundColor: c.surfaceContainerHigh }
+                        : undefined,
+                  ]}
+                  className="h-9 w-9 items-center justify-center rounded-full">
+                  <Text
+                    style={{
+                      fontFamily: isSelected || isToday ? fonts.bold : fonts.regular,
+                      color: isSelected ? c.onPrimary : isToday ? c.primary : c.onSurface,
+                    }}
+                    className="text-sm">
+                    {day.getDate()}
+                  </Text>
+                </View>
+                {count > 0 && (
+                  <View className="mt-0.5 flex-row gap-0.5">
+                    {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                      <View
+                        key={i}
+                        style={{ backgroundColor: c.primary }}
+                        className="h-1 w-1 rounded-full"
+                      />
+                    ))}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+});
 
 // ─── Week View ───────────────────────────────────────────
 

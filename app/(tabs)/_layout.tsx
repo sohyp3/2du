@@ -23,7 +23,9 @@ export default function TabLayout() {
     fonts = useFontFamily(),
     router = useRouter(),
     pathname = usePathname();
-  const { calendars, selected, select } = useCalendarsStore();
+  const calendars = useCalendarsStore((s) => s.calendars),
+    selected = useCalendarsStore((s) => s.selected),
+    select = useCalendarsStore((s) => s.select);
   const connected = useSyncStore((s) => !!s.token),
     syncError = useSyncStore((s) => s.error);
   const zenMode = useThemeStore((s) => s.zenMode);
@@ -176,6 +178,8 @@ export default function TabLayout() {
         <Tabs
           screenOptions={{
             animation: swipeTabs && !reducedMotion ? 'shift' : 'none',
+            // Hidden tabs stop re-rendering while another tab is in front.
+            freezeOnBlur: true,
             sceneStyle: {
               backgroundColor: c.surface,
               paddingBottom: swipeTabs ? insets.bottom : 0,

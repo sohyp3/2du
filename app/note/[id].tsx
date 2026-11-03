@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import Markdown from 'react-native-markdown-display';
 import { useNoteStore } from '@/store/noteStore';
 import { PressFeedback as Pressable } from '@/components/PressFeedback';
 import { useColors, useFontFamily } from '@/utils/theme';
+
+const paper = { surface: '#f1eadc', ink: '#342c20', muted: '#695d49', rule: '#d8cfbd' };
 
 export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -108,59 +110,62 @@ export default function NoteScreen() {
       ]);
   }, [id, deleteNote, router]);
 
-  const paper = { surface: '#f1eadc', ink: '#342c20', muted: '#695d49', rule: '#d8cfbd' };
-  const markdownStyles = {
-    body: { color: paper.ink, fontFamily: fonts.regular, fontSize: 17, lineHeight: 29 },
-    heading1: {
-      color: paper.ink,
-      fontFamily: 'PlayfairDisplay_500Medium',
-      fontSize: 32,
-      lineHeight: 40,
-      marginTop: 24,
-      marginBottom: 12,
-    },
-    heading2: {
-      color: paper.ink,
-      fontFamily: 'PlayfairDisplay_500Medium',
-      fontSize: 26,
-      lineHeight: 34,
-      marginTop: 20,
-      marginBottom: 10,
-    },
-    heading3: {
-      color: paper.ink,
-      fontFamily: fonts.medium,
-      fontSize: 20,
-      lineHeight: 28,
-      marginVertical: 12,
-    },
-    link: { color: '#426031', textDecorationLine: 'underline' as const },
-    blockquote: {
-      borderLeftColor: paper.rule,
-      borderLeftWidth: 1,
-      paddingLeft: 16,
-      backgroundColor: 'transparent',
-    },
-    code_inline: {
-      backgroundColor: '#e2dacb',
-      color: paper.ink,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 14,
-    },
-    fence: {
-      backgroundColor: '#e2dacb',
-      color: paper.ink,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 14,
-      padding: 16,
-      borderRadius: 8,
-    },
-    bullet_list_icon: { color: paper.muted },
-    ordered_list_icon: { color: paper.muted },
-    hr: { backgroundColor: paper.rule },
-    strong: { fontFamily: fonts.bold },
-    em: { fontStyle: 'italic' as const },
-  };
+  // Stable styles so the rendered markdown is not rebuilt on unrelated re-renders.
+  const markdownStyles = useMemo(
+    () => ({
+      body: { color: paper.ink, fontFamily: fonts.regular, fontSize: 17, lineHeight: 29 },
+      heading1: {
+        color: paper.ink,
+        fontFamily: 'PlayfairDisplay_500Medium',
+        fontSize: 32,
+        lineHeight: 40,
+        marginTop: 24,
+        marginBottom: 12,
+      },
+      heading2: {
+        color: paper.ink,
+        fontFamily: 'PlayfairDisplay_500Medium',
+        fontSize: 26,
+        lineHeight: 34,
+        marginTop: 20,
+        marginBottom: 10,
+      },
+      heading3: {
+        color: paper.ink,
+        fontFamily: fonts.medium,
+        fontSize: 20,
+        lineHeight: 28,
+        marginVertical: 12,
+      },
+      link: { color: '#426031', textDecorationLine: 'underline' as const },
+      blockquote: {
+        borderLeftColor: paper.rule,
+        borderLeftWidth: 1,
+        paddingLeft: 16,
+        backgroundColor: 'transparent',
+      },
+      code_inline: {
+        backgroundColor: '#e2dacb',
+        color: paper.ink,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontSize: 14,
+      },
+      fence: {
+        backgroundColor: '#e2dacb',
+        color: paper.ink,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontSize: 14,
+        padding: 16,
+        borderRadius: 8,
+      },
+      bullet_list_icon: { color: paper.muted },
+      ordered_list_icon: { color: paper.muted },
+      hr: { backgroundColor: paper.rule },
+      strong: { fontFamily: fonts.bold },
+      em: { fontStyle: 'italic' as const },
+    }),
+    [fonts]
+  );
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;
   const back = async () => {
     if (await flush()) {

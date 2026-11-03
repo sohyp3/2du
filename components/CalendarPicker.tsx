@@ -11,7 +11,9 @@ export function CalendarPicker({
   onChange?: (id: string | null) => void;
   all?: boolean;
 }) {
-  const { calendars, selected, select } = useCalendarsStore();
+  const calendars = useCalendarsStore((s) => s.calendars),
+    selected = useCalendarsStore((s) => s.selected),
+    select = useCalendarsStore((s) => s.select);
   const active = value === undefined ? selected : value;
   const c = useColors(),
     fonts = useFontFamily();

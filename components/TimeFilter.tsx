@@ -5,15 +5,13 @@ import { getFilterLabel, type FilterPeriod } from '@/utils/dates';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 export function TimeFilter() {
-  const {
-    period,
-    referenceDate,
-    statusFilter,
-    setPeriod,
-    setStatusFilter,
-    navigatePeriod,
-    goToToday,
-  } = useTodoStore();
+  const period = useTodoStore((s) => s.period),
+    referenceDate = useTodoStore((s) => s.referenceDate),
+    statusFilter = useTodoStore((s) => s.statusFilter),
+    setPeriod = useTodoStore((s) => s.setPeriod),
+    setStatusFilter = useTodoStore((s) => s.setStatusFilter),
+    navigatePeriod = useTodoStore((s) => s.navigatePeriod),
+    goToToday = useTodoStore((s) => s.goToToday);
   const c = useColors(),
     fonts = useFontFamily();
   return (

@@ -70,17 +70,23 @@ export default function Layout() {
         await initDatabase();
         if (Platform.OS === 'web') sessionStorage.removeItem(LOCK_RELOAD_KEY);
 
-        // Then setup other services in parallel
+        // Only what the first frame needs; everything else can finish after it paints.
         await Promise.all([
-          setupNotifications(),
           loadSettings(),
           loadCalendarSettings(),
           useCalendarsStore.getState().load(),
-          useNoteStore.getState().loadNotes(),
           useTodoStore.getState().loadSettings(),
         ]);
 
         setIsInitializing(false);
+
+        // Notifications and the note list are not needed to paint the UI. Notes still
+        // load right away (a note deep link may need them) but off the startup path;
+        // the Notes tab loads its own copy when opened.
+        void setupNotifications().catch((error) =>
+          console.error('Notification setup failed:', error)
+        );
+        void useNoteStore.getState().loadNotes();
       } catch (error) {
         // A reload can race the previous page's SQLite worker for the file lock, and a
         // worker that lost that race stays unusable. Reload once before reporting it.
@@ -234,14 +240,27 @@ export default function Layout() {
           <SafeAreaProvider>
             <Stack
               screenOptions={{
-                animation: reducedMotion ? 'fade' : 'default',
+                // Android 13+'s system default transition runs 450ms; the iOS-style slide
+                // is 200ms and feels much snappier. iOS keeps its native push.
+                animation: reducedMotion
+                  ? 'fade'
+                  : Platform.OS === 'android'
+                    ? 'ios_from_right'
+                    : 'default',
                 headerStyle: { backgroundColor: c.surfaceDim },
                 headerTintColor: c.primary,
                 headerTitleStyle: { color: c.onSurface },
                 contentStyle: { backgroundColor: c.surface },
               }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="add-todo" options={{ presentation: 'modal' }} />
+              <Stack.Screen
+                name="add-todo"
+                options={{
+                  presentation: 'modal',
+                  // Android's slide-from-bottom takes 400ms; a quick fade keeps it light.
+                  ...(Platform.OS === 'android' && { animation: 'fade' }),
+                }}
+              />
               <Stack.Screen name="todo/[id]" options={{ presentation: 'card' }} />
               <Stack.Screen
                 name="note/[id]"

@@ -17,6 +17,7 @@ import {
   snoozeTodoReminder,
 } from '@/utils/notifications';
 import { DatabaseError, getSetting, setSetting } from '@/db/database';
+import { reuseUnchanged } from '@/utils/reuse';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -43,7 +44,8 @@ interface TodoState {
 
   loadTodos: () => Promise<void>;
   addTodo: (params: AddTodoParams) => Promise<void>;
-  toggleComplete: (id: string) => Promise<void>;
+  /** Resolves false when the change could not be saved (and was reverted). */
+  toggleComplete: (id: string) => Promise<boolean>;
   updateTodo: (id: string, updates: Partial<Todo>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
   snoozeTodo: (id: string, minutes: number) => Promise<void>;
@@ -69,7 +71,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
       const { period, referenceDate, statusFilter } = get();
       const { start, end } = getDateRange(period, referenceDate);
       const todos = await getTodosByDateRange(start.toISOString(), end.toISOString(), statusFilter);
-      set({ todos, isLoading: false });
+      set((state) => ({ todos: reuseUnchanged(state.todos, todos), isLoading: false }));
     } catch (error) {
       const message = error instanceof DatabaseError ? error.message : 'Failed to load todos';
       set({ error: message, isLoading: false });
@@ -123,7 +125,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
 
   toggleComplete: async (id) => {
     const todo = get().todos.find((t) => t.id === id) ?? (await getTodoById(id));
-    if (!todo) return;
+    if (!todo) return false;
     const newStatus = todo.status === 'completed' ? 'pending' : 'completed';
 
     set((state) => ({
@@ -132,51 +134,58 @@ export const useTodoStore = create<TodoState>((set, get) => ({
 
     try {
       await updateTodo(id, { status: newStatus });
-
-      if (newStatus === 'completed') {
-        await cancelTodoReminders(id);
-      } else {
-        const refreshed = await getTodoById(id);
-        if (refreshed) await scheduleTodoReminders(refreshed);
-      }
     } catch (error) {
       set((state) => ({
         todos: state.todos.map((t) => (t.id === id ? { ...t, status: todo.status } : t)),
         error: error instanceof DatabaseError ? error.message : 'Failed to update todo',
       }));
       console.error('Error toggling complete:', error);
+      return false;
     }
+    const reminders =
+      newStatus === 'completed'
+        ? cancelTodoReminders(id)
+        : getTodoById(id).then((refreshed) => refreshed && scheduleTodoReminders(refreshed));
+    reminders.catch((e) => console.error('reminder update failed:', e));
+    return true;
   },
 
   updateTodo: async (id, updates) => {
-    set({ isLoading: true, error: null });
+    // Show the edit right away; persist and re-query in the background.
+    const previous = get().todos;
+    set((state) => ({
+      error: null,
+      todos: state.todos.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    }));
     try {
       await updateTodo(id, updates);
 
       // Reschedule if remind_me or datetime changed
       if (updates.remind_me !== undefined || updates.datetime !== undefined) {
-        await cancelTodoReminders(id);
-        const refreshed = await getTodoById(id);
-        if (refreshed && refreshed.remind_me) await scheduleTodoReminders(refreshed);
+        void (async () => {
+          await cancelTodoReminders(id);
+          const refreshed = await getTodoById(id);
+          if (refreshed && refreshed.remind_me) await scheduleTodoReminders(refreshed);
+        })().catch((e) => console.error('reminder reschedule failed:', e));
       }
 
       await get().loadTodos();
     } catch (error) {
       const message = error instanceof DatabaseError ? error.message : 'Failed to update todo';
-      set({ error: message, isLoading: false });
+      set({ todos: previous, error: message, isLoading: false });
       console.error('Error updating todo:', error);
     }
   },
 
   deleteTodo: async (id) => {
-    set({ isLoading: true, error: null });
+    const previous = get().todos;
+    set((state) => ({ error: null, todos: state.todos.filter((t) => t.id !== id) }));
     try {
-      await cancelTodoReminders(id);
       await deleteTodo(id);
-      await get().loadTodos();
+      cancelTodoReminders(id).catch((e) => console.error('reminder cancel failed:', e));
     } catch (error) {
       const message = error instanceof DatabaseError ? error.message : 'Failed to delete todo';
-      set({ error: message, isLoading: false });
+      set({ todos: previous, error: message });
       console.error('Error deleting todo:', error);
     }
   },

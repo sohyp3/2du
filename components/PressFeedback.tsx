@@ -1,44 +1,53 @@
-import { useState } from 'react';
 import { Platform, Pressable, type PressableProps } from 'react-native';
-import Animated, { cubicBezier, useReducedMotion } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-export function PressFeedback({ style, onPressIn, onPressOut, ...props }: PressableProps) {
-  const [pressed, setPressed] = useState(false);
+const PRESS_IN = { duration: 70, easing: Easing.out(Easing.quad) };
+const PRESS_OUT = { duration: 140, easing: Easing.out(Easing.quad) };
+
+function WebPressFeedback(props: PressableProps) {
+  return (
+    <Pressable
+      {...props}
+      testID={props.testID || 'motion-press'}
+      aria-checked={props.accessibilityState?.checked}
+      aria-selected={props.accessibilityState?.selected}
+      aria-expanded={props.accessibilityState?.expanded}
+    />
+  );
+}
+
+// Press feedback runs entirely on the UI thread: pressing never re-renders the
+// component, so taps respond instantly even while JS is busy.
+function NativePressFeedback({ style, onPressIn, onPressOut, ...props }: PressableProps) {
   const reduced = useReducedMotion();
-  if (Platform.OS === 'web')
-    return (
-      <Pressable
-        {...props}
-        testID={props.testID || 'motion-press'}
-        aria-checked={props.accessibilityState?.checked}
-        aria-selected={props.accessibilityState?.selected}
-        aria-expanded={props.accessibilityState?.expanded}
-        style={style}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-      />
-    );
+  const pressed = useSharedValue(0);
+  const animated = useAnimatedStyle(() => ({
+    opacity: 1 - pressed.value * 0.2,
+    transform: [{ scale: reduced ? 1 : 1 - pressed.value * 0.02 }],
+  }));
   return (
     <AnimatedPressable
       {...props}
       onPressIn={(e) => {
-        setPressed(true);
+        pressed.value = withTiming(1, PRESS_IN);
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        setPressed(false);
+        pressed.value = withTiming(0, PRESS_OUT);
         onPressOut?.(e);
       }}
       style={[
-        typeof style === 'function' ? style({ pressed, hovered: false }) : style,
-        {
-          opacity: pressed ? 0.8 : 1,
-          transform: [{ scale: pressed && !reduced ? 0.98 : 1 }],
-          transitionProperty: ['transform', 'opacity'],
-          transitionDuration: 120,
-          transitionTimingFunction: cubicBezier(0.23, 1, 0.32, 1),
-        },
+        typeof style === 'function' ? style({ pressed: false, hovered: false }) : style,
+        animated,
       ]}
     />
   );
 }
+
+export const PressFeedback = Platform.OS === 'web' ? WebPressFeedback : NativePressFeedback;

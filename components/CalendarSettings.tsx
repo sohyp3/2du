@@ -6,7 +6,9 @@ import { useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 const colors = ['#a7c968', '#bb8ed6', '#eccb73', '#8bcdec', '#eeaba0', '#d9945c'];
 export function CalendarSettings() {
-  const { calendars, save, remove } = useCalendarsStore();
+  const calendars = useCalendarsStore((s) => s.calendars),
+    save = useCalendarsStore((s) => s.save),
+    remove = useCalendarsStore((s) => s.remove);
   const [name, setName] = useState(''),
     [color, setColor] = useState(colors[0]),
     [editing, setEditing] = useState<string | undefined>(),

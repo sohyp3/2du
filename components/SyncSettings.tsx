@@ -4,21 +4,33 @@ import { useSyncStore } from '@/store/syncStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 export function SyncSettings() {
-  const sync = useSyncStore(),
-    c = useColors(),
+  const syncUrl = useSyncStore((s) => s.url),
+    syncUsername = useSyncStore((s) => s.username),
+    syncToken = useSyncStore((s) => s.token),
+    busy = useSyncStore((s) => s.busy),
+    syncError = useSyncStore((s) => s.error),
+    lastSync = useSyncStore((s) => s.lastSync),
+    pending = useSyncStore((s) => s.pending),
+    keys = useSyncStore((s) => s.keys),
+    connect = useSyncStore((s) => s.connect),
+    syncNow = useSyncStore((s) => s.sync),
+    disconnect = useSyncStore((s) => s.disconnect),
+    loadKeys = useSyncStore((s) => s.loadKeys),
+    createKey = useSyncStore((s) => s.createKey),
+    revokeKey = useSyncStore((s) => s.revokeKey);
+  const c = useColors(),
     fonts = useFontFamily();
-  const [url, setUrl] = useState(sync.url),
-    [username, setUsername] = useState(sync.username),
+  const [url, setUrl] = useState(syncUrl),
+    [username, setUsername] = useState(syncUsername),
     [password, setPassword] = useState('');
   const [register, setRegister] = useState(false),
     [keyName, setKeyName] = useState('My agent'),
     [scope, setScope] = useState('read'),
     [newKey, setNewKey] = useState(''),
     [error, setError] = useState('');
-  const loadKeys = sync.loadKeys;
   useEffect(() => {
-    if (sync.token) loadKeys().catch((e) => setError(e.message));
-  }, [sync.token, loadKeys]);
+    if (syncToken) loadKeys().catch((e) => setError(e.message));
+  }, [syncToken, loadKeys]);
   const run = async (fn: () => Promise<unknown>) => {
     setError('');
     try {
@@ -40,7 +52,7 @@ export function SyncSettings() {
   const button = (label: string, fn: () => void, secondary = false) => (
     <PressFeedback
       accessibilityRole="button"
-      disabled={sync.busy}
+      disabled={busy}
       onPress={fn}
       style={{
         minHeight: 48,
@@ -49,7 +61,7 @@ export function SyncSettings() {
         paddingHorizontal: 18,
         backgroundColor: secondary ? c.surfaceContainerHigh : c.primary,
         borderRadius: 8,
-        opacity: sync.busy ? 0.5 : 1,
+        opacity: busy ? 0.5 : 1,
       }}>
       <Text style={{ fontFamily: fonts.medium, color: secondary ? c.onSurface : c.onPrimary }}>
         {label}
@@ -79,7 +91,7 @@ export function SyncSettings() {
         Everything saves here first. Connect your own server to carry tasks, calendars, and thoughts
         between devices.
       </Text>
-      {!sync.token ? (
+      {!syncToken ? (
         <View>
           <Text style={{ color: c.onSurfaceVariant, marginBottom: 8 }}>Server URL</Text>
           <TextInput
@@ -115,10 +127,10 @@ export function SyncSettings() {
             style={input}
           />
           {button(
-            sync.busy ? 'Connecting…' : register ? 'Create account & connect' : 'Sign in & connect',
+            busy ? 'Connecting…' : register ? 'Create account & connect' : 'Sign in & connect',
             () =>
               run(async () => {
-                await sync.connect(url, username, password, register);
+                await connect(url, username, password, register);
                 setPassword('');
               })
           )}
@@ -138,19 +150,19 @@ export function SyncSettings() {
       ) : (
         <View>
           <Text style={{ color: c.onSurface, fontFamily: fonts.medium, marginBottom: 6 }}>
-            {sync.username} · {sync.url}
+            {syncUsername} · {syncUrl}
           </Text>
           <Text style={{ color: c.onSurfaceVariant, fontSize: 13, marginBottom: 16 }}>
-            {sync.busy
+            {busy
               ? 'Syncing…'
-              : sync.lastSync
-                ? `Last synced ${new Date(sync.lastSync).toLocaleString()}`
+              : lastSync
+                ? `Last synced ${new Date(lastSync).toLocaleString()}`
                 : 'Ready to sync'}
-            {sync.pending ? ` · ${sync.pending} pending` : ''}
+            {pending ? ` · ${pending} pending` : ''}
           </Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            {button('Sync now', () => sync.sync())}
-            {button('Disconnect', () => run(sync.disconnect), true)}
+            {button('Sync now', () => syncNow())}
+            {button('Disconnect', () => run(disconnect), true)}
           </View>
           <Text style={{ color: c.onSurfaceVariant, fontSize: 12, lineHeight: 20, marginTop: 12 }}>
             Syncs every 15 seconds while open. Offline edits stay queued.{' '}
@@ -193,7 +205,7 @@ export function SyncSettings() {
             )}
           </View>
           {button('Create API key', () =>
-            run(async () => setNewKey(await sync.createKey(keyName, scope)))
+            run(async () => setNewKey(await createKey(keyName, scope)))
           )}
           {!!newKey && (
             <View
@@ -217,7 +229,7 @@ export function SyncSettings() {
               </PressFeedback>
             </View>
           )}
-          {sync.keys.map((k) => (
+          {keys.map((k) => (
             <View
               key={k.id}
               style={{
@@ -234,16 +246,16 @@ export function SyncSettings() {
                   {k.scope === 'read' ? 'Read only' : 'Read & write'}
                 </Text>
               </View>
-              {button('Revoke', () => run(() => sync.revokeKey(k.id)), true)}
+              {button('Revoke', () => run(() => revokeKey(k.id)), true)}
             </View>
           ))}
         </View>
       )}
-      {!!(error || sync.error) && (
+      {!!(error || syncError) && (
         <Text
           accessibilityRole="alert"
           style={{ color: c.error, fontFamily: fonts.regular, lineHeight: 22, marginTop: 16 }}>
-          {error || sync.error}
+          {error || syncError}
         </Text>
       )}
     </View>

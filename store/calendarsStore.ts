@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getCalendars, saveCalendar, removeCalendar, type Calendar } from '@/db/calendars';
+import { reuseUnchanged } from '@/utils/reuse';
 export const useCalendarsStore = create<{
   calendars: Calendar[];
   selected: string | null;
@@ -14,7 +15,10 @@ export const useCalendarsStore = create<{
   revision: 0,
   load: async () => {
     const calendars = await getCalendars();
-    set((s) => ({ calendars, revision: s.revision + 1 }));
+    set((s) => ({
+      calendars: reuseUnchanged(s.calendars, calendars),
+      revision: s.revision + 1,
+    }));
   },
   select: (selected) => set({ selected }),
   save: async (name, color, id) => {

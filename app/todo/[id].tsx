@@ -33,18 +33,22 @@ export default function TodoDetailScreen() {
   const c = useColors();
   const fonts = useFontFamily();
 
-  const [todo, setTodo] = useState<Todo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Open instantly from the in-memory list when we have the task; only hit the
+  // database for tasks that are not loaded (e.g. opened from the calendar).
+  const [initial] = useState(() => useTodoStore.getState().todos.find((t) => t.id === id) ?? null);
+  const initialDate = initial ? new Date(initial.datetime) : new Date();
+  const [todo, setTodo] = useState<Todo | null>(initial);
+  const [isLoading, setIsLoading] = useState(!initial);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [calendarId, setCalendarId] = useState<string | null>('daily');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<Priority>('moderate');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [hour, setHour] = useState(12);
-  const [minute, setMinute] = useState(0);
-  const [remindMe, setRemindMe] = useState(true);
+  const [calendarId, setCalendarId] = useState<string | null>(initial?.calendar_id || 'daily');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [priority, setPriority] = useState<Priority>(initial?.priority ?? 'moderate');
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [hour, setHour] = useState(initial ? initialDate.getHours() : 12);
+  const [minute, setMinute] = useState(initial ? initialDate.getMinutes() : 0);
+  const [remindMe, setRemindMe] = useState(initial?.remind_me ?? true);
 
   useEffect(() => {
     async function loadTodo() {
@@ -53,6 +57,7 @@ export default function TodoDetailScreen() {
         setIsLoading(false);
         return;
       }
+      if (initial?.id === id) return;
 
       setIsLoading(true);
       setError(null);
@@ -83,7 +88,7 @@ export default function TodoDetailScreen() {
     }
 
     loadTodo();
-  }, [id]);
+  }, [id, initial]);
 
   const handleSave = useCallback(async () => {
     if (!id || !name.trim()) return;

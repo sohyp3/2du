@@ -6,6 +6,7 @@ import {
   updateNote as dbUpdateNote,
   deleteNote as dbDeleteNote,
 } from '@/db/notes';
+import { reuseUnchanged } from '@/utils/reuse';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -33,7 +34,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const notes = await getAllNotes();
-      set({ notes, isLoading: false });
+      set((state) => ({ notes: reuseUnchanged(state.notes, notes), isLoading: false }));
     } catch (error) {
       set({ error: 'Failed to load notes', isLoading: false });
       console.error('Failed to load notes:', error);

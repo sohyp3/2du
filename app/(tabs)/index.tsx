@@ -20,9 +20,15 @@ import { QuickAdd } from '@/components/QuickAdd';
 import { TimeFilter } from '@/components/TimeFilter';
 import { CalendarPicker } from '@/components/CalendarPicker';
 import { PressFeedback } from '@/components/PressFeedback';
+import type { Note } from '@/db/notes';
+import type { Todo } from '@/db/todos';
+const EMPTY_NOTES: Note[] = [];
+const renderTodo = ({ item }: { item: Todo }) => <TodoItem todo={item} />;
+const todoKey = (t: Todo) => t.id;
 export default function TasksScreen() {
-  const { todos, error, loadTodos } = useTodoStore();
-  const { notes, loadNotes } = useNoteStore();
+  const todos = useTodoStore((s) => s.todos),
+    error = useTodoStore((s) => s.error),
+    loadTodos = useTodoStore((s) => s.loadTodos);
   const selected = useCalendarsStore((s) => s.selected);
   const c = useColors(),
     fonts = useFontFamily(),
@@ -31,15 +37,18 @@ export default function TasksScreen() {
   const showGreeting = useThemeStore((s) => s.showGreeting);
   const insets = useSafeAreaInsets();
   const wide = useWindowDimensions().width >= 1280;
+  const notes = useNoteStore((s) => (wide && !zen ? s.notes : EMPTY_NOTES));
   useEffect(() => {
     void loadTodos();
-    void loadNotes();
-  }, [loadTodos, loadNotes]);
+  }, [loadTodos]);
   const visible = useMemo(
     () => todos.filter((t) => !selected || (t.calendar_id || 'daily') === selected),
     [todos, selected]
   );
-  const completed = visible.filter((t) => t.status === 'completed').length;
+  const completed = useMemo(
+    () => visible.filter((t) => t.status === 'completed').length,
+    [visible]
+  );
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.surface }}
@@ -113,8 +122,8 @@ export default function TasksScreen() {
           )}
           <FlatList
             data={visible}
-            keyExtractor={(t) => t.id}
-            renderItem={({ item }) => <TodoItem todo={item} />}
+            keyExtractor={todoKey}
+            renderItem={renderTodo}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
             ListEmptyComponent={
