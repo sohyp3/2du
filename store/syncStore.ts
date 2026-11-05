@@ -1,4 +1,4 @@
-import { fetchJSON } from '@/utils/http';
+import { fetchJSON, NetworkError } from '@/utils/http';
 import { create } from 'zustand';
 import { AppState } from 'react-native';
 import { db, getSetting, setSetting, withDatabaseWrite } from '@/db/database';
@@ -217,6 +217,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       const count = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) as n FROM sync_outbox');
       set({ lastSync, busy: false, pending: count?.n || 0 });
     } catch (e) {
+      // Not reaching the server is normal here: edits stay queued for the next poll.
+      if (e instanceof NetworkError) return set({ busy: false });
       set({
         busy: false,
         error:

@@ -13,30 +13,40 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
-import { Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
-import {
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_500Medium,
-  PlayfairDisplay_700Bold,
-} from '@expo-google-fonts/playfair-display';
-import {
-  CormorantGaramond_400Regular,
-  CormorantGaramond_500Medium,
-  CormorantGaramond_700Bold,
-} from '@expo-google-fonts/cormorant-garamond';
+// Per-weight imports: the package roots pull every weight into the build (14 MB on web).
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
+import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
+import { PlayfairDisplay_400Regular } from '@expo-google-fonts/playfair-display/400Regular';
+import { PlayfairDisplay_500Medium } from '@expo-google-fonts/playfair-display/500Medium';
+import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display/700Bold';
+import { CormorantGaramond_400Regular } from '@expo-google-fonts/cormorant-garamond/400Regular';
+import { CormorantGaramond_500Medium } from '@expo-google-fonts/cormorant-garamond/500Medium';
+import { CormorantGaramond_700Bold } from '@expo-google-fonts/cormorant-garamond/700Bold';
 import { initDatabase, DatabaseError } from '@/db/database';
 import { getTodoById } from '@/db/todos';
 import { setupNotifications, snoozeTodoReminder } from '@/utils/notifications';
 import { useTodoStore } from '@/store/todoStore';
 import { useThemeStore, THEME_COLORS } from '@/store/themeStore';
 import { useCalendarStore } from '@/store/calendarStore';
+import { AppTitle } from '@/components/AppTitle';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { preloadTing } from '@/utils/ting';
+import { registerServiceWorker } from '@/utils/pwa';
 import { DATABASE_LOCKED } from '@/db/initializationError';
 
 const LOCK_RELOAD_KEY = '2du-lock-reload';
 
 export default function Layout() {
+  return (
+    <>
+      <AppTitle />
+      <App />
+    </>
+  );
+}
+
+function App() {
   const reducedMotion = useReducedMotion();
   const themeKey = useThemeStore((s) => s.themeKey);
   const loadSettings = useThemeStore((s) => s.loadSettings);
@@ -152,6 +162,7 @@ export default function Layout() {
   useEffect(() => {
     // Web browsers only allow audio after a user gesture, so load it lazily there.
     if (Platform.OS !== 'web') preloadTing();
+    else registerServiceWorker();
   }, []);
 
   // Show initialization loading state

@@ -48,7 +48,13 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-SQLite web requires SharedArrayBuffer and a secure browser context (HTTPS or localhost). Use HTTPS for deployment; a plain LAN IP over HTTP will not work for web SQLite. The Metro development server already sets these headers. Storage stays in the browser's origin; changing domains does not carry local data—use sync or JSON export/import. Clearing browser site data deletes the local workspace. Web supports local persistence and offline editing in an already loaded tab; a service worker/installable PWA is not included.
+SQLite web requires SharedArrayBuffer and a secure browser context (HTTPS or localhost). Use HTTPS for deployment; a plain LAN IP over HTTP will not work for web SQLite. The Metro development server already sets these headers. Storage stays in the browser's origin; changing domains does not carry local data—use sync or JSON export/import. Clearing browser site data deletes the local workspace.
+
+### Installable app and offline use
+
+The production web build is an installable PWA. After the first visit it opens from a local cache, with or without a network, and sync catches up in the background. Service workers need HTTPS or localhost, and are off in development.
+
+Always build with `bun run build:web`: `scripts/precache.ts` writes the file list into `sw.js` after the export, and the service worker fails to install without that step. A new deploy downloads in the background and takes over on the next launch, so an open app is never interrupted. Serve `sw.js` without long-lived caching. The installed app and a browser tab share the same SQLite lock, so only one can be open at a time.
 
 In Settings → Sync, enter the sync server origin and credentials. On first use create an account if the server permits registration; other devices sign in. Sync runs while the app is open. Generate revocable read-only or read/write keys for agents; no AI provider account is required by 2du.
 

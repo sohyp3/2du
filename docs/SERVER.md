@@ -9,7 +9,7 @@ ALLOW_REGISTRATION=true bun run server
 
 The server listens on `127.0.0.1:3000`. In 2du → Settings → Sync enter its URL, username, and a password of at least 10 characters; choose **Create an account** on the first device. Sign in with the same account on the other devices. Local data joins that account at first sync. Each installation/browser profile is bound to the first server/account to prevent cross-account uploads. Disconnect keeps local data and the binding.
 
-After registering the accounts you need, restart without `ALLOW_REGISTRATION=true`. Registration is disabled by default. Passwords are Argon2-hashed; session and API tokens are stored only as SHA-256 hashes on the server. Device sessions expire after 30 days. Native session tokens use SecureStore; browser session tokens use sessionStorage and end with the tab. Passwords are never persisted by the app.
+After registering the accounts you need, restart without `ALLOW_REGISTRATION=true`. Registration is disabled by default. Passwords are Argon2-hashed; session and API tokens are stored only as SHA-256 hashes on the server. Device sessions expire after 30 days. Native session tokens use SecureStore; browser session tokens use localStorage and last until **Disconnect** or expiry, so disconnect on shared computers. Passwords are never persisted by the app; on web, the sign-in form lets the browser's password manager offer to save them.
 
 ## Deployment
 

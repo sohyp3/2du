@@ -17,7 +17,12 @@ export default function Root({ children }: { children: React.ReactNode }) {
           name="description"
           content="2du — a local-first workspace for your tasks, calendars, and thoughts."
         />
-        <title>2du — make room for what matters</title>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="2du" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         {/*
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
           However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, TextInput, View, Platform } from 'react-native';
 import { useSyncStore } from '@/store/syncStore';
+import { NetworkError } from '@/utils/http';
 import { useColors, useFontFamily } from '@/utils/theme';
+import { AuthForm, type AuthFormHandle } from './AuthForm';
 import { PressFeedback } from './PressFeedback';
 export function SyncSettings() {
   const syncUrl = useSyncStore((s) => s.url),
@@ -29,7 +31,10 @@ export function SyncSettings() {
     [newKey, setNewKey] = useState(''),
     [error, setError] = useState('');
   useEffect(() => {
-    if (syncToken) loadKeys().catch((e) => setError(e.message));
+    if (syncToken)
+      loadKeys().catch((e) => {
+        if (!(e instanceof NetworkError)) setError(e.message);
+      });
   }, [syncToken, loadKeys]);
   const run = async (fn: () => Promise<unknown>) => {
     setError('');
@@ -38,6 +43,14 @@ export function SyncSettings() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Request failed');
     }
+  };
+  const form = useRef<AuthFormHandle>(null);
+  const signIn = () => {
+    if (busy) return;
+    void run(async () => {
+      await connect(url, username, password, register);
+      setPassword('');
+    });
   };
   const input = {
     color: c.onSurface,
@@ -92,7 +105,7 @@ export function SyncSettings() {
         between devices.
       </Text>
       {!syncToken ? (
-        <View>
+        <AuthForm ref={form} onSubmit={signIn}>
           <Text style={{ color: c.onSurfaceVariant, marginBottom: 8 }}>Server URL</Text>
           <TextInput
             accessibilityLabel="Server URL"
@@ -113,6 +126,7 @@ export function SyncSettings() {
             placeholder="Your username"
             placeholderTextColor={c.outline}
             autoCapitalize="none"
+            autoComplete="username"
             autoCorrect={false}
             style={input}
           />
@@ -123,16 +137,14 @@ export function SyncSettings() {
             onChangeText={setPassword}
             placeholder="At least 10 characters"
             placeholderTextColor={c.outline}
+            autoComplete={register ? 'new-password' : 'current-password'}
+            onSubmitEditing={() => form.current?.submit()}
             secureTextEntry
             style={input}
           />
           {button(
             busy ? 'Connecting…' : register ? 'Create account & connect' : 'Sign in & connect',
-            () =>
-              run(async () => {
-                await connect(url, username, password, register);
-                setPassword('');
-              })
+            () => form.current?.submit()
           )}
           <PressFeedback
             accessibilityRole="button"
@@ -146,7 +158,7 @@ export function SyncSettings() {
             Your existing local data joins this account on first sync. Registration must be enabled
             by the server owner.
           </Text>
-        </View>
+        </AuthForm>
       ) : (
         <View>
           <Text style={{ color: c.onSurface, fontFamily: fonts.medium, marginBottom: 6 }}>
@@ -167,7 +179,7 @@ export function SyncSettings() {
           <Text style={{ color: c.onSurfaceVariant, fontSize: 12, lineHeight: 20, marginTop: 12 }}>
             Syncs every 15 seconds while open. Offline edits stay queued.{' '}
             {Platform.OS === 'web'
-              ? 'This browser session signs out when its tab closes.'
+              ? 'This browser stays signed in for 30 days, or until you disconnect.'
               : 'Your device session is stored securely.'}
           </Text>
           <Text

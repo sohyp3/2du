@@ -1,8 +1,9 @@
-// Browser sessions end when the tab closes; passwords are never persisted.
-export const readCredential = async (key: string) => sessionStorage.getItem(key);
+// The session token outlives the tab so the app reopens signed in, including offline.
+// Passwords are never stored here; the browser's password manager handles those.
+export const readCredential = async (key: string) => localStorage.getItem(key);
 export const writeCredential = async (key: string, value: string) => {
-  sessionStorage.setItem(key, value);
+  localStorage.setItem(key, value);
 };
 export const deleteCredential = async (key: string) => {
-  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
 };
