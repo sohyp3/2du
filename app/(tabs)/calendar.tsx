@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { getTodosByDateRange, Todo } from '@/db/todos';
+import type { Calendar } from '@/db/calendars';
 import {
   getStartOfDay,
   getEndOfDay,
@@ -91,6 +92,24 @@ function formatHour(hour: number, is24h: boolean) {
   return `${hour - 12} PM`;
 }
 
+type Colors = ReturnType<typeof useColors>;
+
+// Dark or white ink, whichever has more contrast on a #rrggbb background.
+function readableOn(hex: string) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const v = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? '#14130f' : '#ffffff';
+}
+
+// Completed items keep a faint tint so their calendar stays recognisable.
+function itemTone(color: string, isCompleted: boolean, c: Colors) {
+  return isCompleted
+    ? { bg: `${color}2e`, fg: c.onSurfaceVariant }
+    : { bg: color, fg: readableOn(color) };
+}
+
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const showGreeting = useThemeStore((st) => st.showGreeting);
@@ -98,6 +117,11 @@ export default function CalendarScreen() {
   const fonts = useFontFamily();
   const router = useRouter();
   const selectedCalendar = useCalendarsStore((s) => s.selected);
+  const calendars = useCalendarsStore((s) => s.calendars);
+  const colorOf = useCallback(
+    (t: Todo) => calendars.find((k) => k.id === (t.calendar_id || 'daily'))?.color ?? c.primary,
+    [calendars, c.primary]
+  );
   const isFocused = useIsFocused();
   const revision = useCalendarsStore((s) => s.revision);
   const syncRevision = useSyncStore((s) => s.revision);
@@ -140,15 +164,14 @@ export default function CalendarScreen() {
         : rangeTodos,
     [rangeTodos, view, selectedKey]
   );
-  const monthCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+  const monthDots = useMemo(() => {
+    const dots: Record<string, string[]> = {};
     for (const task of rangeTodos) {
       if (task.status === 'cancelled') continue;
-      const key = toDateKey(new Date(task.datetime));
-      counts[key] = (counts[key] || 0) + 1;
+      (dots[toDateKey(new Date(task.datetime))] ||= []).push(colorOf(task));
     }
-    return counts;
-  }, [rangeTodos]);
+    return dots;
+  }, [rangeTodos, colorOf]);
   const loadData = useCallback(async () => {
     const request = ++requestId.current;
     setIsLoading(true);
@@ -345,6 +368,13 @@ export default function CalendarScreen() {
               </Text>
             </Pressable>
           </View>
+          <Overview
+            todos={rangeTodos}
+            calendars={selectedCalendar ? [] : calendars}
+            isLoading={isLoading}
+            c={c}
+            fonts={fonts}
+          />
         </View>
       </View>
 
@@ -353,8 +383,9 @@ export default function CalendarScreen() {
         <MonthView
           selectedDate={selectedDate}
           today={today}
-          monthCounts={monthCounts}
+          monthDots={monthDots}
           todos={todos}
+          colorOf={colorOf}
           timeFormat={timeFormat}
           onSelectDate={setSelectedDate}
           onTodoPress={openTodo}
@@ -371,6 +402,7 @@ export default function CalendarScreen() {
           selectedDate={selectedDate}
           today={today}
           todosByHour={todosByHour}
+          colorOf={colorOf}
           timeFormat={timeFormat}
           dayViewStartHour={dayViewStartHour}
           onTodoPress={openTodo}
@@ -385,6 +417,7 @@ export default function CalendarScreen() {
         <DayView
           selectedDate={selectedDate}
           todosByHour={todosByHour}
+          colorOf={colorOf}
           timeFormat={timeFormat}
           onTodoPress={openTodo}
           dayViewStartHour={dayViewStartHour}
@@ -398,13 +431,81 @@ export default function CalendarScreen() {
   );
 }
 
+// ─── Overview ────────────────────────────────────────────
+
+function Overview({
+  todos,
+  calendars,
+  isLoading,
+  c,
+  fonts,
+}: {
+  todos: Todo[];
+  calendars: Calendar[];
+  isLoading: boolean;
+  c: Colors;
+  fonts: ReturnType<typeof useFontFamily>;
+}) {
+  const { left, done, overdue, perCalendar } = useMemo(() => {
+    const now = Date.now();
+    const stats = { left: 0, done: 0, overdue: 0, perCalendar: {} as Record<string, number> };
+    for (const t of todos) {
+      if (t.status === 'cancelled') continue;
+      if (t.status === 'completed') stats.done++;
+      else {
+        stats.left++;
+        if (new Date(t.datetime).getTime() < now) stats.overdue++;
+      }
+      const id = t.calendar_id || 'daily';
+      stats.perCalendar[id] = (stats.perCalendar[id] || 0) + 1;
+    }
+    return stats;
+  }, [todos]);
+  const labelStyle = { fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 };
+
+  return (
+    <View
+      style={{
+        minHeight: 20,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        columnGap: 12,
+        rowGap: 2,
+      }}>
+      {left + done === 0 ? (
+        !isLoading && <Text style={labelStyle}>Nothing scheduled</Text>
+      ) : (
+        <>
+          <Text style={labelStyle}>
+            <Text style={{ fontFamily: fonts.medium, color: c.onSurface }}>{left} left</Text>
+            {` · ${done} done`}
+            {overdue > 0 && <Text style={{ color: c.error }}>{` · ${overdue} overdue`}</Text>}
+          </Text>
+          {calendars
+            .filter((k) => perCalendar[k.id])
+            .map((k) => (
+              <View key={k.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: k.color }} />
+                <Text style={labelStyle}>
+                  {k.name} {perCalendar[k.id]}
+                </Text>
+              </View>
+            ))}
+        </>
+      )}
+    </View>
+  );
+}
+
 // ─── Month View ──────────────────────────────────────────
 
 function MonthView({
   selectedDate,
   today,
-  monthCounts,
+  monthDots,
   todos,
+  colorOf,
   timeFormat,
   onSelectDate,
   onTodoPress,
@@ -416,8 +517,9 @@ function MonthView({
 }: {
   selectedDate: Date;
   today: Date;
-  monthCounts: Record<string, number>;
+  monthDots: Record<string, string[]>;
   todos: Todo[];
+  colorOf: (t: Todo) => string;
   timeFormat: '12h' | '24h';
   onSelectDate: (d: Date) => void;
   onTodoPress: (id: string) => void;
@@ -450,7 +552,7 @@ function MonthView({
       <MonthGrid
         selectedDate={selectedDate}
         today={today}
-        monthCounts={monthCounts}
+        monthDots={monthDots}
         onSelectDate={onSelectDate}
         c={c}
         fonts={fonts}
@@ -478,6 +580,7 @@ function MonthView({
             <TodoRow
               key={item.id}
               todo={item}
+              color={colorOf(item)}
               timeFormat={timeFormat}
               onPress={onTodoPress}
               toggleComplete={toggleComplete}
@@ -494,14 +597,14 @@ function MonthView({
 const MonthGrid = memo(function MonthGrid({
   selectedDate,
   today,
-  monthCounts,
+  monthDots,
   onSelectDate,
   c,
   fonts,
 }: {
   selectedDate: Date;
   today: Date;
-  monthCounts: Record<string, number>;
+  monthDots: Record<string, string[]>;
   onSelectDate: (d: Date) => void;
   c: ReturnType<typeof useColors>;
   fonts: ReturnType<typeof useFontFamily>;
@@ -516,7 +619,7 @@ const MonthGrid = memo(function MonthGrid({
           {week.map((day, di) => {
             if (!day) return <View key={di} className="flex-1 p-1" />;
             const key = toDateKey(day);
-            const count = monthCounts[key] || 0;
+            const dots = monthDots[key] || [];
             const isToday = isSameDay(day, today);
             const isSelected = isSameDay(day, selectedDate);
             return (
@@ -552,12 +655,12 @@ const MonthGrid = memo(function MonthGrid({
                     {day.getDate()}
                   </Text>
                 </View>
-                {count > 0 && (
+                {dots.length > 0 && (
                   <View className="mt-0.5 flex-row gap-0.5">
-                    {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                    {dots.slice(0, 3).map((color, i) => (
                       <View
                         key={i}
-                        style={{ backgroundColor: c.primary }}
+                        style={{ backgroundColor: color }}
                         className="h-1 w-1 rounded-full"
                       />
                     ))}
@@ -578,6 +681,7 @@ function WeekView({
   selectedDate,
   today,
   todosByHour,
+  colorOf,
   timeFormat,
   dayViewStartHour,
   onTodoPress,
@@ -589,6 +693,7 @@ function WeekView({
   selectedDate: Date;
   today: Date;
   todosByHour: Record<string, Todo[]>;
+  colorOf: (t: Todo) => string;
   timeFormat: '12h' | '24h';
   dayViewStartHour: number;
   onTodoPress: (id: string) => void;
@@ -660,23 +765,19 @@ function WeekView({
                   style={{ borderColor: c.outlineVariant }}>
                   {items.map((t) => {
                     const isCompleted = t.status === 'completed';
+                    const tone = itemTone(colorOf(t), isCompleted, c);
                     return (
                       <Pressable
                         key={t.id}
                         accessibilityRole="button"
                         accessibilityLabel={`Open ${t.name}`}
                         onPress={() => onTodoPress(t.id)}
-                        style={{
-                          minHeight: 28,
-                          backgroundColor: isCompleted
-                            ? c.surfaceContainerHigh
-                            : c.primaryContainer,
-                        }}
+                        style={{ minHeight: 28, backgroundColor: tone.bg }}
                         className="mb-0.5 rounded px-1 py-0.5">
                         <Text
                           style={{
                             fontFamily: fonts.medium,
-                            color: isCompleted ? c.onSurfaceVariant : c.onSurface,
+                            color: tone.fg,
                             textDecorationLine: isCompleted ? 'line-through' : 'none',
                           }}
                           className="text-[10px]"
@@ -701,6 +802,7 @@ function WeekView({
 function DayView({
   selectedDate,
   todosByHour,
+  colorOf,
   timeFormat,
   onTodoPress,
   dayViewStartHour,
@@ -711,6 +813,7 @@ function DayView({
 }: {
   selectedDate: Date;
   todosByHour: Record<string, Todo[]>;
+  colorOf: (t: Todo) => string;
   timeFormat: '12h' | '24h';
   onTodoPress: (id: string) => void;
   dayViewStartHour: number;
@@ -743,28 +846,19 @@ function DayView({
             <View className="flex-1">
               {items.map((t) => {
                 const isCompleted = t.status === 'completed';
+                const tone = itemTone(colorOf(t), isCompleted, c);
                 return (
                   <Pressable
                     key={t.id}
                     accessibilityRole="button"
                     accessibilityLabel={`Open ${t.name}`}
                     onPress={() => onTodoPress(t.id)}
-                    style={{
-                      minHeight: 36,
-                      backgroundColor: isCompleted ? c.surfaceContainerLow : c.primaryContainer,
-                    }}
+                    style={{ minHeight: 36, backgroundColor: tone.bg }}
                     className="mb-1 rounded-md px-2.5 py-1.5">
-                    <Text
-                      style={{
-                        fontFamily: fonts.medium,
-                        color: isCompleted ? c.onSurfaceVariant : c.onSurface,
-                      }}
-                      className="text-sm">
+                    <Text style={{ fontFamily: fonts.medium, color: tone.fg }} className="text-sm">
                       {t.name}
                     </Text>
-                    <Text
-                      style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
-                      className="text-xs">
+                    <Text style={{ fontFamily: fonts.regular, color: tone.fg }} className="text-xs">
                       {formatTime(t.datetime, timeFormat === '24h')}
                       {t.time_needed ? ` · ${t.time_needed}m` : ''}
                     </Text>
@@ -783,6 +877,7 @@ function DayView({
 
 function TodoRow({
   todo,
+  color,
   timeFormat,
   onPress,
   toggleComplete,
@@ -790,6 +885,7 @@ function TodoRow({
   fonts,
 }: {
   todo: Todo;
+  color: string;
   timeFormat: '12h' | '24h';
   onPress: (id: string) => void;
   toggleComplete: (id: string) => void;
@@ -797,10 +893,11 @@ function TodoRow({
   fonts: ReturnType<typeof useFontFamily>;
 }) {
   const isCompleted = todo.status === 'completed';
+  const tone = itemTone(color, isCompleted, c);
   return (
     <View
       style={{
-        backgroundColor: c.surfaceContainer,
+        backgroundColor: tone.bg,
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: 8,
@@ -820,7 +917,7 @@ function TodoRow({
         <Ionicons
           name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
           size={22}
-          color={isCompleted ? c.primary : c.outline}
+          color={isCompleted ? c.primary : tone.fg}
         />
       </Pressable>
       <Pressable
@@ -841,14 +938,14 @@ function TodoRow({
           style={{
             flex: 1,
             fontFamily: fonts.medium,
-            color: isCompleted ? c.onSurfaceVariant : c.onSurface,
+            color: tone.fg,
             textDecorationLine: isCompleted ? 'line-through' : 'none',
             fontSize: 14,
             lineHeight: 19,
           }}>
           {todo.name}
         </Text>
-        <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 }}>
+        <Text style={{ fontFamily: fonts.regular, color: tone.fg, fontSize: 12 }}>
           {formatTime(todo.datetime, timeFormat === '24h')}
         </Text>
       </Pressable>
