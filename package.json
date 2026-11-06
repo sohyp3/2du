@@ -14,7 +14,8 @@
     "test": "bun test server",
     "check": "tsc --noEmit",
     "build:web": "expo export --platform web --output-dir build/web && bun run scripts/precache.ts",
-    "serve:web": "bun run server/web.ts"
+    "serve:web": "bun run server/web.ts",
+    "deploy:web": "./deploy-web.sh"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",

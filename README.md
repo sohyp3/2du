@@ -41,6 +41,18 @@ bun run build:web
 bun run serve:web   # http://localhost:8080
 ```
 
+To build and upload in one step, put the destination in `.env.deploy` (ignored by git) and run the script. Static files are read per request, so `server/web.ts` needs no restart:
+
+```sh
+DEPLOY_TARGET=user@host:/path/to/2du/build/web   # files here that aren't in the build are deleted
+DEPLOY_URL=https://2du.example.com               # optional, confirms the live build afterwards
+```
+
+```sh
+./deploy-web.sh --dry-run   # list changes, upload nothing
+./deploy-web.sh
+```
+
 The bundled static server sets the headers required by expo-sqlite's web worker. Keep one 2du tab open per browser profile: the local SQLite file is locked while that tab is open. If another tab cannot start, close the first one and use **Retry**; do not clear browser storage. Use HTTPS or localhost. With another host, serve `.wasm` as `application/wasm` and set these on every response:
 
 ```http
