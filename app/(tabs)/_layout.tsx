@@ -121,6 +121,23 @@ export default function TabLayout() {
                 </Text>
               </PressFeedback>
             ))}
+            <PressFeedback
+              accessibilityRole="link"
+              onPress={() => router.push('/goals')}
+              style={{
+                minHeight: 48,
+                paddingHorizontal: 12,
+                borderRadius: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: 'transparent',
+              }}>
+              <Ionicons name="flag-outline" color={c.onSurfaceVariant} size={20} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: c.onSurfaceVariant }}>
+                Goals
+              </Text>
+            </PressFeedback>
           </View>
           <Text
             style={{

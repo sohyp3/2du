@@ -301,6 +301,7 @@ function App() {
                 name="note/[id]"
                 options={{ presentation: 'card', headerShown: false }}
               />
+              <Stack.Screen name="goals" options={{ presentation: 'card', title: 'Goals' }} />
             </Stack>
           </SafeAreaProvider>
         </GestureHandlerRootView>

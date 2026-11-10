@@ -163,9 +163,19 @@ export default function TasksScreen() {
             <Text style={{ color: c.onSurface, fontFamily: fonts.medium, fontSize: 13 }}>
               Your focus
             </Text>
-            <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
-              {completed} of {visible.length} complete
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <PressFeedback
+                accessibilityRole="link"
+                onPress={() => router.push('/goals')}
+                style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 12 }}>
+                  Goals
+                </Text>
+              </PressFeedback>
+              <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
+                {completed} of {visible.length} complete
+              </Text>
+            </View>
           </View>
           {error && (
             <PressFeedback
