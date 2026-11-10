@@ -16,6 +16,7 @@ import { useNoteStore } from '@/store/noteStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { TodoItem } from '@/components/TodoItem';
+import { CalendarCard, type CalendarCardProps } from '@/components/CalendarCard';
 import { QuickAdd } from '@/components/QuickAdd';
 import { TimeFilter } from '@/components/TimeFilter';
 import { CalendarPicker } from '@/components/CalendarPicker';
@@ -25,11 +26,19 @@ import type { Todo } from '@/db/todos';
 const EMPTY_NOTES: Note[] = [];
 const renderTodo = ({ item }: { item: Todo }) => <TodoItem todo={item} />;
 const todoKey = (t: Todo) => t.id;
+type CalendarGroup = CalendarCardProps;
+const renderGroup = ({ item }: { item: CalendarGroup }) => (
+  <CalendarCard calendar={item.calendar} todos={item.todos} />
+);
+const groupKey = (g: CalendarGroup) => g.calendar.id;
+const GroupGap = () => <View style={{ height: 12 }} />;
 export default function TasksScreen() {
   const todos = useTodoStore((s) => s.todos),
     error = useTodoStore((s) => s.error),
     loadTodos = useTodoStore((s) => s.loadTodos);
   const selected = useCalendarsStore((s) => s.selected);
+  const calendars = useCalendarsStore((s) => s.calendars);
+  const groupByCalendar = useThemeStore((s) => s.groupByCalendar);
   const c = useColors(),
     fonts = useFontFamily(),
     router = useRouter();
@@ -50,6 +59,50 @@ export default function TasksScreen() {
   const completed = useMemo(
     () => visible.filter((t) => t.status === 'completed').length,
     [visible]
+  );
+  // One card per calendar, in calendar order. Null means the flat list.
+  const groups = useMemo(() => {
+    if (!groupByCalendar || selected) return null;
+    const known = new Set(calendars.map((cal) => cal.id));
+    const byCalendar = new Map<string, Todo[]>();
+    for (const todo of visible) {
+      // Tasks without a calendar, or pointing at one that no longer exists, sit in Daily.
+      const id = known.has(todo.calendar_id || 'daily') ? todo.calendar_id || 'daily' : 'daily';
+      const list = byCalendar.get(id);
+      if (list) list.push(todo);
+      else byCalendar.set(id, [todo]);
+    }
+    const result: CalendarGroup[] = [];
+    for (const calendar of calendars) {
+      const list = byCalendar.get(calendar.id);
+      if (list) result.push({ calendar, todos: list });
+    }
+    return result;
+  }, [groupByCalendar, selected, calendars, visible]);
+  const empty = (
+    <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+      <Ionicons name="sunny-outline" color={c.primary} size={24} />
+      <Text
+        style={{
+          color: c.onSurface,
+          fontFamily: 'PlayfairDisplay_400Regular',
+          fontSize: 18,
+          marginTop: 10,
+        }}>
+        A little breathing room.
+      </Text>
+      <Text
+        style={{
+          color: c.onSurfaceVariant,
+          fontFamily: fonts.regular,
+          fontSize: 13,
+          marginTop: 6,
+          textAlign: 'center',
+          lineHeight: 19,
+        }}>
+        No tasks in this view. Add something below,{'\n'}or give yourself a moment.
+      </Text>
+    </View>
   );
   return (
     <KeyboardAvoidingView
@@ -122,38 +175,26 @@ export default function TasksScreen() {
               <Text style={{ color: c.onErrorContainer }}>{error} · Retry</Text>
             </PressFeedback>
           )}
-          <FlatList
-            data={visible}
-            keyExtractor={todoKey}
-            renderItem={renderTodo}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
-            ListEmptyComponent={
-              <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-                <Ionicons name="sunny-outline" color={c.primary} size={24} />
-                <Text
-                  style={{
-                    color: c.onSurface,
-                    fontFamily: 'PlayfairDisplay_400Regular',
-                    fontSize: 18,
-                    marginTop: 10,
-                  }}>
-                  A little breathing room.
-                </Text>
-                <Text
-                  style={{
-                    color: c.onSurfaceVariant,
-                    fontFamily: fonts.regular,
-                    fontSize: 13,
-                    marginTop: 6,
-                    textAlign: 'center',
-                    lineHeight: 19,
-                  }}>
-                  No tasks in this view. Add something below,{'\n'}or give yourself a moment.
-                </Text>
-              </View>
-            }
-          />
+          {groups ? (
+            <FlatList
+              data={groups}
+              keyExtractor={groupKey}
+              renderItem={renderGroup}
+              ItemSeparatorComponent={GroupGap}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingTop: 8, paddingBottom: 12, flexGrow: 1 }}
+              ListEmptyComponent={empty}
+            />
+          ) : (
+            <FlatList
+              data={visible}
+              keyExtractor={todoKey}
+              renderItem={renderTodo}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
+              ListEmptyComponent={empty}
+            />
+          )}
           <View style={{ paddingBottom: 10 }}>
             <QuickAdd />
           </View>

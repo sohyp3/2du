@@ -24,6 +24,8 @@ export function GeneralSettings() {
   const setDebugMode = useThemeStore((s) => s.setDebugMode);
   const zenMode = useThemeStore((s) => s.zenMode);
   const setZenMode = useThemeStore((s) => s.setZenMode);
+  const groupByCalendar = useThemeStore((s) => s.groupByCalendar);
+  const setGroupByCalendar = useThemeStore((s) => s.setGroupByCalendar);
   const showGreeting = useThemeStore((s) => s.showGreeting);
   const setShowGreeting = useThemeStore((s) => s.setShowGreeting);
   const themeLoading = useThemeStore((s) => s.isLoading);
@@ -235,6 +237,18 @@ export function GeneralSettings() {
               label="Show screen greetings"
               value={showGreeting}
               onValueChange={setShowGreeting}
+              disabled={themeLoading}
+            />
+          }
+        />
+        <SettingsRow
+          label="Group by calendar"
+          hint="Show a card for each calendar on the Tasks screen"
+          right={
+            <SettingsSwitch
+              label="Group by calendar"
+              value={groupByCalendar}
+              onValueChange={setGroupByCalendar}
               disabled={themeLoading}
             />
           }

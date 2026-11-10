@@ -128,12 +128,15 @@ interface ThemeState {
   fontKey: FontKey;
   debugMode: boolean;
   zenMode: boolean;
+  /** Tasks screen shows one card per calendar instead of a flat list. */
+  groupByCalendar: boolean;
   showGreeting: boolean;
   isLoading: boolean;
   setTheme: (key: ThemeKey) => Promise<void>;
   setFont: (key: FontKey) => Promise<void>;
   setDebugMode: (v: boolean) => Promise<void>;
   setZenMode: (v: boolean) => Promise<void>;
+  setGroupByCalendar: (v: boolean) => Promise<void>;
   setShowGreeting: (v: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
@@ -143,6 +146,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
   fontKey: 'inter',
   debugMode: false,
   zenMode: false,
+  groupByCalendar: false,
   showGreeting: false,
   isLoading: false,
 
@@ -153,6 +157,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
       const savedFont = await getSetting('font');
       const savedPlus = await getSetting('debugMode');
       const savedZen = await getSetting('zenMode');
+      const savedGroup = await getSetting('groupByCalendar');
       const savedGreeting = await getSetting('showGreeting');
 
       const updates: Partial<ThemeState> = { isLoading: false };
@@ -171,6 +176,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
       }
       if (savedPlus === 'true') updates.debugMode = true;
       if (savedZen === 'true') updates.zenMode = true;
+      if (savedGroup === 'true') updates.groupByCalendar = true;
       if (savedGreeting === 'true') updates.showGreeting = true;
 
       set(updates);
@@ -213,6 +219,15 @@ export const useThemeStore = create<ThemeState>((set) => ({
       await setSetting('zenMode', v ? 'true' : 'false');
     } catch (error) {
       console.error('Failed to save zen mode setting:', error);
+    }
+  },
+
+  setGroupByCalendar: async (v) => {
+    set({ groupByCalendar: v });
+    try {
+      await setSetting('groupByCalendar', v ? 'true' : 'false');
+    } catch (error) {
+      console.error('Failed to save group by calendar setting:', error);
     }
   },
 
