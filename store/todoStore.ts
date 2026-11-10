@@ -26,6 +26,7 @@ function generateId(): string {
 export interface AddTodoParams {
   name: string;
   calendar_id?: string;
+  goal_id?: string | null;
   description?: string | null;
   priority?: Priority;
   datetime?: string;
@@ -92,6 +93,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
       id: generateId(),
       name: params.name,
       calendar_id: params.calendar_id ?? useCalendarsStore.getState().selected ?? 'daily',
+      goal_id: params.goal_id ?? null,
       description: params.description ?? null,
       time_needed: params.time_needed ?? null,
       priority: params.priority ?? 'moderate',

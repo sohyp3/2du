@@ -10,7 +10,7 @@ export let db: SQLite.SQLiteDatabase;
 // number, and must `DROP TRIGGER IF EXISTS` the affected `sync_<entity>_INSERT` / `_UPDATE` /
 // `_DELETE` triggers before the trigger loop, because `CREATE TRIGGER IF NOT EXISTS` will not
 // replace a trigger built from an old field list.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export class DatabaseError extends Error {
   constructor(
@@ -106,12 +106,18 @@ export async function initDatabase(): Promise<void> {
     const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(todos)');
     if (!columns.some((c) => c.name === 'calendar_id'))
       await db.execAsync("ALTER TABLE todos ADD COLUMN calendar_id TEXT NOT NULL DEFAULT 'daily'");
+    if (!columns.some((c) => c.name === 'goal_id'))
+      await db.execAsync('ALTER TABLE todos ADD COLUMN goal_id TEXT');
+    await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_todos_goal_id ON todos(goal_id);`);
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS calendars (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, importance INTEGER NOT NULL DEFAULT 5, weekly_target INTEGER, status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS sync_outbox (entity TEXT, id TEXT, data TEXT, updated_at TEXT, PRIMARY KEY(entity,id));
       CREATE TABLE IF NOT EXISTS sync_control (id INTEGER PRIMARY KEY, applying INTEGER NOT NULL DEFAULT 0);
       INSERT OR IGNORE INTO sync_control VALUES(1,0);
       UPDATE sync_control SET applying=0 WHERE id=1;
+      DROP TRIGGER IF EXISTS sync_todos_INSERT;
+      DROP TRIGGER IF EXISTS sync_todos_UPDATE;
     `);
     for (const entity of entities) {
       const json = fields[entity].map((f) => `'${f}',NEW.${f}`).join(',');

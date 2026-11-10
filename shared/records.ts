@@ -1,4 +1,4 @@
-export const entities = ['todos', 'notes', 'calendars'] as const;
+export const entities = ['todos', 'notes', 'calendars', 'goals'] as const;
 export type Entity = (typeof entities)[number];
 export interface Change {
   entity: Entity;
@@ -18,11 +18,22 @@ export const fields = {
     'parent_id',
     'remind_me',
     'calendar_id',
+    'goal_id',
     'created_at',
     'updated_at',
   ],
   notes: ['id', 'title', 'content', 'pinned', 'created_at', 'updated_at'],
   calendars: ['id', 'name', 'color', 'created_at', 'updated_at'],
+  goals: [
+    'id',
+    'name',
+    'description',
+    'importance',
+    'weekly_target',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
 } satisfies Record<Entity, string[]>;
 
 export function validateChange(value: unknown): Change {
@@ -62,15 +73,29 @@ export function validateChange(value: unknown): Change {
       flag(d.remind_me);
       if (d.parent_id != null) text(d.parent_id, 128);
       if (d.calendar_id != null) text(d.calendar_id, 128);
+      if (d.goal_id != null) text(d.goal_id, 128);
     } else if (c.entity === 'notes') {
       text(d.title, 500);
       if (typeof d.content !== 'string') throw new Error('Invalid note content');
       text(d.content, 100000, true);
       flag(d.pinned);
-    } else {
+    } else if (c.entity === 'calendars') {
       text(d.name, 100);
       if (typeof d.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(d.color))
         throw new Error('Invalid calendar color');
+    } else {
+      text(d.name, 200);
+      text(d.description, 10000, true);
+      if (!Number.isInteger(d.importance) || Number(d.importance) < 1 || Number(d.importance) > 10)
+        throw new Error('Invalid importance');
+      if (
+        d.weekly_target != null &&
+        (!Number.isInteger(d.weekly_target) ||
+          Number(d.weekly_target) < 1 ||
+          Number(d.weekly_target) > 100)
+      )
+        throw new Error('Invalid weekly target');
+      if (!['active', 'paused', 'done'].includes(String(d.status))) throw new Error('Invalid goal');
     }
   }
   return c;

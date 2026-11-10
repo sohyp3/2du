@@ -13,6 +13,7 @@ export interface Todo {
   datetime: string;
   status: TodoStatus;
   calendar_id?: string;
+  goal_id?: string | null;
   parent_id: string | null;
   remind_me: boolean;
   created_at: string;
@@ -28,6 +29,7 @@ interface TodoRow {
   datetime: string;
   status: string;
   calendar_id?: string;
+  goal_id?: string | null;
   parent_id: string | null;
   remind_me: number;
   created_at: string;
@@ -86,8 +88,8 @@ export async function getTodoById(id: string): Promise<Todo | null> {
 async function insertTodoLocal(todo: Todo): Promise<void> {
   try {
     await db.runAsync(
-      `INSERT INTO todos (id, name, description, time_needed, priority, datetime, status, parent_id, remind_me, calendar_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO todos (id, name, description, time_needed, priority, datetime, status, parent_id, remind_me, calendar_id, goal_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         todo.id,
         todo.name,
@@ -99,6 +101,7 @@ async function insertTodoLocal(todo: Todo): Promise<void> {
         todo.parent_id,
         todo.remind_me ? 1 : 0,
         todo.calendar_id ?? 'daily',
+        todo.goal_id ?? null,
         todo.created_at,
         todo.updated_at,
       ]
@@ -123,6 +126,10 @@ async function updateTodoLocal(
     if (updates.calendar_id !== undefined) {
       fields.push('calendar_id = ?');
       values.push(updates.calendar_id);
+    }
+    if (updates.goal_id !== undefined) {
+      fields.push('goal_id = ?');
+      values.push(updates.goal_id);
     }
     if (updates.name !== undefined) {
       fields.push('name = ?');
@@ -168,6 +175,26 @@ async function updateTodoLocal(
     throw new DatabaseError(
       `Failed to update todo with id '${id}'`,
       'updateTodo',
+      error instanceof Error ? error : undefined
+    );
+  }
+}
+
+// Every open task, plus tasks completed in the last 15 days that belong to a goal.
+export async function getTodosForPick(): Promise<Todo[]> {
+  try {
+    const cutoff = new Date(Date.now() - 15 * 86_400_000).toISOString();
+    const rows = await db.getAllAsync<TodoRow>(
+      `SELECT * FROM todos
+       WHERE status IN ('pending', 'in_progress')
+          OR (status = 'completed' AND goal_id IS NOT NULL AND updated_at >= ?)`,
+      cutoff
+    );
+    return rows.map(rowToTodo);
+  } catch (error) {
+    throw new DatabaseError(
+      'Failed to load tasks for the picker',
+      'getTodosForPick',
       error instanceof Error ? error : undefined
     );
   }

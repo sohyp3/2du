@@ -4,6 +4,7 @@ import '../global.css';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { startSync } from '@/store/syncStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
+import { useGoalStore } from '@/store/goalStore';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
@@ -110,6 +111,7 @@ function App() {
           console.error('Notification setup failed:', error)
         );
         void useNoteStore.getState().loadNotes();
+        void useGoalStore.getState().load();
       } catch (error) {
         // A reload can race the previous page's SQLite worker for the file lock, and a
         // worker that lost that race stays unusable. Reload once before reporting it.

@@ -6,6 +6,7 @@ import { readCredential, writeCredential, deleteCredential } from '@/utils/crede
 import { entities, fields, validateChange, type Change, type Entity } from '@/shared/records';
 import { useTodoStore } from './todoStore';
 import { useNoteStore } from './noteStore';
+import { useGoalStore } from './goalStore';
 import { useCalendarsStore } from './calendarsStore';
 interface Outbox {
   entity: Entity;
@@ -270,6 +271,7 @@ export const useSyncStore = create<SyncState>((set, get) => {
             changed.has('todos') && useTodoStore.getState().loadTodos(),
             changed.has('notes') && useNoteStore.getState().loadNotes(),
             changed.has('calendars') && useCalendarsStore.getState().load(),
+            changed.has('goals') && useGoalStore.getState().load(),
           ]);
           set((s) => ({ revision: s.revision + 1 }));
         }
