@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useGoalStore } from '@/store/goalStore';
 import { useSyncStore } from '@/store/syncStore';
@@ -22,6 +22,7 @@ export default function GoalsScreen() {
   const goals = useGoalStore((s) => s.goals);
   const revision = useSyncStore((s) => s.revision);
   const { id: openId } = useLocalSearchParams<{ id?: string }>();
+  const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [editor, setEditor] = useState<{ goal?: Goal } | null>(null);
   const [doneOpen, setDoneOpen] = useState(false);
@@ -103,82 +104,104 @@ export default function GoalsScreen() {
     const target = goal.weekly_target;
     const percent = target ? Math.min(100, (p.done / target) * 100) : 0;
     return (
-      <PressFeedback
+      <View
         key={goal.id}
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${goal.name}`}
-        onPress={() => openEditor({ goal })}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 12,
-          minHeight: 44,
-          padding: 14,
           borderRadius: 14,
           backgroundColor: c.surfaceContainerLow,
           borderWidth: 1,
           borderColor: c.outlineVariant,
           marginBottom: 8,
         }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            numberOfLines={1}
-            style={{ fontFamily: fonts.medium, fontSize: 16, color: c.onSurface }}>
-            {goal.name}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 13,
-              color: c.onSurfaceVariant,
-              marginTop: 2,
-            }}>
-            {p.open ? `${p.open} open ${p.open === 1 ? 'task' : 'tasks'}` : 'No tasks yet'}
-          </Text>
-          {target != null && (
-            <View style={{ marginTop: 8 }}>
-              <View
-                style={{
-                  height: 4,
-                  borderRadius: 2,
-                  backgroundColor: c.outlineVariant,
-                  overflow: 'hidden',
-                }}>
+        <PressFeedback
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${goal.name}`}
+          onPress={() => openEditor({ goal })}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            minHeight: 44,
+            padding: 14,
+          }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              numberOfLines={1}
+              style={{ fontFamily: fonts.medium, fontSize: 16, color: c.onSurface }}>
+              {goal.name}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.regular,
+                fontSize: 13,
+                color: c.onSurfaceVariant,
+                marginTop: 2,
+              }}>
+              {p.open ? `${p.open} open ${p.open === 1 ? 'task' : 'tasks'}` : 'No tasks yet'}
+            </Text>
+            {target != null && (
+              <View style={{ marginTop: 8 }}>
                 <View
                   style={{
                     height: 4,
-                    width: `${percent}%`,
-                    backgroundColor: c.primary,
-                  }}
-                />
+                    borderRadius: 2,
+                    backgroundColor: c.outlineVariant,
+                    overflow: 'hidden',
+                  }}>
+                  <View
+                    style={{
+                      height: 4,
+                      width: `${percent}%`,
+                      backgroundColor: c.primary,
+                    }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 12,
+                    color: c.onSurfaceVariant,
+                    marginTop: 4,
+                  }}>
+                  {`${p.done} of ${target} this week`}
+                </Text>
               </View>
-              <Text
-                style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 12,
-                  color: c.onSurfaceVariant,
-                  marginTop: 4,
-                }}>
-                {`${p.done} of ${target} this week`}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View
-          accessibilityLabel={`Importance ${goal.importance}`}
+            )}
+          </View>
+          <View
+            accessibilityLabel={`Importance ${goal.importance}`}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: c.surfaceContainerHigh,
+            }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: c.onSurface }}>
+              {goal.importance}
+            </Text>
+          </View>
+        </PressFeedback>
+        <PressFeedback
+          accessibilityRole="button"
+          accessibilityLabel={`Add task to ${goal.name}`}
+          onPress={() => router.push({ pathname: '/add-todo', params: { goal: goal.id } })}
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
+            width: 44,
+            height: 44,
+            marginRight: 6,
+            borderRadius: 22,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: c.surfaceContainerHigh,
           }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: c.onSurface }}>
-            {goal.importance}
-          </Text>
-        </View>
-      </PressFeedback>
+          <Ionicons name="add-circle-outline" size={24} color={c.primary} />
+        </PressFeedback>
+      </View>
     );
   };
 

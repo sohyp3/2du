@@ -7,10 +7,13 @@ import { formatTodoMeta } from '@/utils/dates';
 import { useTodoStore } from '@/store/todoStore';
 import { useCalendarStore } from '@/store/calendarStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
+import { useGoalStore } from '@/store/goalStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 import { playTing } from '@/utils/ting';
 export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
+  // Narrow selector: a row re-renders only when its own goal's name changes.
+  const goalName = useGoalStore((s) => s.goals.find((g) => g.id === todo.goal_id)?.name);
   const toggle = useTodoStore((s) => s.toggleComplete),
     period = useTodoStore((s) => s.period);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
@@ -93,6 +96,7 @@ export const TodoItem = memo(function TodoItem({ todo }: { todo: Todo }) {
             {calendar?.name || 'Daily tasks'} ·{' '}
             {formatTodoMeta(todo.datetime, period, timeFormat === '24h')}
             {todo.time_needed ? ` · ${todo.time_needed}m` : ''}
+            {goalName ? ` · ${goalName}` : ''}
           </Text>
         </View>
       </PressFeedback>

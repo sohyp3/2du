@@ -1,5 +1,7 @@
 import { PriorityPicker } from '@/components/PriorityPicker';
 import { CalendarPicker } from '@/components/CalendarPicker';
+import { GoalPicker } from '@/components/GoalPicker';
+import { useGoalStore } from '@/store/goalStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useState, useMemo, useCallback } from 'react';
 import {
@@ -23,10 +25,11 @@ function getDefaultHour(): number {
 }
 
 export default function AddTodoScreen() {
-  const params = useLocalSearchParams<{ name?: string }>();
+  const params = useLocalSearchParams<{ name?: string; goal?: string }>();
   const [calendarId, setCalendarId] = useState<string | null>(
     useCalendarsStore.getState().selected || 'daily'
   );
+  const [goalId, setGoalId] = useState<string | null>(params.goal ?? null);
   const [name, setName] = useState(params.name ?? '');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('moderate');
@@ -39,6 +42,7 @@ export default function AddTodoScreen() {
   const fonts = useFontFamily();
 
   const addTodo = useTodoStore((s) => s.addTodo);
+  const hasGoals = useGoalStore((s) => s.goals.length > 0);
   const router = useRouter();
   const headerHeight = useHeaderHeight();
 
@@ -59,9 +63,21 @@ export default function AddTodoScreen() {
       datetime,
       time_needed: timeNeeded ? parseInt(timeNeeded, 10) : null,
       remind_me: remindMe,
+      goal_id: goalId,
     });
     if (!useTodoStore.getState().error) router.back();
-  }, [calendarId, name, description, priority, datetime, timeNeeded, remindMe, addTodo, router]);
+  }, [
+    calendarId,
+    goalId,
+    name,
+    description,
+    priority,
+    datetime,
+    timeNeeded,
+    remindMe,
+    addTodo,
+    router,
+  ]);
 
   const formatHour = (h: number) => (h % 12 || 12).toString();
   const ampm = hour < 12 ? 'AM' : 'PM';
@@ -84,6 +100,16 @@ export default function AddTodoScreen() {
           paddingBottom: 40,
         }}>
         <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
+        {hasGoals && (
+          <View style={{ marginBottom: 12 }}>
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Goal
+            </Text>
+            <GoalPicker value={goalId} onChange={setGoalId} />
+          </View>
+        )}
         <Text
           style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
           className="mb-1 text-sm">

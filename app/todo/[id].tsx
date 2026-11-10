@@ -1,5 +1,7 @@
 import { PriorityPicker, PRIORITIES } from '@/components/PriorityPicker';
 import { CalendarPicker } from '@/components/CalendarPicker';
+import { GoalPicker } from '@/components/GoalPicker';
+import { useGoalStore } from '@/store/goalStore';
 import { useState, useCallback, useEffect } from 'react';
 import {
   Text,
@@ -42,6 +44,8 @@ export default function TodoDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [calendarId, setCalendarId] = useState<string | null>(initial?.calendar_id || 'daily');
+  const [goalId, setGoalId] = useState<string | null>(initial?.goal_id ?? null);
+  const hasGoals = useGoalStore((s) => s.goals.length > 0);
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [priority, setPriority] = useState<Priority>(initial?.priority ?? 'moderate');
@@ -67,6 +71,7 @@ export default function TodoDetailScreen() {
         if (found) {
           setTodo(found);
           setCalendarId(found.calendar_id || 'daily');
+          setGoalId(found.goal_id ?? null);
           setName(found.name);
           setDescription(found.description ?? '');
           setPriority(found.priority);
@@ -104,6 +109,7 @@ export default function TodoDetailScreen() {
         priority,
         datetime,
         remind_me: remindMe,
+        goal_id: goalId,
       });
       if (useTodoStore.getState().error) throw new Error(useTodoStore.getState().error!);
       setTodo((prev) =>
@@ -111,6 +117,7 @@ export default function TodoDetailScreen() {
           ? {
               ...prev,
               calendar_id: calendarId || 'daily',
+              goal_id: goalId,
               name: name.trim(),
               description: description.trim() || null,
               priority,
@@ -129,6 +136,7 @@ export default function TodoDetailScreen() {
     }
   }, [
     calendarId,
+    goalId,
     id,
     name,
     description,
@@ -239,6 +247,16 @@ export default function TodoDetailScreen() {
           paddingBottom: 40,
         }}>
         {editing && <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />}
+        {editing && hasGoals && (
+          <View style={{ marginBottom: 12 }}>
+            <Text
+              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
+              className="mb-1 text-sm">
+              Goal
+            </Text>
+            <GoalPicker value={goalId} onChange={setGoalId} />
+          </View>
+        )}
         {editing ? (
           <>
             <Text
