@@ -2,6 +2,9 @@
  * tell these apart, since it stays true on a network with no route to the server. */
 export class NetworkError extends Error {}
 
+/** The server answered 401: the session token is missing, expired or revoked. */
+export class AuthError extends Error {}
+
 export async function fetchJSON(url: string, options: RequestInit = {}) {
   // React Native's AbortSignal polyfill has no timeout() static method.
   const controller = new AbortController();
@@ -11,6 +14,7 @@ export async function fetchJSON(url: string, options: RequestInit = {}) {
       throw new NetworkError('Could not reach the server. Check your connection and try again.');
     });
     const body = await response.json();
+    if (response.status === 401) throw new AuthError(body.error || 'Sign in again to sync');
     if (!response.ok) throw new Error(body.error || 'Server request failed');
     return body;
   } finally {

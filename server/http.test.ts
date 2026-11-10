@@ -1,5 +1,5 @@
 import { test, expect, spyOn } from 'bun:test';
-import { fetchJSON } from '../utils/http';
+import { AuthError, fetchJSON } from '../utils/http';
 test('client HTTP works without AbortSignal.timeout and surfaces server errors', async () => {
   const mockedFetch = spyOn(globalThis, 'fetch');
   const originalTimeout = AbortSignal.timeout;
@@ -21,5 +21,26 @@ test('client HTTP works without AbortSignal.timeout and surfaces server errors',
   } finally {
     mockedFetch.mockRestore();
     Object.defineProperty(AbortSignal, 'timeout', { configurable: true, value: originalTimeout });
+  }
+});
+test('a 401 rejects with AuthError, other failures do not', async () => {
+  const mockedFetch = spyOn(globalThis, 'fetch');
+  const respond = (status: number) =>
+    mockedFetch.mockImplementation(
+      Object.assign(async () => Response.json({ error: 'Nope' }, { status }), {
+        preconnect: fetch.preconnect,
+      })
+    );
+  try {
+    respond(401);
+    const expired = await fetchJSON('http://localhost/sync').catch((e) => e);
+    expect(expired).toBeInstanceOf(AuthError);
+    expect(expired.message).toBe('Nope');
+    respond(500);
+    const broken = await fetchJSON('http://localhost/sync').catch((e) => e);
+    expect(broken).toBeInstanceOf(Error);
+    expect(broken).not.toBeInstanceOf(AuthError);
+  } finally {
+    mockedFetch.mockRestore();
   }
 });

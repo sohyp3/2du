@@ -27,7 +27,8 @@ export default function TabLayout() {
     selected = useCalendarsStore((s) => s.selected),
     select = useCalendarsStore((s) => s.select);
   const connected = useSyncStore((s) => !!s.token),
-    syncError = useSyncStore((s) => s.error);
+    syncError = useSyncStore((s) => s.error),
+    needsLogin = useSyncStore((s) => s.needsLogin);
   const zenMode = useThemeStore((s) => s.zenMode);
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
@@ -162,14 +163,16 @@ export default function TabLayout() {
             <Ionicons
               name={connected ? 'cloud-done-outline' : 'phone-portrait-outline'}
               size={18}
-              color={syncError ? c.error : c.primary}
+              color={needsLogin || syncError ? c.error : c.primary}
             />
             <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 }}>
-              {syncError
-                ? 'Sync needs attention'
-                : connected
-                  ? 'Sync connected'
-                  : 'Saved on this device'}
+              {needsLogin
+                ? 'Sign in again to sync'
+                : syncError
+                  ? 'Sync needs attention'
+                  : connected
+                    ? 'Sync connected'
+                    : 'Saved on this device'}
             </Text>
           </PressFeedback>
         </View>

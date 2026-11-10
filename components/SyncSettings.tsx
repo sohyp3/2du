@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, TextInput, View, Platform } from 'react-native';
 import { useSyncStore } from '@/store/syncStore';
-import { NetworkError } from '@/utils/http';
+import { AuthError, NetworkError } from '@/utils/http';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { AuthForm, type AuthFormHandle } from './AuthForm';
 import { PressFeedback } from './PressFeedback';
@@ -11,6 +11,7 @@ export function SyncSettings() {
     syncToken = useSyncStore((s) => s.token),
     busy = useSyncStore((s) => s.busy),
     syncError = useSyncStore((s) => s.error),
+    needsLogin = useSyncStore((s) => s.needsLogin),
     lastSync = useSyncStore((s) => s.lastSync),
     pending = useSyncStore((s) => s.pending),
     keys = useSyncStore((s) => s.keys),
@@ -30,10 +31,14 @@ export function SyncSettings() {
     [scope, setScope] = useState('read'),
     [newKey, setNewKey] = useState(''),
     [error, setError] = useState('');
+  // A dead session asks for the same account again, never for a new one.
+  useEffect(() => {
+    if (needsLogin) setRegister(false);
+  }, [needsLogin]);
   useEffect(() => {
     if (syncToken)
       loadKeys().catch((e) => {
-        if (!(e instanceof NetworkError)) setError(e.message);
+        if (!(e instanceof NetworkError || e instanceof AuthError)) setError(e.message);
       });
   }, [syncToken, loadKeys]);
   const run = async (fn: () => Promise<unknown>) => {
@@ -106,6 +111,22 @@ export function SyncSettings() {
       </Text>
       {!syncToken ? (
         <AuthForm ref={form} onSubmit={signIn}>
+          {needsLogin && (
+            <Text
+              accessibilityRole="alert"
+              style={{
+                color: c.onSurface,
+                backgroundColor: c.primaryContainer,
+                fontFamily: fonts.regular,
+                fontSize: 14,
+                lineHeight: 22,
+                padding: 14,
+                borderRadius: 8,
+                marginBottom: 16,
+              }}>
+              Your session ended. Sign in again to keep syncing. Nothing on this device was lost.
+            </Text>
+          )}
           <Text style={{ color: c.onSurfaceVariant, marginBottom: 8 }}>Server URL</Text>
           <TextInput
             accessibilityLabel="Server URL"
