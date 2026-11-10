@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { startSync } from '@/store/syncStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useReducedMotion } from 'react-native-reanimated';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
 import { useColorScheme } from 'nativewind';
@@ -70,6 +70,12 @@ function App() {
     CormorantGaramond_700Bold,
   });
 
+  // Startup timing, logged once in development. `fonts` is measured from the start of
+  // database init, since both begin on mount and run in parallel.
+  const startup = useRef<{ db: number; settings: number; start: number } | null>(null);
+  const fontsAt = useRef(0);
+  if (fontsLoaded && !fontsAt.current) fontsAt.current = performance.now();
+
   useEffect(() => {
     async function initialize() {
       try {
@@ -77,7 +83,9 @@ function App() {
         setInitError(null);
 
         // Initialize database first
+        const t0 = performance.now();
         await initDatabase();
+        const t1 = performance.now();
         if (Platform.OS === 'web') sessionStorage.removeItem(LOCK_RELOAD_KEY);
 
         // Only what the first frame needs; everything else can finish after it paints.
@@ -85,8 +93,13 @@ function App() {
           loadSettings(),
           loadCalendarSettings(),
           useCalendarsStore.getState().load(),
-          useTodoStore.getState().loadSettings(),
+          // The period filter must be known before the first task query.
+          useTodoStore
+            .getState()
+            .loadSettings()
+            .then(() => useTodoStore.getState().loadTodos()),
         ]);
+        startup.current = { db: t1 - t0, settings: performance.now() - t1, start: t0 };
 
         setIsInitializing(false);
 
@@ -123,6 +136,15 @@ function App() {
 
     initialize();
   }, [loadSettings, loadCalendarSettings, initAttempt]);
+
+  useEffect(() => {
+    const s = startup.current;
+    if (!__DEV__ || !s || !fontsLoaded || isInitializing) return;
+    startup.current = null;
+    console.log(
+      `startup db=${s.db.toFixed(0)}ms settings=${s.settings.toFixed(0)}ms fonts=${(fontsAt.current - s.start).toFixed(0)}ms`
+    );
+  }, [fontsLoaded, isInitializing]);
 
   useEffect(() => {
     setColorScheme(themeKey === 'silver' ? 'light' : 'dark');

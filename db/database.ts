@@ -5,6 +5,13 @@ import { DATABASE_LOCKED, databaseStartupMessage } from './initializationError';
 
 export let db: SQLite.SQLiteDatabase;
 
+// Launches whose `PRAGMA user_version` already equals this skip all schema work.
+// Any future change to tables, columns or to `fields` in `shared/records.ts` must bump this
+// number, and must `DROP TRIGGER IF EXISTS` the affected `sync_<entity>_INSERT` / `_UPDATE` /
+// `_DELETE` triggers before the trigger loop, because `CREATE TRIGGER IF NOT EXISTS` will not
+// replace a trigger built from an old field list.
+const SCHEMA_VERSION = 1;
+
 export class DatabaseError extends Error {
   constructor(
     message: string,
@@ -45,6 +52,11 @@ export async function initDatabase(): Promise<void> {
         );
     }
     db ??= await openWithRetry();
+    const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+    if (version?.user_version === SCHEMA_VERSION) {
+      await db.execAsync('UPDATE sync_control SET applying=0 WHERE id=1');
+      return;
+    }
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS todos (
         id TEXT PRIMARY KEY,
@@ -135,6 +147,7 @@ export async function initDatabase(): Promise<void> {
       }
       await setSetting('sync_bootstrapped', 'true');
     }
+    await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   } catch (error) {
     throw new DatabaseError(
       databaseStartupMessage(error),

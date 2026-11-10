@@ -39,6 +39,8 @@ export default function TasksScreen() {
   const wide = useWindowDimensions().width >= 1280;
   const notes = useNoteStore((s) => (wide && !zen ? s.notes : EMPTY_NOTES));
   useEffect(() => {
+    // Startup already loaded the list; reloading here would only repaint the same rows.
+    if (useTodoStore.getState().loaded) return;
     void loadTodos();
   }, [loadTodos]);
   const visible = useMemo(

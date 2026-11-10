@@ -40,6 +40,8 @@ interface TodoState {
   referenceDate: Date;
   statusFilter: StatusFilter;
   isLoading: boolean;
+  /** True once a load has succeeded, so screens need not reload on mount. */
+  loaded: boolean;
   error: string | null;
 
   loadTodos: () => Promise<void>;
@@ -63,6 +65,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   referenceDate: new Date(),
   statusFilter: 'all',
   isLoading: false,
+  loaded: false,
   error: null,
 
   loadTodos: async () => {
@@ -71,7 +74,11 @@ export const useTodoStore = create<TodoState>((set, get) => ({
       const { period, referenceDate, statusFilter } = get();
       const { start, end } = getDateRange(period, referenceDate);
       const todos = await getTodosByDateRange(start.toISOString(), end.toISOString(), statusFilter);
-      set((state) => ({ todos: reuseUnchanged(state.todos, todos), isLoading: false }));
+      set((state) => ({
+        todos: reuseUnchanged(state.todos, todos),
+        isLoading: false,
+        loaded: true,
+      }));
     } catch (error) {
       const message = error instanceof DatabaseError ? error.message : 'Failed to load todos';
       set({ error: message, isLoading: false });
