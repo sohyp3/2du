@@ -302,6 +302,14 @@ function App() {
                 options={{ presentation: 'card', headerShown: false }}
               />
               <Stack.Screen name="goals" options={{ presentation: 'card', title: 'Goals' }} />
+              <Stack.Screen
+                name="pick"
+                options={{
+                  presentation: 'modal',
+                  title: 'Pick for me',
+                  ...(Platform.OS === 'android' && { animation: 'fade' }),
+                }}
+              />
             </Stack>
           </SafeAreaProvider>
         </GestureHandlerRootView>

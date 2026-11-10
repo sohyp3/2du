@@ -205,8 +205,32 @@ export default function TasksScreen() {
               ListEmptyComponent={empty}
             />
           )}
-          <View style={{ paddingBottom: 10 }}>
-            <QuickAdd />
+          <View style={{ paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <QuickAdd />
+            </View>
+            <PressFeedback
+              accessibilityRole="button"
+              accessibilityLabel="Pick for me"
+              onPress={() => router.push('/pick')}
+              style={{
+                minHeight: 44,
+                minWidth: 44,
+                paddingHorizontal: wide ? 14 : 10,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                backgroundColor: c.surfaceContainer,
+              }}>
+              <Ionicons name="shuffle-outline" size={20} color={c.primary} />
+              {wide && (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: c.onSurface }}>
+                  Pick for me
+                </Text>
+              )}
+            </PressFeedback>
           </View>
         </View>
         {wide && !zen && (
