@@ -17,6 +17,9 @@ interface Outbox {
 // write. Keep the in-memory value fresh for the UI and flush it periodically.
 const SYNC_LAST_WRITE_MS = 60_000;
 let lastSyncWrite = 0;
+// A server without incremental sync rejects the `since` field. Remembered until restart.
+let legacyServer = false;
+const ID_CHUNK = 500;
 interface ApiKey {
   id: string;
   name: string;
@@ -109,6 +112,8 @@ export const useSyncStore = create<SyncState>((set, get) => {
         set({ url, username: body.username, token: body.token, busy: false, needsLogin: false });
         // Lowers the chance the browser evicts the token and the local database.
         if (Platform.OS === 'web') void navigator.storage?.persist?.().catch(() => {});
+        // A fresh sign-in always starts with one full sync.
+        await db.runAsync("DELETE FROM settings WHERE key='sync_cursor'");
         await get().sync();
       } catch (e) {
         set({ busy: false, error: e instanceof Error ? e.message : 'Connection failed' });
@@ -152,80 +157,105 @@ export const useSyncStore = create<SyncState>((set, get) => {
           ...r,
           data: r.data === null ? null : JSON.parse(r.data),
         }));
-        const result = await get().request('sync', {
-          method: 'POST',
-          body: JSON.stringify({ changes }),
-        });
+        const stored = legacyServer ? null : await getSetting('sync_cursor');
+        const since = stored && /^\d+$/.test(stored) ? Number(stored) : null;
+        const post = (body: object) =>
+          get().request('sync', { method: 'POST', body: JSON.stringify(body) });
+        let result;
+        try {
+          result = await post(since === null ? { changes } : { changes, since });
+        } catch (e) {
+          if (since === null || !(e instanceof Error) || e.message !== 'Unknown field') throw e;
+          legacyServer = true;
+          result = await post({ changes });
+        }
+        const cursor: number | null = Number.isInteger(result.cursor) ? result.cursor : null;
         const records: Change[] = result.records.map(validateChange);
         const sentById = new Map(pending.map((p) => [`${p.entity}:${p.id}`, p]));
-        // The server answers with every record on each sync. Only touch rows that really
-        // differ, and only reload the stores whose data changed, so an idle sync costs
-        // a few reads instead of rewriting the database and re-rendering every screen.
+        // With a cursor the server answers with only what changed since the last sync (an
+        // old server still sends everything). Only touch rows that really differ, and only
+        // reload the stores whose data changed, so an idle sync costs one small request.
         const changed = new Set<Entity>();
-        await withDatabaseWrite(() =>
-          db.withTransactionAsync(async () => {
-            const tx = db;
-            const outbox = new Map(
-              (await tx.getAllAsync<Outbox>('SELECT * FROM sync_outbox')).map((o) => [
-                `${o.entity}:${o.id}`,
-                o,
-              ])
-            );
-            const localRows = new Map<string, Record<string, unknown>>();
-            for (const entity of entities)
-              for (const row of await tx.getAllAsync<Record<string, unknown>>(
-                `SELECT ${fields[entity].join(',')} FROM ${entity}`
-              ))
-                localRows.set(`${entity}:${row.id}`, row);
-            let applying = false;
-            const beginApply = async () => {
-              if (applying) return;
-              applying = true;
-              await tx.runAsync('UPDATE sync_control SET applying=1 WHERE id=1');
-            };
-            for (const r of records) {
-              const key = `${r.entity}:${r.id}`;
-              const local = outbox.get(key);
-              const sent = sentById.get(key);
-              if (
-                local &&
-                (!sent || local.updated_at !== sent.updated_at || local.data !== sent.data)
-              )
-                continue;
-              const row = localRows.get(key);
-              if (r.data === null) {
-                if (row) {
-                  await beginApply();
-                  await tx.runAsync(`DELETE FROM ${r.entity} WHERE id=?`, r.id);
-                  changed.add(r.entity);
-                }
-              } else {
-                const cols = fields[r.entity];
-                const vals = cols.map((k) => {
-                  const v = r.data![k];
-                  return typeof v === 'boolean'
-                    ? Number(v)
-                    : ((v ?? (k === 'calendar_id' ? 'daily' : null)) as string | number | null);
-                });
-                if (!row || cols.some((k, i) => row[k] !== vals[i])) {
-                  await beginApply();
-                  await tx.runAsync(
-                    `INSERT OR REPLACE INTO ${r.entity} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
-                    vals
-                  );
-                  changed.add(r.entity);
+        if (!records.length) {
+          if (cursor !== null && cursor !== since) await setSetting('sync_cursor', String(cursor));
+        } else
+          await withDatabaseWrite(() =>
+            db.withTransactionAsync(async () => {
+              const tx = db;
+              const outbox = new Map(
+                (await tx.getAllAsync<Outbox>('SELECT * FROM sync_outbox')).map((o) => [
+                  `${o.entity}:${o.id}`,
+                  o,
+                ])
+              );
+              const localRows = new Map<string, Record<string, unknown>>();
+              for (const entity of entities) {
+                const ids = records.filter((r) => r.entity === entity).map((r) => r.id);
+                for (let i = 0; i < ids.length; i += ID_CHUNK) {
+                  const chunk = ids.slice(i, i + ID_CHUNK);
+                  for (const row of await tx.getAllAsync<Record<string, unknown>>(
+                    `SELECT ${fields[entity].join(',')} FROM ${entity} WHERE id IN (${chunk.map(() => '?').join(',')})`,
+                    chunk
+                  ))
+                    localRows.set(`${entity}:${row.id}`, row);
                 }
               }
-              if (local)
+              let applying = false;
+              const beginApply = async () => {
+                if (applying) return;
+                applying = true;
+                await tx.runAsync('UPDATE sync_control SET applying=1 WHERE id=1');
+              };
+              for (const r of records) {
+                const key = `${r.entity}:${r.id}`;
+                const local = outbox.get(key);
+                const sent = sentById.get(key);
+                if (
+                  local &&
+                  (!sent || local.updated_at !== sent.updated_at || local.data !== sent.data)
+                )
+                  continue;
+                const row = localRows.get(key);
+                if (r.data === null) {
+                  if (row) {
+                    await beginApply();
+                    await tx.runAsync(`DELETE FROM ${r.entity} WHERE id=?`, r.id);
+                    changed.add(r.entity);
+                  }
+                } else {
+                  const cols = fields[r.entity];
+                  const vals = cols.map((k) => {
+                    const v = r.data![k];
+                    return typeof v === 'boolean'
+                      ? Number(v)
+                      : ((v ?? (k === 'calendar_id' ? 'daily' : null)) as string | number | null);
+                  });
+                  if (!row || cols.some((k, i) => row[k] !== vals[i])) {
+                    await beginApply();
+                    await tx.runAsync(
+                      `INSERT OR REPLACE INTO ${r.entity} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
+                      vals
+                    );
+                    changed.add(r.entity);
+                  }
+                }
+                if (local)
+                  await tx.runAsync(
+                    'DELETE FROM sync_outbox WHERE entity=? AND id=?',
+                    r.entity,
+                    r.id
+                  );
+              }
+              if (applying) await tx.runAsync('UPDATE sync_control SET applying=0 WHERE id=1');
+              // Last statement, so the cursor and the data it covers commit together.
+              if (cursor !== null)
                 await tx.runAsync(
-                  'DELETE FROM sync_outbox WHERE entity=? AND id=?',
-                  r.entity,
-                  r.id
+                  'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                  'sync_cursor',
+                  String(cursor)
                 );
-            }
-            if (applying) await tx.runAsync('UPDATE sync_control SET applying=0 WHERE id=1');
-          })
-        );
+            })
+          );
         const lastSync = new Date().toISOString();
         if (Date.now() - lastSyncWrite >= SYNC_LAST_WRITE_MS) {
           lastSyncWrite = Date.now();
