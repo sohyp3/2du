@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { Text, TextInput, View, Platform } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useSyncStore } from '@/store/syncStore';
 import { AuthError, NetworkError } from '@/utils/http';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { AuthForm, type AuthFormHandle } from './AuthForm';
 import { PressFeedback } from './PressFeedback';
+import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
+import { SettingsRow } from './settings/SettingsRow';
+import { SettingsSection, SPACE } from './settings/SettingsSection';
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 export function SyncSettings() {
   const syncUrl = useSyncStore((s) => s.url),
     syncUsername = useSyncStore((s) => s.username),
@@ -57,240 +69,191 @@ export function SyncSettings() {
       setPassword('');
     });
   };
-  const input = {
-    color: c.onSurface,
-    backgroundColor: c.surfaceContainerHigh,
-    fontFamily: fonts.regular,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    marginBottom: 12,
-  };
-  const button = (label: string, fn: () => void, secondary = false) => (
-    <PressFeedback
-      accessibilityRole="button"
-      disabled={busy}
-      onPress={fn}
+  const message = error || syncError;
+  const value = (text: string) => (
+    <Text
       style={{
-        minHeight: 48,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 18,
-        backgroundColor: secondary ? c.surfaceContainerHigh : c.primary,
-        borderRadius: 8,
-        opacity: busy ? 0.5 : 1,
+        fontFamily: fonts.regular,
+        color: c.onSurfaceVariant,
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: 'right',
+        flexShrink: 1,
       }}>
-      <Text style={{ fontFamily: fonts.medium, color: secondary ? c.onSurface : c.onPrimary }}>
-        {label}
-      </Text>
-    </PressFeedback>
+      {text}
+    </Text>
   );
-  return (
-    <View style={{ marginBottom: 36 }}>
-      <Text
-        accessibilityRole="header"
-        style={{
-          fontFamily: 'PlayfairDisplay_400Regular',
-          color: c.onSurface,
-          fontSize: 26,
-          marginBottom: 10,
-        }}>
-        Your devices, in sync.
-      </Text>
-      <Text
-        style={{
-          color: c.onSurfaceVariant,
-          fontFamily: fonts.regular,
-          fontSize: 14,
-          lineHeight: 23,
-          marginBottom: 20,
-        }}>
-        Everything saves here first. Connect your own server to carry tasks, calendars, and thoughts
-        between devices.
-      </Text>
-      {!syncToken ? (
-        <AuthForm ref={form} onSubmit={signIn}>
+
+  if (!syncToken)
+    return (
+      <AuthForm ref={form} onSubmit={signIn}>
+        <SettingsSection
+          title="Account"
+          footer="Everything saves here first. Connect your own server to carry tasks, calendars, and thoughts between devices. Your existing local data joins this account on first sync. Registration must be enabled by the server owner.">
           {needsLogin && (
-            <Text
-              accessibilityRole="alert"
-              style={{
-                color: c.onSurface,
-                backgroundColor: c.primaryContainer,
-                fontFamily: fonts.regular,
-                fontSize: 14,
-                lineHeight: 22,
-                padding: 14,
-                borderRadius: 8,
-                marginBottom: 16,
-              }}>
-              Your session ended. Sign in again to keep syncing. Nothing on this device was lost.
-            </Text>
+            <SettingsMessage
+              notice
+              text="Your session ended. Sign in again to keep syncing. Nothing on this device was lost."
+            />
           )}
-          <Text style={{ color: c.onSurfaceVariant, marginBottom: 8 }}>Server URL</Text>
-          <TextInput
-            accessibilityLabel="Server URL"
-            value={url}
-            onChangeText={setUrl}
-            placeholder="https://sync.example.com"
-            placeholderTextColor={c.outline}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            style={input}
-          />
-          <Text style={{ color: c.onSurfaceVariant, marginBottom: 8 }}>Username</Text>
-          <TextInput
-            accessibilityLabel="Username"
-            value={username}
-            onChangeText={setUsername}
-            placeholder="Your username"
-            placeholderTextColor={c.outline}
-            autoCapitalize="none"
-            autoComplete="username"
-            autoCorrect={false}
-            style={input}
-          />
-          <Text style={{ color: c.onSurfaceVariant, marginBottom: 8 }}>Password</Text>
-          <TextInput
-            accessibilityLabel="Password"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="At least 10 characters"
-            placeholderTextColor={c.outline}
-            autoComplete={register ? 'new-password' : 'current-password'}
-            onSubmitEditing={() => form.current?.submit()}
-            secureTextEntry
-            style={input}
-          />
-          {button(
-            busy ? 'Connecting…' : register ? 'Create account & connect' : 'Sign in & connect',
-            () => form.current?.submit()
-          )}
-          <PressFeedback
-            accessibilityRole="button"
-            onPress={() => setRegister(!register)}
-            style={{ minHeight: 48, justifyContent: 'center' }}>
-            <Text style={{ color: c.primary, fontFamily: fonts.medium }}>
-              {register ? 'Already have an account? Sign in' : 'First device? Create an account'}
-            </Text>
-          </PressFeedback>
-          <Text style={{ color: c.onSurfaceVariant, fontSize: 12, lineHeight: 20 }}>
-            Your existing local data joins this account on first sync. Registration must be enabled
-            by the server owner.
-          </Text>
-        </AuthForm>
-      ) : (
-        <View>
-          <Text style={{ color: c.onSurface, fontFamily: fonts.medium, marginBottom: 6 }}>
-            {syncUsername} · {syncUrl}
-          </Text>
-          <Text style={{ color: c.onSurfaceVariant, fontSize: 13, marginBottom: 16 }}>
-            {busy
-              ? 'Syncing…'
-              : lastSync
-                ? `Last synced ${new Date(lastSync).toLocaleString()}`
-                : 'Ready to sync'}
-            {pending ? ` · ${pending} pending` : ''}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {button('Sync now', () => syncNow())}
-            {button('Disconnect', () => run(disconnect), true)}
-          </View>
-          <Text style={{ color: c.onSurfaceVariant, fontSize: 12, lineHeight: 20, marginTop: 12 }}>
-            Syncs every 15 seconds while open. Offline edits stay queued.{' '}
-            {Platform.OS === 'web'
-              ? 'This browser stays signed in for 30 days, or until you disconnect.'
-              : 'Your device session is stored securely.'}
-          </Text>
-          <Text
-            accessibilityRole="header"
-            style={{
-              color: c.onSurface,
-              fontFamily: 'PlayfairDisplay_400Regular',
-              fontSize: 26,
-              marginTop: 36,
-              marginBottom: 10,
-            }}>
-            A key for your agent.
-          </Text>
-          <Text
-            style={{ color: c.onSurfaceVariant, fontSize: 14, lineHeight: 23, marginBottom: 20 }}>
-            Connect any agent over the REST API. Read-only keys can explore; read & write keys can
-            create, edit, and delete your tasks, notes, and calendars.
-          </Text>
-          <TextInput
-            accessibilityLabel="API key name"
-            value={keyName}
-            onChangeText={setKeyName}
-            style={input}
-          />
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            {button(
-              scope === 'read' ? 'Read only · selected' : 'Read only',
-              () => setScope('read'),
-              scope !== 'read'
-            )}
-            {button(
-              scope === 'write' ? 'Read & write · selected' : 'Read & write',
-              () => setScope('write'),
-              scope !== 'write'
-            )}
-          </View>
-          {button('Create API key', () =>
-            run(async () => setNewKey(await createKey(keyName, scope)))
-          )}
-          {!!newKey && (
-            <View
-              style={{
-                backgroundColor: c.primaryContainer,
-                padding: 16,
-                borderRadius: 8,
-                marginTop: 16,
-              }}>
-              <Text style={{ color: c.onSurface, marginBottom: 10 }}>
-                Copy this key now. It is only shown once.
+          <SettingsRow label="Server URL">
+            <SettingsInput
+              accessibilityLabel="Server URL"
+              value={url}
+              onChangeText={setUrl}
+              placeholder="https://sync.example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </SettingsRow>
+          <SettingsRow label="Username">
+            <SettingsInput
+              accessibilityLabel="Username"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Your username"
+              autoCapitalize="none"
+              autoComplete="username"
+              autoCorrect={false}
+            />
+          </SettingsRow>
+          <SettingsRow label="Password">
+            <SettingsInput
+              accessibilityLabel="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="At least 10 characters"
+              autoComplete={register ? 'new-password' : 'current-password'}
+              onSubmitEditing={() => form.current?.submit()}
+              secureTextEntry
+            />
+          </SettingsRow>
+          {!!message && <SettingsMessage text={message} />}
+          <View style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md, gap: SPACE.xs }}>
+            <SettingsButton
+              primary
+              label={
+                busy ? 'Connecting…' : register ? 'Create account & connect' : 'Sign in & connect'
+              }
+              disabled={busy}
+              onPress={() => form.current?.submit()}
+            />
+            <PressFeedback
+              accessibilityRole="button"
+              onPress={() => setRegister(!register)}
+              style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 14 }}>
+                {register ? 'Already have an account? Sign in' : 'First device? Create an account'}
               </Text>
-              <Text selectable style={{ color: c.primary, fontSize: 13, lineHeight: 22 }}>
+            </PressFeedback>
+          </View>
+        </SettingsSection>
+      </AuthForm>
+    );
+
+  return (
+    <View>
+      <SettingsSection
+        title="Account"
+        footer={
+          Platform.OS === 'web'
+            ? 'This browser stays signed in until you sign out.'
+            : 'Your device session is stored securely.'
+        }>
+        <SettingsRow label={syncUsername} hint={hostOf(syncUrl)} />
+        <SettingsRow
+          destructive
+          label="Sign out"
+          disabled={busy}
+          onPress={() => void run(disconnect)}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Status"
+        footer="Syncs every 15 seconds while open. Offline edits stay queued.">
+        {!!message && <SettingsMessage text={message} />}
+        <SettingsRow
+          label="Last synced"
+          right={value(
+            busy ? 'Syncing…' : lastSync ? new Date(lastSync).toLocaleString() : 'Not yet'
+          )}
+        />
+        <SettingsRow label="Pending changes" right={value(String(pending))} />
+        <SettingsRow
+          label="Sync now"
+          disabled={busy}
+          onPress={() => void syncNow()}
+          right={busy ? <ActivityIndicator size="small" color={c.primary} /> : undefined}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Agent keys"
+        footer="Connect any agent over the REST API. Read-only keys can explore; read & write keys can create, edit, and delete your tasks, notes, and calendars.">
+        <SettingsRow label="New key">
+          <View style={{ gap: SPACE.md }}>
+            <SettingsInput
+              accessibilityLabel="API key name"
+              value={keyName}
+              onChangeText={setKeyName}
+            />
+            <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
+              <SettingsButton
+                grow
+                label="Read only"
+                selected={scope === 'read'}
+                onPress={() => setScope('read')}
+              />
+              <SettingsButton
+                grow
+                label="Read & write"
+                selected={scope === 'write'}
+                onPress={() => setScope('write')}
+              />
+            </View>
+            <SettingsButton
+              label="Create API key"
+              disabled={busy}
+              onPress={() => void run(async () => setNewKey(await createKey(keyName, scope)))}
+            />
+          </View>
+        </SettingsRow>
+        {!!newKey && (
+          <SettingsRow label="Copy this key now" hint="It is only shown once.">
+            <View style={{ gap: SPACE.md }}>
+              <Text
+                selectable
+                style={{
+                  color: c.primary,
+                  backgroundColor: c.surfaceContainerHigh,
+                  fontSize: 13,
+                  lineHeight: 20,
+                  padding: SPACE.md,
+                  borderRadius: 8,
+                }}>
                 {newKey}
               </Text>
-              <PressFeedback
-                onPress={() => setNewKey('')}
-                accessibilityRole="button"
-                style={{ paddingTop: 16, minHeight: 44 }}>
-                <Text style={{ color: c.onSurface }}>I saved it — hide key</Text>
-              </PressFeedback>
+              <SettingsButton label="I saved it, hide key" onPress={() => setNewKey('')} />
             </View>
-          )}
-          {keys.map((k) => (
-            <View
-              key={k.id}
-              style={{
-                borderBottomWidth: 1,
-                borderBottomColor: c.outlineVariant,
-                paddingVertical: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 16,
-              }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: c.onSurface, fontFamily: fonts.medium }}>{k.name}</Text>
-                <Text style={{ color: c.onSurfaceVariant, fontSize: 12, marginTop: 4 }}>
-                  {k.scope === 'read' ? 'Read only' : 'Read & write'}
-                </Text>
-              </View>
-              {button('Revoke', () => run(() => revokeKey(k.id)), true)}
-            </View>
-          ))}
-        </View>
-      )}
-      {!!(error || syncError) && (
-        <Text
-          accessibilityRole="alert"
-          style={{ color: c.error, fontFamily: fonts.regular, lineHeight: 22, marginTop: 16 }}>
-          {error || syncError}
-        </Text>
-      )}
+          </SettingsRow>
+        )}
+        {keys.map((k) => (
+          <SettingsRow
+            key={k.id}
+            label={k.name}
+            hint={k.scope === 'read' ? 'Read only' : 'Read & write'}
+            right={
+              <SettingsButton
+                label="Revoke"
+                disabled={busy}
+                onPress={() => void run(() => revokeKey(k.id))}
+              />
+            }
+          />
+        ))}
+      </SettingsSection>
     </View>
   );
 }

@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCalendarsStore } from '@/store/calendarsStore';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { useColors } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
+import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
+import { SettingsRow } from './settings/SettingsRow';
+import { SettingsSection, SPACE } from './settings/SettingsSection';
+
 const colors = ['#a7c968', '#bb8ed6', '#eccb73', '#8bcdec', '#eeaba0', '#d9945c'];
+/** `editing` value for the "Add calendar" row; real calendars use their id. */
+const NEW = '';
+
 export function CalendarSettings() {
   const calendars = useCalendarsStore((s) => s.calendars),
     save = useCalendarsStore((s) => s.save),
@@ -13,8 +20,7 @@ export function CalendarSettings() {
     [color, setColor] = useState(colors[0]),
     [editing, setEditing] = useState<string | undefined>(),
     [error, setError] = useState('');
-  const c = useColors(),
-    fonts = useFontFamily();
+  const c = useColors();
   const run = async (fn: () => Promise<void>) => {
     setError('');
     try {
@@ -23,74 +29,51 @@ export function CalendarSettings() {
       setError(e instanceof Error ? e.message : 'Could not save calendar');
     }
   };
-  return (
-    <View style={{ marginBottom: 36 }}>
-      <Text
-        accessibilityRole="header"
-        style={{
-          fontFamily: 'PlayfairDisplay_400Regular',
-          color: c.onSurface,
-          fontSize: 26,
-          marginBottom: 10,
-        }}>
-        Different parts of your life.
-      </Text>
-      <Text style={{ color: c.onSurfaceVariant, fontSize: 14, lineHeight: 23, marginBottom: 16 }}>
-        Give daily tasks, work, and everything else their own calendar. Select one when adding or
-        editing a task.
-      </Text>
-      {calendars.map((item) => (
-        <View
-          key={item.id}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: c.outlineVariant,
-          }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.color }} />
-          <PressFeedback
-            accessibilityRole="button"
-            accessibilityLabel={`Edit calendar ${item.name}`}
-            onPress={() => {
-              setEditing(item.id);
-              setName(item.name);
-              setColor(item.color);
-            }}
-            style={{ flex: 1, minHeight: 56, justifyContent: 'center' }}>
-            <Text style={{ color: c.onSurface, fontFamily: fonts.medium }}>{item.name}</Text>
-          </PressFeedback>
-          <PressFeedback
-            accessibilityRole="button"
-            accessibilityLabel={`Delete calendar ${item.name}`}
-            onPress={() => run(() => remove(item.id))}
-            style={{ width: 48, minHeight: 48, justifyContent: 'center', alignItems: 'center' }}>
-            <Ionicons name="trash-outline" size={18} color={c.onSurfaceVariant} />
-          </PressFeedback>
-        </View>
-      ))}
-      <Text style={{ color: c.onSurfaceVariant, marginTop: 20, marginBottom: 8 }}>
-        {editing ? 'Edit calendar' : 'New calendar'}
-      </Text>
-      <TextInput
+  const open = (id: string, initialName: string, initialColor: string) => {
+    setError('');
+    setEditing(id);
+    setName(initialName);
+    setColor(initialColor);
+  };
+  const close = () => {
+    setEditing(undefined);
+    setName('');
+  };
+  const submit = () => {
+    if (!name.trim()) return;
+    void run(async () => {
+      await save(name, color, editing || undefined);
+      close();
+    });
+  };
+  const iconButton = (
+    label: string,
+    icon: 'pencil-outline' | 'trash-outline',
+    onPress: () => void
+  ) => (
+    <PressFeedback
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+      <Ionicons name={icon} size={18} color={c.onSurfaceVariant} />
+    </PressFeedback>
+  );
+  const square = (value: string) => (
+    <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: value }} />
+  );
+  const editor = (
+    <View style={{ gap: SPACE.md }}>
+      <SettingsInput
         accessibilityLabel="Calendar name"
         value={name}
         onChangeText={setName}
+        onSubmitEditing={submit}
         placeholder="e.g. Side projects"
-        placeholderTextColor={c.outline}
         maxLength={100}
-        style={{
-          backgroundColor: c.surfaceContainerHigh,
-          color: c.onSurface,
-          fontFamily: fonts.regular,
-          minHeight: 48,
-          paddingHorizontal: 14,
-          borderRadius: 8,
-          fontSize: 16,
-        }}
+        autoFocus
       />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginVertical: 12 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {colors.map((v) => (
           <PressFeedback
             key={v}
@@ -98,12 +81,12 @@ export function CalendarSettings() {
             accessibilityLabel={`Calendar color ${v}`}
             accessibilityState={{ selected: color === v }}
             onPress={() => setColor(v)}
-            style={{ width: 48, height: 48, justifyContent: 'center', alignItems: 'center' }}>
+            style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
             <View
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
                 backgroundColor: v,
                 borderWidth: color === v ? 3 : 0,
                 borderColor: c.onSurface,
@@ -112,45 +95,56 @@ export function CalendarSettings() {
           </PressFeedback>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <PressFeedback
-          accessibilityRole="button"
+      <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
+        <SettingsButton
+          primary
+          label={editing ? 'Save calendar' : 'Add calendar'}
           disabled={!name.trim()}
-          onPress={() =>
-            run(async () => {
-              await save(name, color, editing);
-              setName('');
-              setEditing(undefined);
-            })
-          }
-          style={{
-            backgroundColor: c.primary,
-            minHeight: 48,
-            paddingHorizontal: 20,
-            borderRadius: 8,
-            justifyContent: 'center',
-            opacity: name.trim() ? 1 : 0.5,
-          }}>
-          <Text style={{ color: c.onPrimary, fontFamily: fonts.medium }}>
-            {editing ? 'Save calendar' : 'Add calendar'}
-          </Text>
-        </PressFeedback>
-        {editing && (
-          <PressFeedback
-            onPress={() => {
-              setEditing(undefined);
-              setName('');
-            }}
-            style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}>
-            <Text style={{ color: c.onSurface }}>Cancel</Text>
-          </PressFeedback>
-        )}
+          onPress={submit}
+        />
+        <SettingsButton label="Cancel" onPress={close} />
       </View>
-      {!!error && (
-        <Text accessibilityRole="alert" style={{ color: c.error, marginTop: 12 }}>
-          {error}
-        </Text>
-      )}
     </View>
+  );
+  return (
+    <SettingsSection
+      title="Calendars"
+      footer="Give daily tasks, work, and everything else their own calendar. Select one when adding or editing a task.">
+      {calendars.map((item) =>
+        editing === item.id ? (
+          <SettingsRow key={item.id} label="Edit calendar" left={square(color)}>
+            {editor}
+          </SettingsRow>
+        ) : (
+          <SettingsRow
+            key={item.id}
+            label={item.name}
+            left={square(item.color)}
+            right={
+              <View style={{ flexDirection: 'row' }}>
+                {iconButton(`Edit calendar ${item.name}`, 'pencil-outline', () =>
+                  open(item.id, item.name, item.color)
+                )}
+                {iconButton(`Delete calendar ${item.name}`, 'trash-outline', () =>
+                  run(() => remove(item.id))
+                )}
+              </View>
+            }
+          />
+        )
+      )}
+      {editing === NEW ? (
+        <SettingsRow label="New calendar" left={square(color)}>
+          {editor}
+        </SettingsRow>
+      ) : (
+        <SettingsRow
+          label="Add calendar"
+          onPress={() => open(NEW, '', colors[0])}
+          right={<Ionicons name="add" size={20} color={c.primary} />}
+        />
+      )}
+      {!!error && <SettingsMessage text={error} />}
+    </SettingsSection>
   );
 }

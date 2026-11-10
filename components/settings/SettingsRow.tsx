@@ -8,6 +8,8 @@ export interface SettingsRowProps {
   label: string;
   /** Secondary line under the label. */
   hint?: string;
+  /** Leading mark before the label, such as a calendar's colour square. */
+  left?: ReactNode;
   /** Trailing control or value: a `Switch`, a value, a chevron. */
   right?: ReactNode;
   /** Makes the whole row a button. */
@@ -23,6 +25,7 @@ export interface SettingsRowProps {
 export function SettingsRow({
   label,
   hint,
+  left,
   right,
   onPress,
   disabled,
@@ -34,6 +37,7 @@ export function SettingsRow({
   const content = (
     <>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACE.md }}>
+        {left}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             style={{

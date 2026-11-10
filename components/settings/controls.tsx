@@ -94,3 +94,24 @@ export function SettingsButton(props: {
     </PressFeedback>
   );
 }
+
+/** Inline message row for a section: an error by default, or a neutral notice. */
+export function SettingsMessage({ text, notice }: { text: string; notice?: boolean }) {
+  const c = useColors(),
+    fonts = useFontFamily();
+  return (
+    <Text
+      accessibilityRole="alert"
+      style={{
+        fontFamily: fonts.regular,
+        color: notice ? c.onSurface : c.error,
+        backgroundColor: notice ? c.primaryContainer : undefined,
+        fontSize: 14,
+        lineHeight: 20,
+        paddingHorizontal: SPACE.lg,
+        paddingVertical: SPACE.md,
+      }}>
+      {text}
+    </Text>
+  );
+}
