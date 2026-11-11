@@ -12,6 +12,11 @@ export interface SettingsRowProps {
   left?: ReactNode;
   /** Trailing control or value: a `Switch`, a value, a chevron. */
   right?: ReactNode;
+  /**
+   * Controls after the label that stay outside the row's press target, for a pressable row that
+   * also holds its own buttons or switches (a button cannot contain another button).
+   */
+  trailing?: ReactNode;
   /** Makes the whole row a button. */
   onPress?: () => void;
   disabled?: boolean;
@@ -27,6 +32,7 @@ export function SettingsRow({
   hint,
   left,
   right,
+  trailing,
   onPress,
   disabled,
   destructive,
@@ -74,15 +80,22 @@ export function SettingsRow({
     opacity: disabled ? 0.5 : 1,
   } as const;
   if (!onPress) return <View style={style}>{content}</View>;
-  return (
+  const row = (
     <PressFeedback
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={style}>
+      style={trailing ? { ...style, flex: 1, minWidth: 0 } : style}>
       {content}
     </PressFeedback>
+  );
+  if (!trailing) return row;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      {row}
+      <View style={{ paddingRight: SPACE.lg }}>{trailing}</View>
+    </View>
   );
 }

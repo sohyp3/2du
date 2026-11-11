@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useGoalStore } from '@/store/goalStore';
 import { useSyncStore } from '@/store/syncStore';
@@ -42,6 +42,9 @@ export default function GoalsScreen() {
   useEffect(() => {
     reloadTodos();
   }, [revision, reloadTodos]);
+
+  // Tasks added or completed on another screen change progress without a sync revision.
+  useFocusEffect(reloadTodos);
 
   // `?id=<goal id>` opens that goal's editor once, when the goal is known.
   useEffect(() => {

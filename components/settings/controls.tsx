@@ -1,4 +1,11 @@
-import { ActivityIndicator, Switch, Text, TextInput, type TextInputProps } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Switch,
+  Text,
+  TextInput,
+  type TextInputProps,
+} from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { SPACE } from './SettingsSection';
@@ -11,15 +18,20 @@ export function SettingsSwitch(props: {
   disabled?: boolean;
 }) {
   const c = useColors();
+  // The Pressable keeps a toggle from also pressing a row that has its own `onPress`; on web the
+  // click would bubble to it. `activeThumbColor` is react-native-web's name for the on-state thumb.
   return (
-    <Switch
-      accessibilityLabel={props.label}
-      value={props.value}
-      onValueChange={props.onValueChange}
-      disabled={props.disabled}
-      trackColor={{ false: c.outlineVariant, true: c.primary }}
-      thumbColor={props.value ? c.onPrimary : c.surfaceContainerHighest}
-    />
+    <Pressable accessible={false} onPress={() => {}}>
+      <Switch
+        accessibilityLabel={props.label}
+        value={props.value}
+        onValueChange={props.onValueChange}
+        disabled={props.disabled}
+        trackColor={{ false: c.outlineVariant, true: c.primary }}
+        thumbColor={props.value ? c.onPrimary : c.surfaceContainerHighest}
+        {...({ activeThumbColor: c.onPrimary } as object)}
+      />
+    </Pressable>
   );
 }
 

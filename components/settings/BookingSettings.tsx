@@ -216,7 +216,7 @@ export function BookingSettings() {
             setProblems([]);
             setEditor({ link: l, isNew: false, slugEdited: true });
           }}
-          right={
+          trailing={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACE.sm }}>
               <PressFeedback
                 accessibilityRole="button"

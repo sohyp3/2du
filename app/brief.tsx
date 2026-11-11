@@ -5,6 +5,7 @@ import Markdown from 'react-native-markdown-display';
 import { useBriefStore } from '@/store/briefStore';
 import { useSyncStore } from '@/store/syncStore';
 import { localDateKey } from '@/shared/localDate';
+import { isRtlText } from '@/shared/textDirection';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { buildMarkdownStyles } from '@/utils/markdownStyles';
 import { PressFeedback } from '@/components/PressFeedback';
@@ -22,20 +23,32 @@ export default function BriefScreen() {
 
   const shown = (picked && recent.find((b) => b.id === picked)) || today;
   const earlier = recent.filter((b) => b.id !== today?.id);
-  const markdownStyles = useMemo(
-    () =>
-      buildMarkdownStyles(
-        {
-          ink: c.onSurface,
-          muted: c.onSurfaceVariant,
-          rule: c.outlineVariant,
-          link: c.primary,
-          codeBg: c.surfaceContainer,
-        },
-        fonts
-      ),
-    [c, fonts]
-  );
+  const rtl = isRtlText(shown?.content);
+  const markdownStyles = useMemo(() => {
+    const styles = buildMarkdownStyles(
+      {
+        ink: c.onSurface,
+        muted: c.onSurfaceVariant,
+        rule: c.outlineVariant,
+        link: c.primary,
+        codeBg: c.surfaceContainer,
+      },
+      fonts
+    );
+    if (!rtl) return styles;
+    const align = { textAlign: 'right', writingDirection: 'rtl' } as const;
+    return {
+      ...styles,
+      body: { ...styles.body, ...align },
+      heading1: { ...styles.heading1, ...align },
+      heading2: { ...styles.heading2, ...align },
+      heading3: { ...styles.heading3, ...align },
+      paragraph: align,
+      textgroup: align,
+      bullet_list_content: { flex: 1, ...align },
+      ordered_list_content: { flex: 1, ...align },
+    };
+  }, [c, fonts, rtl]);
 
   const refresh = async () => {
     if (busy) return;
@@ -100,7 +113,7 @@ export default function BriefScreen() {
           </Text>
         )}
         {shown ? (
-          <View style={{ marginTop: 8 }}>
+          <View style={{ marginTop: 8, direction: rtl ? 'rtl' : 'ltr' }}>
             <Markdown style={markdownStyles}>{shown.content}</Markdown>
           </View>
         ) : (
