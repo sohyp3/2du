@@ -15,7 +15,10 @@ export async function fetchJSON(url: string, options: RequestInit = {}) {
     });
     const body = await response.json();
     if (response.status === 401) throw new AuthError(body.error || 'Sign in again to sync');
-    if (!response.ok) throw new Error(body.error || 'Server request failed');
+    if (!response.ok)
+      throw Object.assign(new Error(body.error || 'Server request failed'), {
+        status: response.status,
+      });
     return body;
   } finally {
     clearTimeout(timer);

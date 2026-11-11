@@ -303,6 +303,7 @@ function App() {
                 name="note/[id]"
                 options={{ presentation: 'card', headerShown: false }}
               />
+              <Stack.Screen name="brief" options={{ presentation: 'card', title: 'Daily brief' }} />
               <Stack.Screen name="goals" options={{ presentation: 'card', title: 'Goals' }} />
               <Stack.Screen
                 name="pick"

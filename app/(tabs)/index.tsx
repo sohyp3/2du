@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { localDateKey } from '@/shared/localDate';
 import { useTodoStore } from '@/store/todoStore';
 import { useNoteStore } from '@/store/noteStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
@@ -20,6 +21,7 @@ import { CalendarCard, type CalendarCardProps } from '@/components/CalendarCard'
 import { QuickAdd } from '@/components/QuickAdd';
 import { TimeFilter } from '@/components/TimeFilter';
 import { CalendarPicker } from '@/components/CalendarPicker';
+import { BriefCard } from '@/components/BriefCard';
 import { PressFeedback } from '@/components/PressFeedback';
 import type { Note } from '@/db/notes';
 import type { Todo } from '@/db/todos';
@@ -43,6 +45,9 @@ export default function TasksScreen() {
     fonts = useFontFamily(),
     router = useRouter();
   const zen = useThemeStore((s) => s.zenMode);
+  const showBrief = useTodoStore(
+    (s) => s.period === 'day' && localDateKey(s.referenceDate) === localDateKey(new Date())
+  );
   const showGreeting = useThemeStore((s) => s.showGreeting);
   const insets = useSafeAreaInsets();
   const wide = useWindowDimensions().width >= 1280;
@@ -150,6 +155,7 @@ export default function TasksScreen() {
               </Text>
             </>
           )}
+          {showBrief && <BriefCard />}
           <TimeFilter />
           <CalendarPicker />
           <View
