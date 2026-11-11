@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Todo } from '@/db/todos';
+import { getSetting } from '@/db/database';
 
 const REMINDER_OFFSET_MINUTES = 30;
 const CATEGORY_ID = 'todo-reminder';
@@ -152,5 +153,36 @@ export async function snoozeTodoReminder(todo: Todo, minutes: number): Promise<v
       data: { todoId: todo.id, type: 'snooze' },
     },
     trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 },
+  });
+}
+
+const BRIEF_ID = 'daily-brief';
+
+/**
+ * Schedules the daily brief notification, or cancels it. It fires 5 minutes after `time`
+ * (HH:MM) because the server needs a moment to write the brief.
+ */
+export async function scheduleBriefNotification(enabled: boolean, time: string): Promise<void> {
+  if (Platform.OS === 'web') return;
+  await Notifications.cancelScheduledNotificationAsync(BRIEF_ID).catch(() => {});
+  if (!enabled) return;
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return;
+  if (!(await requestPermissions())) return;
+  const total = (Number(match[1]) * 60 + Number(match[2]) + 5) % (24 * 60);
+  const arabic = (await getSetting('brief_lang')) === 'ar';
+  await Notifications.scheduleNotificationAsync({
+    identifier: BRIEF_ID,
+    content: {
+      title: arabic ? 'موجزك اليومي' : 'Your daily brief',
+      body: 'See what today looks like.',
+      ...(Platform.OS === 'android' && { channelId: CHANNEL_ONTIME }),
+      data: { brief: true },
+    },
+    trigger: {
+      type: SchedulableTriggerInputTypes.DAILY,
+      hour: Math.floor(total / 60),
+      minute: total % 60,
+    },
   });
 }

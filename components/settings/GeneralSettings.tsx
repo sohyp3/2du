@@ -12,6 +12,7 @@ import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore'
 import { useTodoStore } from '@/store/todoStore';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { SettingsButton, SettingsInput, SettingsSwitch } from './controls';
+import { BriefSettings } from './BriefSettings';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSection, SPACE } from './SettingsSection';
 
@@ -269,6 +270,8 @@ export function GeneralSettings() {
           }
         />
       </SettingsSection>
+
+      <BriefSettings />
 
       <CalendarSettings />
 

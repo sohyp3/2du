@@ -2,7 +2,7 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native
 import { useNoteStore } from '@/store/noteStore';
 import '../global.css';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { startSync } from '@/store/syncStore';
+import { startSync, useSyncStore } from '@/store/syncStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useGoalStore } from '@/store/goalStore';
 import { useBriefStore } from '@/store/briefStore';
@@ -12,7 +12,7 @@ import { View, Text, ActivityIndicator, Platform } from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
 // Per-weight imports: the package roots pull every weight into the build (14 MB on web).
@@ -25,7 +25,7 @@ import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display/700
 import { CormorantGaramond_400Regular } from '@expo-google-fonts/cormorant-garamond/400Regular';
 import { CormorantGaramond_500Medium } from '@expo-google-fonts/cormorant-garamond/500Medium';
 import { CormorantGaramond_700Bold } from '@expo-google-fonts/cormorant-garamond/700Bold';
-import { initDatabase, DatabaseError } from '@/db/database';
+import { initDatabase, DatabaseError, getSetting, setSetting } from '@/db/database';
 import { getTodoById } from '@/db/todos';
 import { setupNotifications, snoozeTodoReminder } from '@/utils/notifications';
 import { useTodoStore } from '@/store/todoStore';
@@ -38,6 +38,29 @@ import { registerServiceWorker } from '@/utils/pwa';
 import { DATABASE_LOCKED } from '@/db/initializationError';
 
 const LOCK_RELOAD_KEY = '2du-lock-reload';
+
+function openBrief() {
+  void useSyncStore.getState().sync();
+  router.push('/brief');
+}
+
+async function syncBriefTimeZone() {
+  try {
+    if ((await getSetting('brief_enabled')) !== 'true') return;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz || (await getSetting('brief_tz')) === tz) return;
+    // The session may still be restoring; wait briefly for it.
+    for (let i = 0; i < 20 && !useSyncStore.getState().token; i++)
+      await new Promise((r) => setTimeout(r, 500));
+    if (!useSyncStore.getState().token) return;
+    await useSyncStore
+      .getState()
+      .request('prefs', { method: 'PATCH', body: JSON.stringify({ tz }) });
+    await setSetting('brief_tz', tz);
+  } catch (error) {
+    console.error('Failed to update brief time zone:', error);
+  }
+}
 
 export default function Layout() {
   return (
@@ -156,6 +179,10 @@ function App() {
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      if (response.notification.request.content.data?.brief) {
+        openBrief();
+        return;
+      }
       const action = response.actionIdentifier;
       const todoId = response.notification.request.content.data?.todoId as string | undefined;
       if (!todoId) return;
@@ -183,6 +210,20 @@ function App() {
 
   useEffect(() => {
     if (!isInitializing && !initError) return startSync();
+  }, [isInitializing, initError]);
+
+  // Cold start from the brief notification, and keep the server's time zone current.
+  const briefLaunchChecked = useRef(false);
+  useEffect(() => {
+    if (isInitializing || initError || briefLaunchChecked.current) return;
+    briefLaunchChecked.current = true;
+    if (Platform.OS !== 'web')
+      void Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (response?.notification.request.content.data?.brief) openBrief();
+        })
+        .catch((error) => console.error('Failed to read launch notification:', error));
+    void syncBriefTimeZone();
   }, [isInitializing, initError]);
 
   useEffect(() => {
