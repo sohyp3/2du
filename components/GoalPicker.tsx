@@ -1,7 +1,7 @@
-import { ScrollView, Text } from 'react-native';
+import { ScrollView } from 'react-native';
 import { useGoalStore } from '@/store/goalStore';
-import { useColors, useFontFamily } from '@/utils/theme';
-import { PressFeedback } from './PressFeedback';
+import { space } from '@/utils/theme';
+import { Chip } from './Chip';
 
 // A row of goal chips. Renders nothing when there are no goals, so users without goals
 // never see the field.
@@ -13,8 +13,6 @@ export function GoalPicker({
   onChange: (id: string | null) => void;
 }) {
   const goals = useGoalStore((s) => s.goals);
-  const c = useColors(),
-    fonts = useFontFamily();
   if (!goals.length) return null;
 
   // Active goals, plus the current one even when it is paused or done.
@@ -23,39 +21,19 @@ export function GoalPicker({
 
   return (
     <ScrollView
-      style={{ flexGrow: 0, flexShrink: 0, maxHeight: 48 }}
+      style={{ flexGrow: 0, flexShrink: 0 }}
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 6, paddingVertical: 4, alignItems: 'center' }}>
-      {options.map((item) => {
-        const chosen = item.id === value;
-        return (
-          <PressFeedback
-            key={item.id ?? 'none'}
-            accessibilityRole="button"
-            accessibilityState={{ selected: chosen }}
-            onPress={() => onChange(item.id)}
-            style={{
-              minHeight: 44,
-              paddingHorizontal: 12,
-              borderRadius: 10,
-              justifyContent: 'center',
-              backgroundColor: chosen ? c.surfaceContainerHigh : 'transparent',
-              borderWidth: 1,
-              borderColor: chosen ? c.outline : c.outlineVariant,
-            }}>
-            <Text
-              numberOfLines={1}
-              style={{
-                fontFamily: fonts.medium,
-                color: chosen ? c.onSurface : c.onSurfaceVariant,
-                fontSize: 12,
-              }}>
-              {item.name}
-            </Text>
-          </PressFeedback>
-        );
-      })}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ gap: space.xs, paddingVertical: space.xs, alignItems: 'center' }}>
+      {options.map((item) => (
+        <Chip
+          key={item.id ?? 'none'}
+          label={item.name}
+          selected={item.id === value}
+          onPress={() => onChange(item.id)}
+        />
+      ))}
     </ScrollView>
   );
 }

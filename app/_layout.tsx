@@ -6,6 +6,7 @@ import { startSync, useSyncStore } from '@/store/syncStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useGoalStore } from '@/store/goalStore';
 import { useBriefStore } from '@/store/briefStore';
+import { useFocusStore } from '@/store/focusStore';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
@@ -29,7 +30,7 @@ import { initDatabase, DatabaseError, getSetting, setSetting } from '@/db/databa
 import { getTodoById } from '@/db/todos';
 import { setupNotifications, snoozeTodoReminder } from '@/utils/notifications';
 import { useTodoStore } from '@/store/todoStore';
-import { useThemeStore, THEME_COLORS } from '@/store/themeStore';
+import { useThemeStore, THEME_COLORS, FONT_FAMILIES } from '@/store/themeStore';
 import { useCalendarStore } from '@/store/calendarStore';
 import { AppTitle } from '@/components/AppTitle';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -74,6 +75,7 @@ export default function Layout() {
 function App() {
   const reducedMotion = useReducedMotion();
   const themeKey = useThemeStore((s) => s.themeKey);
+  const fontKey = useThemeStore((s) => s.fontKey);
   const loadSettings = useThemeStore((s) => s.loadSettings);
   const loadCalendarSettings = useCalendarStore((s) => s.loadSettings);
   const { setColorScheme } = useColorScheme();
@@ -137,6 +139,7 @@ function App() {
         void useNoteStore.getState().loadNotes();
         void useGoalStore.getState().load();
         void useBriefStore.getState().load();
+        void useFocusStore.getState().load();
       } catch (error) {
         // A reload can race the previous page's SQLite worker for the file lock, and a
         // worker that lost that race stays unusable. Reload once before reporting it.
@@ -175,7 +178,16 @@ function App() {
 
   useEffect(() => {
     setColorScheme(themeKey === 'silver' ? 'light' : 'dark');
-  }, [themeKey, setColorScheme]);
+    if (Platform.OS !== 'web') return;
+    // Browser-drawn surfaces (focus ring, caret, selection, scrollbar) follow the theme too.
+    const root = document.documentElement.style;
+    root.setProperty('--accent', c.primary);
+    root.setProperty('--selection', `${c.primary}40`);
+    root.setProperty('--ink', c.onSurface);
+    root.setProperty('--scrollbar', c.surfaceContainerHighest);
+    document.body.style.backgroundColor = c.surface;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c.surface);
+  }, [themeKey, setColorScheme, c]);
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -184,8 +196,15 @@ function App() {
         return;
       }
       const action = response.actionIdentifier;
-      const todoId = response.notification.request.content.data?.todoId as string | undefined;
+      const data = response.notification.request.content.data;
+      const todoId = data?.todoId as string | undefined;
       if (!todoId) return;
+
+      if (data?.type === 'focus') {
+        if (action === 'mark-done') void useFocusStore.getState().finish(todoId);
+        else router.push({ pathname: '/focus', params: { id: todoId } });
+        return;
+      }
 
       if (action === 'mark-done') {
         useTodoStore.getState().toggleComplete(todoId);
@@ -307,7 +326,7 @@ function App() {
         colors: {
           ...navigationTheme.colors,
           background: c.surface,
-          card: c.surfaceDim,
+          card: c.surface,
           text: c.onSurface,
           border: c.outlineVariant,
           primary: c.primary,
@@ -325,9 +344,10 @@ function App() {
                   : Platform.OS === 'android'
                     ? 'ios_from_right'
                     : 'default',
-                headerStyle: { backgroundColor: c.surfaceDim },
+                headerStyle: { backgroundColor: c.surface },
+                headerShadowVisible: false,
                 headerTintColor: c.primary,
-                headerTitleStyle: { color: c.onSurface },
+                headerTitleStyle: { color: c.onSurface, fontFamily: FONT_FAMILIES[fontKey].medium },
                 contentStyle: { backgroundColor: c.surface },
               }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -345,13 +365,22 @@ function App() {
                 options={{ presentation: 'card', headerShown: false }}
               />
               <Stack.Screen name="brief" options={{ presentation: 'card', title: 'Daily brief' }} />
-              <Stack.Screen name="goals" options={{ presentation: 'card', title: 'Goals' }} />
               <Stack.Screen
                 name="pick"
                 options={{
                   presentation: 'modal',
                   title: 'Pick for me',
                   ...(Platform.OS === 'android' && { animation: 'fade' }),
+                }}
+              />
+              <Stack.Screen
+                name="focus"
+                options={{
+                  presentation: 'fullScreenModal',
+                  headerShown: false,
+                  gestureEnabled: false,
+                  animation: reducedMotion ? 'none' : 'fade',
+                  animationDuration: 180,
                 }}
               />
             </Stack>

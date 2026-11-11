@@ -244,7 +244,7 @@ export function GeneralSettings() {
         />
         <SettingsRow
           label="Group by calendar"
-          hint="Show a card for each calendar on the Tasks screen"
+          hint="Group tasks under each calendar on the Tasks screen"
           right={
             <SettingsSwitch
               label="Group by calendar"

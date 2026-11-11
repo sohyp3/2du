@@ -87,14 +87,12 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
   return (
     <View
       style={{
-        backgroundColor: c.surfaceContainerLow,
-        borderColor: c.outlineVariant,
-        borderWidth: 1,
+        backgroundColor: c.surfaceContainer,
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,
       }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: c.onSurface }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: c.onSurface }}>
         {goal ? 'Edit goal' : 'New goal'}
       </Text>
 
@@ -134,9 +132,7 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
                 borderRadius: 8,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: chosen ? c.primary : c.surface,
-                borderWidth: 1,
-                borderColor: chosen ? c.primary : c.outlineVariant,
+                backgroundColor: chosen ? c.primary : c.surfaceContainerHigh,
               }}>
               <Text
                 style={{
@@ -214,9 +210,7 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
                     paddingHorizontal: 16,
                     borderRadius: 10,
                     justifyContent: 'center',
-                    backgroundColor: chosen ? c.surfaceContainerHigh : 'transparent',
-                    borderWidth: 1,
-                    borderColor: chosen ? c.outline : c.outlineVariant,
+                    backgroundColor: chosen ? c.surfaceContainerHighest : 'transparent',
                   }}>
                   <Text
                     style={{
@@ -269,10 +263,9 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
               paddingHorizontal: 16,
               borderRadius: 12,
               justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: c.outlineVariant,
+              backgroundColor: c.surfaceContainerHigh,
             }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: c.onSurfaceVariant }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: c.onSurface }}>
               Cancel
             </Text>
           </PressFeedback>

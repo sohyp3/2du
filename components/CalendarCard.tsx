@@ -9,33 +9,29 @@ export interface CalendarCardProps {
   todos: Todo[];
 }
 
-/** One calendar's tasks for the current period, grouped in a card on the Tasks screen. */
+/** One calendar's tasks for the current period, grouped under its name on the Tasks screen. */
 export const CalendarCard = memo(function CalendarCard({ calendar, todos }: CalendarCardProps) {
   const c = useColors(),
     fonts = useFontFamily();
   const completed = todos.filter((t) => t.status === 'completed').length;
   return (
-    <View
-      style={{
-        backgroundColor: c.surfaceContainer,
-        borderRadius: 16,
-        padding: 12,
-        borderLeftWidth: 3,
-        borderLeftColor: calendar.color,
-      }}>
+    // A labelled group rather than a card: the calendar's colour is its dot, as on every row.
+    <View>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 12,
+          gap: 8,
+          paddingVertical: 6,
         }}>
+        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: calendar.color }} />
         <Text
           accessibilityRole="header"
           style={{
             flex: 1,
             minWidth: 0,
-            color: c.onSurface,
+            color: c.onSurfaceVariant,
             fontFamily: fonts.medium,
             fontSize: 13,
           }}>

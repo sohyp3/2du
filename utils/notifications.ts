@@ -6,10 +6,17 @@ import { getSetting } from '@/db/database';
 
 const REMINDER_OFFSET_MINUTES = 30;
 const CATEGORY_ID = 'todo-reminder';
-const SOUND_BEFORE = 'default';
-const SOUND_ONTIME = 'default';
-const CHANNEL_BEFORE = 'todo-before';
-const CHANNEL_ONTIME = 'todo-ontime';
+const FOCUS_CATEGORY_ID = 'focus-end';
+const SOUND = 'default';
+// Android channels are immutable once created: a channel that was ever created silent (or muted
+// by the system) stays silent. New ids give every install fresh channels with sound.
+const CHANNEL_BEFORE = 'reminders-before-v2';
+const CHANNEL_ONTIME = 'reminders-ontime-v2';
+const CHANNEL_FOCUS = 'focus-timer-v1';
+const OLD_CHANNELS = ['todo-before', 'todo-ontime'];
+const VIBRATION = [0, 250, 150, 250];
+
+const android = <T extends object>(value: T) => (Platform.OS === 'android' ? value : {});
 
 /** Configure how notifications display and register snooze actions. */
 export async function setupNotifications() {
@@ -26,22 +33,43 @@ export async function setupNotifications() {
   });
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CHANNEL_BEFORE, {
-      name: 'Upcoming reminders',
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: SOUND_BEFORE,
-    });
-    await Notifications.setNotificationChannelAsync(CHANNEL_ONTIME, {
-      name: 'On-time reminders',
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: SOUND_ONTIME,
-    });
+    const base = {
+      sound: SOUND,
+      enableVibrate: true,
+      vibrationPattern: VIBRATION,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      audioAttributes: {
+        usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      },
+    };
+    await Promise.all([
+      Notifications.setNotificationChannelAsync(CHANNEL_BEFORE, {
+        ...base,
+        name: 'Upcoming reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+      }),
+      Notifications.setNotificationChannelAsync(CHANNEL_ONTIME, {
+        ...base,
+        name: 'On-time reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+      }),
+      Notifications.setNotificationChannelAsync(CHANNEL_FOCUS, {
+        ...base,
+        name: 'Focus timer',
+        importance: Notifications.AndroidImportance.MAX,
+      }),
+      ...OLD_CHANNELS.map((id) => Notifications.deleteNotificationChannelAsync(id).catch(() => {})),
+    ]);
   }
 
   await Notifications.setNotificationCategoryAsync(CATEGORY_ID, [
     { identifier: 'snooze-5', buttonTitle: 'Snooze 5m' },
     { identifier: 'snooze-10', buttonTitle: 'Snooze 10m' },
     { identifier: 'snooze-30', buttonTitle: 'Snooze 30m' },
+    { identifier: 'mark-done', buttonTitle: 'Done' },
+  ]);
+  await Notifications.setNotificationCategoryAsync(FOCUS_CATEGORY_ID, [
     { identifier: 'mark-done', buttonTitle: 'Done' },
   ]);
 }
@@ -75,8 +103,8 @@ export async function scheduleTodoReminders(todo: Todo): Promise<void> {
         title: `Upcoming: ${todo.name}`,
         body: `Starting in ${REMINDER_OFFSET_MINUTES} minutes`,
         categoryIdentifier: CATEGORY_ID,
-        sound: SOUND_BEFORE,
-        ...(Platform.OS === 'android' && { channelId: CHANNEL_BEFORE }),
+        sound: SOUND,
+        ...android({ channelId: CHANNEL_BEFORE }),
         data: { todoId: todo.id, type: 'before' },
       },
       trigger: { type: SchedulableTriggerInputTypes.DATE, date: new Date(beforeMs) },
@@ -90,8 +118,8 @@ export async function scheduleTodoReminders(todo: Todo): Promise<void> {
         title: todo.name,
         body: 'Time to start!',
         categoryIdentifier: CATEGORY_ID,
-        sound: SOUND_ONTIME,
-        ...(Platform.OS === 'android' && { channelId: CHANNEL_ONTIME }),
+        sound: SOUND,
+        ...android({ channelId: CHANNEL_ONTIME }),
         data: { todoId: todo.id, type: 'ontime' },
       },
       trigger: { type: SchedulableTriggerInputTypes.DATE, date: todoDate },
@@ -105,7 +133,8 @@ export async function cancelTodoReminders(todoId: string): Promise<void> {
 
   const all = await Notifications.getAllScheduledNotificationsAsync();
   for (const n of all) {
-    if (n.content.data?.todoId === todoId) {
+    // The focus timer has its own lifecycle (see cancelFocusEnd).
+    if (n.content.data?.todoId === todoId && n.content.data?.type !== 'focus') {
       await Notifications.cancelScheduledNotificationAsync(n.identifier);
     }
   }
@@ -118,23 +147,18 @@ export async function sendTestNotification(minutes: number): Promise<boolean> {
   const granted = await requestPermissions();
   if (!granted) return false;
 
-  if (minutes === 0) {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '2du Test',
-        body: 'Notifications are working!',
-      },
-      trigger: null,
-    });
-  } else {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '2du Test',
-        body: `Test notification (${minutes}m delay)`,
-      },
-      trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 },
-    });
-  }
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '2du Test',
+      body: minutes === 0 ? 'Notifications are working!' : `Test notification (${minutes}m delay)`,
+      sound: SOUND,
+      ...android({ channelId: CHANNEL_ONTIME }),
+    },
+    trigger:
+      minutes === 0
+        ? null
+        : { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 },
+  });
 
   return true;
 }
@@ -148,8 +172,8 @@ export async function snoozeTodoReminder(todo: Todo, minutes: number): Promise<v
       title: todo.name,
       body: `Snoozed — ${minutes}m reminder`,
       categoryIdentifier: CATEGORY_ID,
-      sound: SOUND_ONTIME,
-      ...(Platform.OS === 'android' && { channelId: CHANNEL_ONTIME }),
+      sound: SOUND,
+      ...android({ channelId: CHANNEL_ONTIME }),
       data: { todoId: todo.id, type: 'snooze' },
     },
     trigger: { type: SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: minutes * 60 },
@@ -176,7 +200,8 @@ export async function scheduleBriefNotification(enabled: boolean, time: string):
     content: {
       title: arabic ? 'موجزك اليومي' : 'Your daily brief',
       body: 'See what today looks like.',
-      ...(Platform.OS === 'android' && { channelId: CHANNEL_ONTIME }),
+      sound: SOUND,
+      ...android({ channelId: CHANNEL_ONTIME }),
       data: { brief: true },
     },
     trigger: {
@@ -185,4 +210,34 @@ export async function scheduleBriefNotification(enabled: boolean, time: string):
       minute: total % 60,
     },
   });
+}
+
+const focusId = (todoId: string) => `focus-${todoId}`;
+
+/** Schedules the "focus time is up" notification for `endsAt`, replacing an earlier one. */
+export async function scheduleFocusEnd(
+  todo: { id: string; name: string },
+  endsAt: number
+): Promise<void> {
+  if (Platform.OS === 'web') return;
+  await Notifications.cancelScheduledNotificationAsync(focusId(todo.id)).catch(() => {});
+  if (endsAt <= Date.now() || !(await requestPermissions())) return;
+  await Notifications.scheduleNotificationAsync({
+    identifier: focusId(todo.id),
+    content: {
+      title: 'Time is up',
+      body: todo.name,
+      sound: SOUND,
+      categoryIdentifier: FOCUS_CATEGORY_ID,
+      ...android({ channelId: CHANNEL_FOCUS }),
+      data: { todoId: todo.id, type: 'focus' },
+    },
+    trigger: { type: SchedulableTriggerInputTypes.DATE, date: new Date(endsAt) },
+  });
+}
+
+export async function cancelFocusEnd(todoId: string): Promise<void> {
+  if (Platform.OS === 'web') return;
+  await Notifications.cancelScheduledNotificationAsync(focusId(todoId)).catch(() => {});
+  await Notifications.dismissNotificationAsync(focusId(todoId)).catch(() => {});
 }

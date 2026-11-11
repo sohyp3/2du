@@ -64,20 +64,20 @@
   transform: scale(0.98);
 }
 :focus-visible {
-  outline: 2px solid #a7c968;
+  outline: 2px solid var(--accent, #a8c27c);
   outline-offset: 4px;
 }
 input,
 textarea {
-  caret-color: #a7c968;
+  caret-color: var(--accent, #a8c27c);
 }
 ::selection {
-  background: #bb8ed666;
-  color: #fbf7ef;
+  background: var(--selection, #a8c27c40);
+  color: var(--ink, #ede8de);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: #514b40 transparent;
+  scrollbar-color: var(--scrollbar, #3a372f) transparent;
 }
 @media (prefers-reduced-motion: reduce) {
   [role='button'],

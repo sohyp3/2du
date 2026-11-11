@@ -12,7 +12,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
 
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-        <meta name="theme-color" content="#0d0c0a" />
+        <meta name="theme-color" content="#121110" />
         <meta
           name="description"
           content="2du — a local-first workspace for your tasks, calendars, and thoughts."
@@ -38,4 +38,4 @@ export default function Root({ children }: { children: React.ReactNode }) {
   );
 }
 
-const responsiveBackground = `body { background-color: #0d0c0a; }`;
+const responsiveBackground = `body { background-color: #121110; }`;

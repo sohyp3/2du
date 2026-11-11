@@ -5,10 +5,10 @@ import { useGoalStore } from '@/store/goalStore';
 import { useState, useCallback, useEffect } from 'react';
 import {
   Text,
-  TextInput,
   View,
   Pressable,
   ScrollView,
+  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -21,7 +21,18 @@ import { useCalendarStore } from '@/store/calendarStore';
 import { getTodoById, Priority, Todo } from '@/db/todos';
 import { formatTime } from '@/utils/dates';
 import { DatePicker } from '@/components/DatePicker';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import {
+  Field,
+  FormButton,
+  FormFooter,
+  FormInput,
+  SwitchRow,
+  TimeStepper,
+} from '@/components/form';
+import { PressFeedback } from '@/components/PressFeedback';
+import { useFocusStore } from '@/store/focusStore';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ThemeColors } from '@/store/themeStore';
 import { DatabaseError } from '@/db/database';
 
@@ -53,6 +64,8 @@ export default function TodoDetailScreen() {
   const [hour, setHour] = useState(initial ? initialDate.getHours() : 12);
   const [minute, setMinute] = useState(initial ? initialDate.getMinutes() : 0);
   const [remindMe, setRemindMe] = useState(initial?.remind_me ?? true);
+  const [timeNeeded, setTimeNeeded] = useState(initial?.time_needed?.toString() ?? '');
+  const focusing = useFocusStore((s) => s.session?.todoId === id);
 
   useEffect(() => {
     async function loadTodo() {
@@ -80,6 +93,7 @@ export default function TodoDetailScreen() {
           setHour(dt.getHours());
           setMinute(dt.getMinutes());
           setRemindMe(found.remind_me);
+          setTimeNeeded(found.time_needed?.toString() ?? '');
         } else {
           setError('Todo not found');
         }
@@ -110,6 +124,7 @@ export default function TodoDetailScreen() {
         datetime,
         remind_me: remindMe,
         goal_id: goalId,
+        time_needed: timeNeeded ? parseInt(timeNeeded, 10) : null,
       });
       if (useTodoStore.getState().error) throw new Error(useTodoStore.getState().error!);
       setTodo((prev) =>
@@ -123,6 +138,7 @@ export default function TodoDetailScreen() {
               priority,
               datetime,
               remind_me: remindMe,
+              time_needed: timeNeeded ? parseInt(timeNeeded, 10) : null,
             }
           : prev
       );
@@ -145,6 +161,7 @@ export default function TodoDetailScreen() {
     hour,
     minute,
     remindMe,
+    timeNeeded,
     updateTodoAction,
   ]);
 
@@ -229,235 +246,144 @@ export default function TodoDetailScreen() {
     month: 'long',
     day: 'numeric',
   });
+  const statusLabel = isCompleted
+    ? 'Completed'
+    : focusing
+      ? 'Focusing now'
+      : todo.status === 'in_progress'
+        ? 'In progress'
+        : 'Pending';
 
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.surface }}
       behavior={Platform.OS === 'web' ? undefined : 'padding'}
       keyboardVerticalOffset={headerHeight}>
-      <Stack.Screen options={{ title: editing ? 'Edit' : '', headerBackTitle: 'Back' }} />
+      <Stack.Screen options={{ title: editing ? 'Edit task' : '', headerBackTitle: 'Back' }} />
 
       <ScrollView
-        className="flex-1 px-4 pt-4"
+        style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={{
+          flexGrow: 1,
           width: '100%',
           maxWidth: 840,
           alignSelf: 'center',
-          paddingBottom: 40,
+          paddingHorizontal: space.lg,
+          paddingTop: space.lg,
+          paddingBottom: space.xl,
         }}>
-        {editing && <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />}
-        {editing && hasGoals && (
-          <View style={{ marginBottom: 12 }}>
-            <Text
-              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-              className="mb-1 text-sm">
-              Goal
-            </Text>
-            <GoalPicker value={goalId} onChange={setGoalId} />
-          </View>
-        )}
         {editing ? (
           <>
-            <Text
-              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-              className="mb-1 text-sm">
-              Name
-            </Text>
-            <TextInput
-              style={{
-                fontFamily: fonts.regular,
-                backgroundColor: c.surfaceContainerLow,
-                color: c.onSurface,
-              }}
-              className="mb-4 rounded-lg px-4 py-3 text-base"
+            <FormInput
+              style={{ fontSize: 18, minHeight: 56, marginBottom: space.lg }}
               value={name}
               onChangeText={setName}
               autoFocus
               editable={!isLoading}
+              accessibilityLabel="Task name"
             />
-
+            <Field label="Calendar">
+              <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
+            </Field>
+            {hasGoals && (
+              <Field label="Goal">
+                <GoalPicker value={goalId} onChange={setGoalId} />
+              </Field>
+            )}
+            <Field label="Notes">
+              <FormInput
+                placeholder="Add details"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                editable={!isLoading}
+              />
+            </Field>
             <Text
-              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-              className="mb-1 text-sm">
-              Description
-            </Text>
-            <TextInput
               style={{
-                fontFamily: fonts.regular,
-                backgroundColor: c.surfaceContainerLow,
-                color: c.onSurface,
-              }}
-              placeholderTextColor={c.outline}
-              className="mb-4 min-h-[100px] rounded-lg px-4 py-3 text-base"
-              placeholder="Add details..."
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              textAlignVertical="top"
-              editable={!isLoading}
-            />
-
-            <Text
-              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-              className="mb-1 text-sm">
+                fontFamily: fonts.medium,
+                color: c.onSurfaceVariant,
+                ...type.label,
+                marginBottom: space.sm,
+              }}>
               Priority
             </Text>
             <PriorityPicker value={priority} onChange={setPriority} disabled={isLoading} />
-
-            <Text
-              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-              className="mb-1 text-sm">
-              Date
-            </Text>
-            <View className="mb-4">
+            <Field label="Date">
               <DatePicker value={selectedDate} onChange={setSelectedDate} />
-            </View>
-
-            <Text
-              style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-              className="mb-1 text-sm">
-              Time
-            </Text>
-            <View
-              style={{ backgroundColor: c.surfaceContainerLow }}
-              className="mb-4 flex-row items-center justify-center gap-2 rounded-lg py-3">
-              <Pressable
-                onPress={() => setHour((h) => (h - 1 + 24) % 24)}
+            </Field>
+            <Field label="Time">
+              <TimeStepper
+                hour={hour}
+                minute={minute}
                 disabled={isLoading}
-                className="px-3">
-                <Text style={{ color: c.outline }} className="text-xl">
-                  ‹
-                </Text>
-              </Pressable>
-              <Text
-                style={{ fontFamily: fonts.medium, color: c.onSurface }}
-                className="w-8 text-center text-lg">
-                {(hour % 12 || 12).toString()}
-              </Text>
-              <Pressable
-                onPress={() => setHour((h) => (h + 1) % 24)}
-                disabled={isLoading}
-                className="px-3">
-                <Text style={{ color: c.outline }} className="text-xl">
-                  ›
-                </Text>
-              </Pressable>
-
-              <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-lg">
-                :
-              </Text>
-
-              <Pressable
-                onPress={() => setMinute((m) => (m - 5 + 60) % 60)}
-                disabled={isLoading}
-                className="px-3">
-                <Text style={{ color: c.outline }} className="text-xl">
-                  ‹
-                </Text>
-              </Pressable>
-              <Text
-                style={{ fontFamily: fonts.medium, color: c.onSurface }}
-                className="w-8 text-center text-lg">
-                {minute.toString().padStart(2, '0')}
-              </Text>
-              <Pressable
-                onPress={() => setMinute((m) => (m + 5) % 60)}
-                disabled={isLoading}
-                className="px-3">
-                <Text style={{ color: c.outline }} className="text-xl">
-                  ›
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => setHour((h) => (h < 12 ? h + 12 : h - 12))}
-                disabled={isLoading}
-                style={{ backgroundColor: c.surfaceContainerHighest }}
-                className="ml-1 rounded-lg px-3 py-1">
-                <Text style={{ fontFamily: fonts.medium, color: c.primary }} className="text-sm">
-                  {hour < 12 ? 'AM' : 'PM'}
-                </Text>
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={() => setRemindMe((v) => !v)}
-              disabled={isLoading}
-              style={{ backgroundColor: c.surfaceContainerLow }}
-              className="mb-6 flex-row items-center gap-3 rounded-lg px-4 py-3">
-              <View
-                style={{
-                  backgroundColor: remindMe ? c.primary : 'transparent',
-                  borderColor: remindMe ? c.primary : c.outline,
-                  borderWidth: remindMe ? 0 : 2,
+                onChange={(h, m) => {
+                  setHour(h);
+                  setMinute(m);
                 }}
-                className="h-5 w-5 items-center justify-center rounded">
-                {remindMe && (
-                  <Text style={{ color: c.onPrimary }} className="text-xs">
-                    ✓
-                  </Text>
-                )}
-              </View>
-              <Text style={{ fontFamily: fonts.regular, color: c.onSurface }} className="text-base">
-                Remind me
-              </Text>
-            </Pressable>
-
-            <View className="mb-8 flex-row gap-3">
-              <Pressable
-                onPress={() => setEditing(false)}
-                disabled={isLoading}
-                style={{ backgroundColor: c.surfaceContainerHighest }}
-                className="flex-1 items-center rounded-full py-3">
-                <Text style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSave}
-                disabled={isLoading}
-                style={{ backgroundColor: c.primary }}
-                className="flex-1 items-center rounded-full py-3">
-                {isLoading ? (
-                  <ActivityIndicator color={c.onPrimary} size="small" />
-                ) : (
-                  <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Save</Text>
-                )}
-              </Pressable>
-            </View>
+              />
+            </Field>
+            <Field label="Time needed (minutes)">
+              <FormInput
+                placeholder="e.g. 30"
+                value={timeNeeded}
+                onChangeText={(v) => setTimeNeeded(v.replace(/[^0-9]/g, ''))}
+                keyboardType="number-pad"
+                editable={!isLoading}
+              />
+            </Field>
+            <SwitchRow
+              label="Remind me"
+              value={remindMe}
+              onValueChange={setRemindMe}
+              disabled={isLoading}
+            />
           </>
         ) : (
           <>
             <Text
               style={{
-                fontFamily: fonts.bold,
-                color: isCompleted ? c.outline : c.onSurface,
+                fontFamily: DISPLAY_FONT,
+                ...type.display,
+                color: isCompleted ? c.onSurfaceVariant : c.onSurface,
                 textDecorationLine: isCompleted ? 'line-through' : 'none',
-              }}
-              className="text-2xl">
+                writingDirection: 'auto',
+              }}>
               {todo.name}
             </Text>
-
             <Text
-              style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
-              className="mt-1 text-sm">
-              {isCompleted
-                ? 'Completed'
-                : todo.status === 'in_progress'
-                  ? 'In progress'
-                  : 'Pending'}
+              style={{
+                fontFamily: fonts.medium,
+                color: focusing ? c.primary : c.onSurfaceVariant,
+                ...type.label,
+                marginTop: space.xs,
+              }}>
+              {statusLabel}
             </Text>
 
             {todo.description ? (
               <Text
-                style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }}
-                className="mt-4 text-base leading-6">
+                style={{
+                  fontFamily: fonts.regular,
+                  color: c.onSurface,
+                  ...type.body,
+                  lineHeight: 23,
+                  marginTop: space.lg,
+                  writingDirection: 'auto',
+                }}>
                 {todo.description}
               </Text>
             ) : null}
 
             <View
-              style={{ backgroundColor: c.surfaceContainer }}
-              className="mt-6 overflow-hidden rounded-xl">
+              style={{
+                backgroundColor: c.surfaceContainer,
+                borderRadius: radius.lg,
+                overflow: 'hidden',
+                marginTop: space.xl,
+              }}>
               <DetailRow label="Date" value={dateStr} c={c} fonts={fonts} />
               <DetailRow
                 label="Time"
@@ -482,30 +408,66 @@ export default function TodoDetailScreen() {
                 last
               />
             </View>
-
-            <View className="mb-8 mt-6 flex-row gap-3">
-              <Pressable
-                onPress={() => setEditing(true)}
-                disabled={isLoading}
-                style={{ backgroundColor: c.primary }}
-                className="flex-1 items-center rounded-full py-3.5">
-                <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Edit</Text>
-              </Pressable>
-              <Pressable
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: space.xl }}>
+              <PressFeedback
+                accessibilityRole="button"
                 onPress={handleDelete}
                 disabled={isLoading}
-                style={{ backgroundColor: c.errorContainer }}
-                className="flex-1 items-center rounded-full py-3.5">
-                {isLoading ? (
-                  <ActivityIndicator color={c.error} size="small" />
-                ) : (
-                  <Text style={{ fontFamily: fonts.medium, color: c.error }}>Delete</Text>
-                )}
-              </Pressable>
+                style={{
+                  minHeight: 44,
+                  paddingHorizontal: space.lg,
+                  flexDirection: 'row',
+                  gap: space.sm,
+                  alignItems: 'center',
+                }}>
+                <Ionicons name="trash-outline" size={16} color={c.error} />
+                <Text style={{ fontFamily: fonts.medium, color: c.error, ...type.label }}>
+                  Delete task
+                </Text>
+              </PressFeedback>
             </View>
           </>
         )}
       </ScrollView>
+      <FormFooter>
+        {editing ? (
+          <>
+            <FormButton
+              label="Cancel"
+              kind="tonal"
+              onPress={() => setEditing(false)}
+              disabled={isLoading}
+            />
+            <FormButton
+              label="Save"
+              onPress={handleSave}
+              busy={isLoading}
+              disabled={!name.trim()}
+            />
+          </>
+        ) : (
+          <>
+            <FormButton
+              label="Edit"
+              kind="tonal"
+              icon="create-outline"
+              onPress={() => setEditing(true)}
+              disabled={isLoading}
+            />
+            {!isCompleted && (
+              <FormButton
+                label={focusing ? 'Back to timer' : 'Start focus'}
+                icon={focusing ? 'timer-outline' : 'play'}
+                onPress={() =>
+                  focusing
+                    ? router.push('/focus')
+                    : router.push({ pathname: '/focus', params: { id: todo.id } })
+                }
+              />
+            )}
+          </>
+        )}
+      </FormFooter>
     </KeyboardAvoidingView>
   );
 }
@@ -525,7 +487,15 @@ function DetailRow({
 }) {
   return (
     <View
-      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: c.outlineVariant }}
+      style={[
+        { minHeight: 48 },
+        last
+          ? undefined
+          : {
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: c.surfaceContainerHighest,
+            },
+      ]}
       className="flex-row items-center justify-between px-4 py-3">
       <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant }} className="text-sm">
         {label}

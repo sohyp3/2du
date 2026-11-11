@@ -7,9 +7,10 @@ import { useSyncStore } from '@/store/syncStore';
 import { getTodosForPick, type Todo } from '@/db/todos';
 import type { Goal, GoalStatus } from '@/db/goals';
 import { getStartOfWeek } from '@/utils/dates';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { useColors, useFontFamily, radius, space, type } from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
 import { GoalEditor } from '@/components/GoalEditor';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 interface Progress {
   done: number;
@@ -88,9 +89,10 @@ export default function GoalsScreen() {
       accessibilityRole="button"
       onPress={() => openEditor({})}
       style={{
-        minHeight: 44,
-        paddingHorizontal: 16,
-        borderRadius: 12,
+        minHeight: 40,
+        paddingLeft: space.md,
+        paddingRight: space.lg,
+        borderRadius: radius.md,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -98,7 +100,7 @@ export default function GoalsScreen() {
         backgroundColor: c.primary,
       }}>
       <Ionicons name="add" size={18} color={c.onPrimary} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: c.onPrimary }}>New goal</Text>
+      <Text style={{ fontFamily: fonts.medium, ...type.label, color: c.onPrimary }}>New goal</Text>
     </PressFeedback>
   );
 
@@ -112,11 +114,9 @@ export default function GoalsScreen() {
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          borderRadius: 14,
-          backgroundColor: c.surfaceContainerLow,
-          borderWidth: 1,
-          borderColor: c.outlineVariant,
-          marginBottom: 8,
+          borderRadius: radius.lg,
+          backgroundColor: c.surfaceContainer,
+          marginBottom: space.sm,
         }}>
         <PressFeedback
           accessibilityRole="button"
@@ -150,14 +150,14 @@ export default function GoalsScreen() {
               <View style={{ marginTop: 8 }}>
                 <View
                   style={{
-                    height: 4,
+                    height: 3,
                     borderRadius: 2,
-                    backgroundColor: c.outlineVariant,
+                    backgroundColor: c.surfaceContainerHighest,
                     overflow: 'hidden',
                   }}>
                   <View
                     style={{
-                      height: 4,
+                      height: 3,
                       width: `${percent}%`,
                       backgroundColor: c.primary,
                     }}
@@ -185,7 +185,7 @@ export default function GoalsScreen() {
               justifyContent: 'center',
               backgroundColor: c.surfaceContainerHigh,
             }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: c.onSurface }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: c.secondary }}>
               {goal.importance}
             </Text>
           </View>
@@ -210,7 +210,7 @@ export default function GoalsScreen() {
 
   const section = (title: string, list: Goal[]) =>
     list.length ? (
-      <View style={{ marginTop: 20 }}>
+      <View style={{ marginTop: space.lg }}>
         <Text
           style={{
             fontFamily: fonts.medium,
@@ -233,7 +233,16 @@ export default function GoalsScreen() {
       contentContainerStyle={{ paddingBottom: 48 }}
       keyboardShouldPersistTaps="handled">
       <View style={{ width: '100%', maxWidth: 840, alignSelf: 'center', paddingHorizontal: 16 }}>
-        <View style={{ paddingTop: 16 }}>
+        <ScreenHeader
+          title="Goals"
+          subtitle={
+            groups.active.length
+              ? `${groups.active.length} active`
+              : 'What you want to move forward'
+          }
+          actions={!empty && !editor ? newGoalButton : undefined}
+        />
+        <View>
           {editor && (
             <GoalEditor key={editor.goal?.id ?? 'new'} goal={editor.goal} onClose={closeEditor} />
           )}
@@ -255,9 +264,6 @@ export default function GoalsScreen() {
             </View>
           ) : (
             <>
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                {newGoalButton}
-              </View>
               {section('Active', groups.active)}
               {section('Paused', groups.paused)}
               {groups.done.length > 0 && (

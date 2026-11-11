@@ -1,45 +1,63 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { getTodosForPick } from '@/db/todos';
 import { getSetting, setSetting } from '@/db/database';
 import { useGoalStore } from '@/store/goalStore';
-import { useTodoStore } from '@/store/todoStore';
-import { pick, scoreCandidates, type Candidate, type PickGoal } from '@/shared/pick';
+import {
+  bestTaskFor,
+  pick,
+  scoreCandidates,
+  scoreGoals,
+  type Candidate,
+  type PickGoal,
+} from '@/shared/pick';
 import { getStartOfWeek } from '@/utils/dates';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
+import { Chip, Segmented } from '@/components/Chip';
 
 const CHOICES: { label: string; minutes: number | null }[] = [
-  { label: 'Any', minutes: null },
+  { label: 'Any time', minutes: null },
   { label: '15 min', minutes: 15 },
   { label: '30 min', minutes: 30 },
   { label: '1 h', minutes: 60 },
   { label: '2 h', minutes: 120 },
 ];
 
+type Kind = 'both' | 'tasks' | 'goals';
+const KINDS = [
+  { value: 'both', label: 'Both' },
+  { value: 'tasks', label: 'Tasks' },
+  { value: 'goals', label: 'Goals' },
+] as const satisfies readonly { value: Kind; label: string }[];
+
 interface Deck {
+  /** What is drawn from: tasks and/or goals depending on the mode. */
   candidates: Candidate[];
+  /** Task candidates for the current time, used to find a drawn goal's next task. */
+  tasks: Candidate[];
+  /** Task candidates ignoring the time chip, to tell "none fits" from "none at all". */
+  allTasks: Candidate[];
   choice: Candidate | null;
   // Keys of candidates already shown this session; "Another" avoids them until all were shown.
   seen: string[];
-  // Why nothing is offered, when nothing is: no tasks or goals at all, or none fit the time.
+  // Why nothing is offered, when nothing is: nothing at all, or nothing fits the time.
   empty: 'none' | 'time' | null;
 }
 
 const keyOf = (c: Candidate) => `${c.kind}:${c.id}`;
 
-// The up-to-three heaviest candidates other than the choice, as pick() reports them.
-function alternativesOf(candidates: Candidate[], choice: Candidate | null): Candidate[] {
-  return candidates.filter((c) => c !== choice).slice(0, 3);
-}
-
 function parseChoice(value: string | null): number | null {
   const minutes = Number(value);
   return CHOICES.some((c) => c.minutes === minutes) ? minutes : null;
 }
+const parseKind = (value: string | null): Kind =>
+  value === 'tasks' || value === 'goals' ? value : 'both';
 
-async function buildDeck(minutes: number | null, goals: PickGoal[]): Promise<Deck> {
+async function buildDeck(minutes: number | null, kind: Kind, goals: PickGoal[]): Promise<Deck> {
   const now = new Date();
   const todos = (await getTodosForPick()).map((t) => ({
     id: t.id,
@@ -52,45 +70,73 @@ async function buildDeck(minutes: number | null, goals: PickGoal[]): Promise<Dec
     updated_at: t.updated_at,
   }));
   const input = { todos, goals, now, weekStart: getStartOfWeek(now) };
-  const everything = scoreCandidates({ ...input, minutes: null });
-  const candidates = minutes == null ? everything : scoreCandidates({ ...input, minutes });
+  const draw = (m: number | null) => {
+    const mixed = scoreCandidates({ ...input, minutes: m });
+    const tasks = mixed.filter((c) => c.kind === 'todo');
+    if (kind === 'tasks') return { candidates: tasks, tasks };
+    if (kind === 'goals') return { candidates: scoreGoals(input), tasks };
+    return { candidates: mixed, tasks };
+  };
+  const unfiltered = draw(null);
+  const everything = unfiltered.candidates;
+  const { candidates, tasks } = minutes == null ? unfiltered : draw(minutes);
   const choice = pick(candidates).choice;
   const empty = candidates.length ? null : everything.length ? 'time' : 'none';
-  return { candidates, choice, seen: choice ? [keyOf(choice)] : [], empty };
+  return {
+    candidates,
+    tasks,
+    allTasks: unfiltered.tasks,
+    choice,
+    seen: choice ? [keyOf(choice)] : [],
+    empty,
+  };
 }
 
 export default function PickScreen() {
   const c = useColors(),
     fonts = useFontFamily();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const goals = useGoalStore((s) => s.goals);
   const [minutes, setMinutes] = useState<number | null | undefined>(undefined);
+  const [kind, setKind] = useState<Kind | undefined>(undefined);
   const [deck, setDeck] = useState<Deck | null>(null);
 
-  // The last time chip is remembered; read it once before the first draw.
+  // The last time chip and mode are remembered; read them once before the first draw.
   useEffect(() => {
-    getSetting('pick_minutes')
-      .then((value) => setMinutes(parseChoice(value)))
-      .catch(() => setMinutes(null));
+    Promise.all([getSetting('pick_minutes'), getSetting('pick_kind')])
+      .then(([m, k]) => {
+        setMinutes(parseChoice(m));
+        setKind(parseKind(k));
+      })
+      .catch(() => {
+        setMinutes(null);
+        setKind('both');
+      });
   }, []);
 
   useEffect(() => {
-    if (minutes === undefined) return;
+    if (minutes === undefined || kind === undefined) return;
     let live = true;
     // Goals are read as a snapshot per draw: a goal edit does not redraw the choice on screen.
-    buildDeck(minutes, useGoalStore.getState().goals)
+    buildDeck(minutes, kind, useGoalStore.getState().goals)
       .then((next) => live && setDeck(next))
       .catch((error) => console.error('Failed to pick:', error));
     return () => {
       live = false;
     };
-  }, [minutes]);
+  }, [minutes, kind]);
+
+  const remember = (key: string, value: string) =>
+    setSetting(key, value).catch((error) => console.error(`Failed to remember ${key}:`, error));
 
   const chooseTime = (next: number | null) => {
     setMinutes(next);
-    setSetting('pick_minutes', next == null ? 'any' : String(next)).catch((error) =>
-      console.error('Failed to remember the time choice:', error)
-    );
+    remember('pick_minutes', next == null ? 'any' : String(next));
+  };
+  const chooseKind = (next: Kind) => {
+    setKind(next);
+    remember('pick_kind', next);
   };
 
   const another = () => {
@@ -114,46 +160,52 @@ export default function PickScreen() {
     setDeck({ ...deck, choice: next, seen: [...deck.seen, keyOf(next)] });
   };
 
+  const choice = deck?.choice ?? null;
+  // A drawn goal is worked on through its best open task (that fits the time).
+  const task: Candidate | null = !choice
+    ? null
+    : choice.kind === 'todo'
+      ? choice
+      : bestTaskFor(choice.id, deck?.tasks ?? []);
+
   const startTask = () => {
-    if (deck?.choice?.kind !== 'todo') return;
-    void useTodoStore.getState().updateTodo(deck.choice.id, { status: 'in_progress' });
-    router.back();
+    if (!task) return;
+    router.replace({
+      pathname: '/focus',
+      params: { id: task.id, ...(minutes ? { minutes: String(minutes) } : {}) },
+    });
   };
 
   const alternatives = useMemo(
-    () => (deck ? alternativesOf(deck.candidates, deck.choice) : []),
+    () => (deck ? deck.candidates.filter((x) => x !== deck.choice).slice(0, 3) : []),
     [deck]
   );
 
-  const choice = deck?.choice ?? null;
   const goalName =
     choice?.kind === 'todo' && choice.goal_id
       ? goals.find((g) => g.id === choice.goal_id)?.name
       : undefined;
 
-  const button = (
-    label: string,
-    onPress: () => void,
-    primary = false,
-    accessibilityLabel?: string
-  ) => (
+  const button = (label: string, onPress: () => void, primary = false, icon?: 'play') => (
     <PressFeedback
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       style={{
-        minHeight: 44,
-        paddingHorizontal: 18,
-        borderRadius: 12,
+        flex: primary ? 1 : undefined,
+        minHeight: 52,
+        paddingHorizontal: space.xl,
+        borderRadius: radius.lg,
+        flexDirection: 'row',
+        gap: space.sm,
+        alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: primary ? c.primary : 'transparent',
-        borderWidth: 1,
-        borderColor: primary ? c.primary : c.outlineVariant,
+        backgroundColor: primary ? c.primary : c.surfaceContainer,
       }}>
+      {icon && <Ionicons name={icon} size={16} color={c.onPrimary} />}
       <Text
         style={{
           fontFamily: primary ? fonts.bold : fonts.medium,
-          fontSize: 14,
+          ...type.body,
           color: primary ? c.onPrimary : c.onSurface,
         }}>
         {label}
@@ -166,131 +218,149 @@ export default function PickScreen() {
       accessibilityRole="link"
       onPress={onPress}
       style={{ minHeight: 44, justifyContent: 'center' }}>
-      <Text
-        style={{
-          fontFamily: fonts.medium,
-          fontSize: 14,
-          color: c.primary,
-          textDecorationLine: 'underline',
-        }}>
-        {label}
-      </Text>
+      <Text style={{ fontFamily: fonts.medium, ...type.label, color: c.primary }}>{label}</Text>
     </PressFeedback>
   );
+
+  const emptyText =
+    deck?.empty === 'time'
+      ? 'Nothing fits that time. Try a longer slot.'
+      : kind === 'goals'
+        ? 'No active goals yet. Add one to let it pick for you.'
+        : kind === 'tasks'
+          ? 'No open tasks this week. Add one first.'
+          : 'Nothing to pick. Add a task or a goal first.';
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.surface }}
-      contentContainerStyle={{ paddingBottom: 48 }}>
-      <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center', padding: 16 }}>
-        <View
-          accessibilityRole="radiogroup"
-          style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          {CHOICES.map((item) => {
-            const chosen = item.minutes === (minutes ?? null);
-            return (
-              <PressFeedback
-                key={item.label}
-                accessibilityRole="button"
-                accessibilityState={{ selected: chosen }}
-                onPress={() => chooseTime(item.minutes)}
-                style={{
-                  minHeight: 44,
-                  paddingHorizontal: 14,
-                  borderRadius: 10,
-                  justifyContent: 'center',
-                  backgroundColor: chosen ? c.surfaceContainerHigh : 'transparent',
-                  borderWidth: 1,
-                  borderColor: chosen ? c.outline : c.outlineVariant,
-                }}>
-                <Text
-                  style={{
-                    fontFamily: fonts.medium,
-                    fontSize: 13,
-                    color: chosen ? c.onSurface : c.onSurfaceVariant,
-                  }}>
-                  {item.label}
-                </Text>
-              </PressFeedback>
-            );
-          })}
-        </View>
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + space.xxl }}>
+      <View
+        style={{
+          flexGrow: 1,
+          width: '100%',
+          maxWidth: 640,
+          alignSelf: 'center',
+          paddingHorizontal: space.lg,
+          paddingTop: space.lg,
+          gap: space.md,
+        }}>
+        <Segmented options={KINDS} value={kind ?? 'both'} onChange={chooseKind} grow />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, marginHorizontal: -space.lg }}
+          contentContainerStyle={{ gap: space.xs, paddingHorizontal: space.lg }}>
+          {CHOICES.map((item) => (
+            <Chip
+              key={item.label}
+              label={item.label}
+              selected={item.minutes === (minutes ?? null)}
+              onPress={() => chooseTime(item.minutes)}
+            />
+          ))}
+        </ScrollView>
 
         {!deck ? null : deck.empty ? (
-          <View style={{ paddingVertical: 48, gap: 16, alignItems: 'center' }}>
+          <View style={{ flex: 1, justifyContent: 'center', gap: space.lg, alignItems: 'center' }}>
             <Text
               style={{
                 fontFamily: fonts.regular,
-                fontSize: 15,
-                lineHeight: 22,
+                ...type.body,
                 color: c.onSurfaceVariant,
                 textAlign: 'center',
               }}>
-              {deck.empty === 'time'
-                ? 'Nothing fits that time. Try a longer slot.'
-                : 'Nothing to pick. Add a task or a goal first.'}
+              {emptyText}
             </Text>
-            <View style={{ flexDirection: 'row', gap: 20 }}>
+            <View style={{ flexDirection: 'row', gap: space.xl }}>
               {link('Add a task', () => router.push('/add-todo'))}
               {link('Goals', () => router.push('/goals'))}
             </View>
           </View>
         ) : choice ? (
-          <View style={{ paddingTop: 40, gap: 24 }}>
-            <View style={{ gap: 8 }}>
-              {goalName && (
-                <Text
-                  style={{
-                    fontFamily: fonts.medium,
-                    fontSize: 13,
-                    color: c.onSurfaceVariant,
-                  }}>
-                  {goalName}
-                </Text>
-              )}
+          <View
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              paddingVertical: space.xxl,
+              gap: space.xxl,
+            }}>
+            <View style={{ gap: space.sm }}>
               <Text
                 accessibilityRole="header"
                 style={{
-                  fontFamily: 'PlayfairDisplay_400Regular',
-                  fontSize: 28,
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: 32,
+                  lineHeight: 40,
+                  letterSpacing: -0.5,
                   color: c.onSurface,
+                  writingDirection: 'auto',
                 }}>
                 {choice.name}
               </Text>
-              {choice.reasons.length > 0 && (
+              {(goalName || choice.reasons.length > 0) && (
                 <Text
-                  style={{ fontFamily: fonts.regular, fontSize: 14, color: c.onSurfaceVariant }}>
-                  {choice.reasons.join(' · ')}
+                  style={{ fontFamily: fonts.regular, ...type.label, color: c.onSurfaceVariant }}>
+                  {(goalName ? [goalName, ...choice.reasons] : choice.reasons).join(' · ')}
                 </Text>
+              )}
+              {choice.kind === 'goal' && (
+                <View
+                  style={{
+                    marginTop: space.md,
+                    padding: space.lg,
+                    borderRadius: radius.lg,
+                    backgroundColor: c.surfaceContainer,
+                    gap: 2,
+                  }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.regular,
+                      ...type.caption,
+                      color: c.onSurfaceVariant,
+                    }}>
+                    {task
+                      ? 'Next task'
+                      : bestTaskFor(choice.id, deck?.allTasks ?? [])
+                        ? 'None of its tasks fits that time'
+                        : 'No open task for this goal yet'}
+                  </Text>
+                  {task && (
+                    <Text style={{ fontFamily: fonts.medium, ...type.body, color: c.onSurface }}>
+                      {task.name}
+                    </Text>
+                  )}
+                </View>
               )}
             </View>
 
-            {choice.kind === 'todo' ? (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {button('Start', startTask, true)}
-                {button('Open', () => router.push(`/todo/${choice.id}`))}
+            <View style={{ gap: space.md }}>
+              <View style={{ flexDirection: 'row', gap: space.sm }}>
+                {task
+                  ? button('Start', startTask, true, 'play')
+                  : button(
+                      'Add a task',
+                      () => router.push({ pathname: '/add-todo', params: { goal: choice.id } }),
+                      true
+                    )}
                 {button('Another', another)}
               </View>
-            ) : (
-              <View style={{ gap: 14 }}>
-                <Text
-                  style={{ fontFamily: fonts.regular, fontSize: 15, color: c.onSurfaceVariant }}>
-                  No task set for this goal yet
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                  {button(
-                    'Add a task',
-                    () => router.push({ pathname: '/add-todo', params: { goal: choice.id } }),
-                    true
-                  )}
-                  {button('Another', another)}
+              {task && (
+                <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+                  {link('Open task', () => router.push(`/todo/${task.id}`))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             {alternatives.length > 0 && (
-              <View style={{ gap: 6 }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: c.onSurfaceVariant }}>
+              <View style={{ gap: space.xs }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.medium,
+                    ...type.caption,
+                    color: c.onSurfaceVariant,
+                    marginBottom: space.xs,
+                  }}>
                   Also good
                 </Text>
                 {alternatives.map((alt) => (
@@ -300,15 +370,27 @@ export default function PickScreen() {
                     accessibilityLabel={`Choose ${alt.name} instead`}
                     onPress={() => makeChoice(alt)}
                     style={{
-                      minHeight: 44,
-                      paddingHorizontal: 14,
-                      borderRadius: 12,
-                      justifyContent: 'center',
+                      minHeight: 48,
+                      paddingHorizontal: space.lg,
+                      borderRadius: radius.md,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: space.md,
                       backgroundColor: c.surfaceContainerLow,
-                      borderWidth: 1,
-                      borderColor: c.outlineVariant,
                     }}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: c.onSurface }}>
+                    <Ionicons
+                      name={alt.kind === 'goal' ? 'flag-outline' : 'ellipse-outline'}
+                      size={14}
+                      color={alt.kind === 'goal' ? c.secondary : c.outline}
+                    />
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        flex: 1,
+                        fontFamily: fonts.medium,
+                        ...type.body,
+                        color: c.onSurface,
+                      }}>
                       {alt.name}
                     </Text>
                   </PressFeedback>

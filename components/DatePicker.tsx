@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColors, useFontFamily } from '@/utils/theme';
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -56,20 +57,24 @@ function DatePickerRaw({ value, onChange }: DatePickerProps) {
   });
 
   return (
-    <View style={{ backgroundColor: c.surfaceContainerLow }} className="rounded-lg p-3">
+    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-xl p-3">
       <View className="mb-2 flex-row items-center justify-between">
-        <Pressable onPress={prevMonth} className="px-3 py-1">
-          <Text style={{ color: c.outline }} className="text-lg">
-            ‹
-          </Text>
+        <Pressable
+          onPress={prevMonth}
+          accessibilityRole="button"
+          accessibilityLabel="Previous month"
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="chevron-back" size={18} color={c.onSurfaceVariant} />
         </Pressable>
         <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
           {monthLabel}
         </Text>
-        <Pressable onPress={nextMonth} className="px-3 py-1">
-          <Text style={{ color: c.outline }} className="text-lg">
-            ›
-          </Text>
+        <Pressable
+          onPress={nextMonth}
+          accessibilityRole="button"
+          accessibilityLabel="Next month"
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="chevron-forward" size={18} color={c.onSurfaceVariant} />
         </Pressable>
       </View>
 

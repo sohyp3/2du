@@ -1,5 +1,5 @@
 import { Children, Fragment, type ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useColors, useFontFamily } from '@/utils/theme';
 
 /**
@@ -41,7 +41,11 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
           <Fragment key={i}>
             {i > 0 && (
               <View
-                style={{ height: 1, backgroundColor: c.outlineVariant, marginLeft: SPACE.lg }}
+                style={{
+                  height: StyleSheet.hairlineWidth,
+                  backgroundColor: c.surfaceContainerHighest,
+                  marginLeft: SPACE.lg,
+                }}
               />
             )}
             {row}

@@ -1,7 +1,7 @@
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useCalendarsStore } from '@/store/calendarsStore';
-import { useColors, useFontFamily } from '@/utils/theme';
-import { PressFeedback } from './PressFeedback';
+import { space, useColors } from '@/utils/theme';
+import { Chip } from './Chip';
 export function CalendarPicker({
   value,
   onChange,
@@ -15,48 +15,28 @@ export function CalendarPicker({
     selected = useCalendarsStore((s) => s.selected),
     select = useCalendarsStore((s) => s.select);
   const active = value === undefined ? selected : value;
-  const c = useColors(),
-    fonts = useFontFamily();
+  const c = useColors();
   return (
     <ScrollView
-      style={{ flexGrow: 0, flexShrink: 0, maxHeight: 48 }}
+      style={{ flexGrow: 0, flexShrink: 0 }}
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 6, paddingVertical: 4, alignItems: 'center' }}>
-      {(all
-        ? [{ id: '', name: 'All calendars', color: c.onSurfaceVariant }, ...calendars]
-        : calendars
-      ).map((item) => {
-        const chosen = item.id === (active || '');
-        return (
-          <PressFeedback
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ gap: space.xs, paddingVertical: space.xs, alignItems: 'center' }}>
+      {(all ? [{ id: '', name: 'All', color: c.onSurfaceVariant }, ...calendars] : calendars).map(
+        (item) => (
+          <Chip
             key={item.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected: chosen }}
+            label={item.name}
+            accessibilityLabel={item.id ? item.name : 'All calendars'}
+            selected={item.id === (active || '')}
             onPress={() => (onChange || select)(item.id || null)}
-            style={{
-              minHeight: 34,
-              paddingHorizontal: 12,
-              borderRadius: 10,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              backgroundColor: chosen ? c.surfaceContainerHigh : 'transparent',
-              borderWidth: 1,
-              borderColor: chosen ? c.outline : c.outlineVariant,
-            }}>
-            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: item.color }} />
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                color: chosen ? c.onSurface : c.onSurfaceVariant,
-                fontSize: 12,
-              }}>
-              {item.name}
-            </Text>
-          </PressFeedback>
-        );
-      })}
+            leading={
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: item.color }} />
+            }
+          />
+        )
+      )}
     </ScrollView>
   );
 }

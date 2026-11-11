@@ -1,9 +1,10 @@
 import { PressFeedback as Pressable } from './PressFeedback';
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { TextInput, View, Text } from 'react-native';
+import { TextInput, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 
 function getDefaultTimeMinutes(): number {
   const d = new Date();
@@ -12,6 +13,7 @@ function getDefaultTimeMinutes(): number {
   return total % (24 * 60);
 }
 
+/** One field with the add button inside it. Long-press the button for the full form. */
 export function QuickAdd() {
   const [name, setName] = useState('');
   const [timeMinutes] = useState(getDefaultTimeMinutes);
@@ -43,45 +45,61 @@ export function QuickAdd() {
     inputRef.current?.focus();
   }, [name, datetime, addTodo, router]);
 
+  const hasText = name.trim().length > 0;
   return (
-    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-xl p-1.5">
-      <View className="flex-row items-center gap-2">
-        <TextInput
-          ref={inputRef}
-          style={{
-            fontFamily: fonts.regular,
-            backgroundColor: c.surfaceContainerHigh,
-            color: c.onSurface,
-            minWidth: 0,
-            minHeight: 42,
-            lineHeight: 20,
-          }}
-          placeholderTextColor={c.outline}
-          className="flex-1 rounded-md px-3 text-sm"
-          placeholder="What’s the next small step?"
-          value={name}
-          onChangeText={setName}
-          onSubmitEditing={handleSubmit}
-          returnKeyType="done"
-          multiline={false}
-          blurOnSubmit={false}
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: c.surfaceContainer,
+        borderRadius: radius.lg,
+        paddingLeft: space.lg,
+        paddingRight: space.xs,
+        minHeight: 52,
+      }}>
+      <TextInput
+        ref={inputRef}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 48,
+          fontFamily: fonts.regular,
+          color: c.onSurface,
+          ...type.body,
+        }}
+        placeholderTextColor={c.outline}
+        placeholder="Add a task"
+        value={name}
+        onChangeText={setName}
+        onSubmitEditing={handleSubmit}
+        returnKeyType="done"
+        multiline={false}
+        submitBehavior="submit"
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={hasText ? 'Add task' : 'New task with details'}
+        accessibilityHint="Long press to open the full form"
+        onPress={handleSubmit}
+        onLongPress={() => {
+          const trimmed = name.trim();
+          router.push({ pathname: '/add-todo', params: trimmed ? { name: trimmed } : {} });
+          setName('');
+        }}
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: radius.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: hasText ? c.primary : 'transparent',
+        }}>
+        <Ionicons
+          name={hasText ? 'arrow-up' : 'add'}
+          size={22}
+          color={hasText ? c.onPrimary : c.onSurfaceVariant}
         />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add task"
-          onPress={handleSubmit}
-          onLongPress={() => {
-            const trimmed = name.trim();
-            router.push({ pathname: '/add-todo', params: trimmed ? { name: trimmed } : {} });
-            setName('');
-          }}
-          style={{ backgroundColor: c.primary, minHeight: 42, justifyContent: 'center' }}
-          className="rounded-md px-4">
-          <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }} className="text-sm">
-            Add
-          </Text>
-        </Pressable>
-      </View>
+      </Pressable>
     </View>
   );
 }

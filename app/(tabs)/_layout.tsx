@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react';
-import { PanResponder, useWindowDimensions, View, Text } from 'react-native';
+import { PanResponder, StyleSheet, useWindowDimensions, View, Text } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -9,12 +9,18 @@ import { useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useSyncStore } from '@/store/syncStore';
 import { PressFeedback } from '@/components/PressFeedback';
+// Order drives the tab bar, the desktop sidebar and zen-mode swipes.
 const routes = [
-  { name: 'index', path: '/', label: 'Tasks', icon: 'checkmark-circle-outline' },
-  { name: 'calendar', path: '/calendar', label: 'Calendar', icon: 'calendar-outline' },
-  { name: 'notes', path: '/notes', label: 'Notes & thoughts', icon: 'document-text-outline' },
-  { name: 'settings', path: '/settings', label: 'Settings', icon: 'options-outline' },
+  { name: 'index', path: '/', label: 'Tasks', icon: 'checkmark-circle' },
+  { name: 'calendar', path: '/calendar', label: 'Calendar', icon: 'calendar' },
+  { name: 'goals', path: '/goals', label: 'Goals', icon: 'flag' },
+  { name: 'notes', path: '/notes', label: 'Notes & thoughts', icon: 'document-text' },
+  { name: 'settings', path: '/settings', label: 'Settings', icon: 'options' },
 ] as const;
+type Route = (typeof routes)[number];
+// The active destination gets the filled glyph, the rest stay outlined.
+const iconFor = (r: Route, active: boolean) =>
+  (active ? r.icon : `${r.icon}-outline`) as `${Route['icon']}` | `${Route['icon']}-outline`;
 const SWIPE_DISTANCE = 60;
 const SWIPE_VELOCITY = 0.3;
 export default function TabLayout() {
@@ -65,7 +71,7 @@ export default function TabLayout() {
         <View
           style={{
             width: 240,
-            backgroundColor: c.surfaceDim,
+            backgroundColor: c.surface,
             borderRightWidth: 1,
             borderRightColor: c.outlineVariant,
             paddingHorizontal: 24,
@@ -107,7 +113,7 @@ export default function TabLayout() {
                   backgroundColor: pathname === r.path ? c.surfaceContainerHigh : 'transparent',
                 }}>
                 <Ionicons
-                  name={r.icon}
+                  name={iconFor(r, pathname === r.path)}
                   color={pathname === r.path ? c.primary : c.onSurfaceVariant}
                   size={20}
                 />
@@ -121,23 +127,6 @@ export default function TabLayout() {
                 </Text>
               </PressFeedback>
             ))}
-            <PressFeedback
-              accessibilityRole="link"
-              onPress={() => router.push('/goals')}
-              style={{
-                minHeight: 48,
-                paddingHorizontal: 12,
-                borderRadius: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                backgroundColor: 'transparent',
-              }}>
-              <Ionicons name="flag-outline" color={c.onSurfaceVariant} size={20} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: c.onSurfaceVariant }}>
-                Goals
-              </Text>
-            </PressFeedback>
           </View>
           <Text
             style={{
@@ -212,11 +201,13 @@ export default function TabLayout() {
               desktop || swipeTabs
                 ? { display: 'none' }
                 : {
-                    backgroundColor: c.surfaceDim,
+                    backgroundColor: c.surface,
                     borderTopColor: c.outlineVariant,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    elevation: 0,
                     paddingTop: 6,
                     // Keep labels clear of the Android navigation bar / iOS home indicator.
-                    height: 56 + Math.max(8, insets.bottom),
+                    height: 62 + Math.max(8, insets.bottom),
                     paddingBottom: Math.max(8, insets.bottom),
                   },
           }}>
@@ -228,7 +219,9 @@ export default function TabLayout() {
               options={{
                 title: r.label,
                 tabBarLabel: r.name === 'notes' ? 'Notes' : r.label,
-                tabBarIcon: ({ color }) => <Ionicons name={r.icon} color={color} size={20} />,
+                tabBarIcon: ({ color, focused }) => (
+                  <Ionicons name={iconFor(r, focused)} color={color} size={22} />
+                ),
               }}
             />
           ))}

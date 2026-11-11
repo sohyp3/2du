@@ -63,20 +63,12 @@ function urgencyFor(days: number): number {
   return 1.3;
 }
 
-export function scoreCandidates(input: {
-  todos: PickTodo[];
-  goals: PickGoal[];
-  now: Date;
-  weekStart: Date;
-  minutes?: number | null;
-}): Candidate[] {
-  const { todos, goals, now, weekStart, minutes } = input;
-  const nowMs = now.getTime();
-  const weekStartMs = weekStart.getTime();
-  const goalById = new Map(goals.map((g) => [g.id, g]));
-  const activeGoals = goals.filter((g) => g.status === 'active');
-  const activeTodos = todos.filter((t) => t.status === 'pending' || t.status === 'in_progress');
-
+function goalStatsFor(
+  activeGoals: PickGoal[],
+  todos: PickTodo[],
+  nowMs: number,
+  weekStartMs: number
+): Map<string, GoalStats> {
   const stats = new Map<string, GoalStats>();
   for (const goal of activeGoals) {
     const own = todos.filter((t) => t.goal_id === goal.id);
@@ -94,6 +86,42 @@ export function scoreCandidates(input: {
       quota: quotaFor(goal, done, nowMs, weekStartMs),
     });
   }
+  return stats;
+}
+
+function goalCandidate(goal: PickGoal, st: GoalStats): Candidate {
+  const reasons: string[] = [`importance ${goal.importance}`];
+  if (goal.weekly_target != null)
+    reasons.push(`weekly target ${st.done} of ${goal.weekly_target} done`);
+  if (st.idleDays >= 3) reasons.push(`untouched for ${Math.floor(st.idleDays)} days`);
+  return {
+    kind: 'goal',
+    id: goal.id,
+    name: goal.name,
+    goal_id: goal.id,
+    weight: goal.importance * st.quota * st.neglect,
+    reasons,
+  };
+}
+
+const byWeight = (a: Candidate, b: Candidate) =>
+  b.weight - a.weight || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+export function scoreCandidates(input: {
+  todos: PickTodo[];
+  goals: PickGoal[];
+  now: Date;
+  weekStart: Date;
+  minutes?: number | null;
+}): Candidate[] {
+  const { todos, goals, now, weekStart, minutes } = input;
+  const nowMs = now.getTime();
+  const weekStartMs = weekStart.getTime();
+  const goalById = new Map(goals.map((g) => [g.id, g]));
+  const activeGoals = goals.filter((g) => g.status === 'active');
+  const activeTodos = todos.filter((t) => t.status === 'pending' || t.status === 'in_progress');
+
+  const stats = goalStatsFor(activeGoals, todos, nowMs, weekStartMs);
 
   const candidates: Candidate[] = [];
 
@@ -137,22 +165,38 @@ export function scoreCandidates(input: {
   // An active goal with no open task of its own is offered as a goal to work on.
   for (const goal of activeGoals) {
     if (activeTodos.some((t) => t.goal_id === goal.id)) continue;
-    const st = stats.get(goal.id)!;
-    const reasons: string[] = [`importance ${goal.importance}`];
-    if (goal.weekly_target != null)
-      reasons.push(`weekly target ${st.done} of ${goal.weekly_target} done`);
-    if (st.idleDays >= 3) reasons.push(`untouched for ${Math.floor(st.idleDays)} days`);
-    candidates.push({
-      kind: 'goal',
-      id: goal.id,
-      name: goal.name,
-      goal_id: goal.id,
-      weight: goal.importance * st.quota * st.neglect,
-      reasons,
-    });
+    candidates.push(goalCandidate(goal, stats.get(goal.id)!));
   }
 
-  return candidates.sort((a, b) => b.weight - a.weight || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return candidates.sort(byWeight);
+}
+
+/**
+ * Every active goal as a candidate, whether or not it has open tasks: the "Goals" mode of Pick
+ * for me draws a goal first, then works on its best task (see `bestTaskFor`).
+ */
+export function scoreGoals(input: {
+  todos: PickTodo[];
+  goals: PickGoal[];
+  now: Date;
+  weekStart: Date;
+}): Candidate[] {
+  const activeGoals = input.goals.filter((g) => g.status === 'active');
+  const stats = goalStatsFor(
+    activeGoals,
+    input.todos,
+    input.now.getTime(),
+    input.weekStart.getTime()
+  );
+  return activeGoals.map((g) => goalCandidate(g, stats.get(g.id)!)).sort(byWeight);
+}
+
+/** The heaviest task candidate linked to `goalId`, or null when the goal has none. */
+export function bestTaskFor(goalId: string, candidates: Candidate[]): Candidate | null {
+  let best: Candidate | null = null;
+  for (const c of candidates)
+    if (c.kind === 'todo' && c.goal_id === goalId && (!best || byWeight(c, best) < 0)) best = c;
+  return best;
 }
 
 export function pick(

@@ -3,19 +3,19 @@ import { useEffect, useMemo } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
+  StyleSheet,
   Platform,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { localDateKey } from '@/shared/localDate';
 import { useTodoStore } from '@/store/todoStore';
 import { useNoteStore } from '@/store/noteStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { useColors, useFontFamily, DISPLAY_FONT, radius, space, type } from '@/utils/theme';
 import { TodoItem } from '@/components/TodoItem';
 import { CalendarCard, type CalendarCardProps } from '@/components/CalendarCard';
 import { QuickAdd } from '@/components/QuickAdd';
@@ -23,6 +23,7 @@ import { TimeFilter } from '@/components/TimeFilter';
 import { CalendarPicker } from '@/components/CalendarPicker';
 import { BriefCard } from '@/components/BriefCard';
 import { PressFeedback } from '@/components/PressFeedback';
+import { FocusPill } from '@/components/FocusPill';
 import type { Note } from '@/db/notes';
 import type { Todo } from '@/db/todos';
 const EMPTY_NOTES: Note[] = [];
@@ -33,7 +34,7 @@ const renderGroup = ({ item }: { item: CalendarGroup }) => (
   <CalendarCard calendar={item.calendar} todos={item.todos} />
 );
 const groupKey = (g: CalendarGroup) => g.calendar.id;
-const GroupGap = () => <View style={{ height: 12 }} />;
+const GroupGap = () => <View style={{ height: 20 }} />;
 export default function TasksScreen() {
   const todos = useTodoStore((s) => s.todos),
     error = useTodoStore((s) => s.error),
@@ -49,7 +50,6 @@ export default function TasksScreen() {
     (s) => s.period === 'day' && localDateKey(s.referenceDate) === localDateKey(new Date())
   );
   const showGreeting = useThemeStore((s) => s.showGreeting);
-  const insets = useSafeAreaInsets();
   const wide = useWindowDimensions().width >= 1280;
   const notes = useNoteStore((s) => (wide && !zen ? s.notes : EMPTY_NOTES));
   useEffect(() => {
@@ -85,14 +85,12 @@ export default function TasksScreen() {
     return result;
   }, [groupByCalendar, selected, calendars, visible]);
   const empty = (
-    <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-      <Ionicons name="sunny-outline" color={c.primary} size={24} />
+    <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 48, alignItems: 'center' }}>
       <Text
         style={{
           color: c.onSurface,
-          fontFamily: 'PlayfairDisplay_400Regular',
-          fontSize: 18,
-          marginTop: 10,
+          fontFamily: DISPLAY_FONT,
+          ...type.title,
         }}>
         A little breathing room.
       </Text>
@@ -105,7 +103,7 @@ export default function TasksScreen() {
           textAlign: 'center',
           lineHeight: 19,
         }}>
-        No tasks in this view. Add something below,{'\n'}or give yourself a moment.
+        Nothing here yet. Add something below,{'\n'}or give yourself a moment.
       </Text>
     </View>
   );
@@ -128,61 +126,21 @@ export default function TasksScreen() {
             flex: 1,
             minWidth: 0,
             paddingHorizontal: wide ? 40 : 16,
-            paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12,
           }}>
-          {showGreeting && (
-            <>
-              <Text
-                accessibilityRole="header"
-                style={{
-                  fontFamily: 'PlayfairDisplay_400Regular',
-                  color: c.onSurface,
-                  fontSize: wide ? 32 : 26,
-                  letterSpacing: -0.5,
-                  marginBottom: 4,
-                }}>
-                Make room for today.
-              </Text>
-              <Text
-                style={{
-                  color: c.onSurfaceVariant,
-                  fontFamily: fonts.regular,
-                  fontSize: 13,
-                  lineHeight: 18,
-                  marginBottom: 14,
-                }}>
-                A place for what matters. One thing at a time.
-              </Text>
-            </>
-          )}
-          {showBrief && <BriefCard />}
-          <TimeFilter />
-          <CalendarPicker />
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 8,
-              marginBottom: 2,
-            }}>
-            <Text style={{ color: c.onSurface, fontFamily: fonts.medium, fontSize: 13 }}>
-              Your focus
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <PressFeedback
-                accessibilityRole="link"
-                onPress={() => router.push('/goals')}
-                style={{ minHeight: 44, justifyContent: 'center' }}>
-                <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 12 }}>
-                  Goals
-                </Text>
-              </PressFeedback>
-              <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
-                {completed} of {visible.length} complete
-              </Text>
-            </View>
+          <TimeFilter
+            subtitle={
+              visible.length
+                ? `${completed} of ${visible.length} done`
+                : showGreeting
+                  ? 'Make room for today.'
+                  : undefined
+            }
+          />
+          <View style={{ marginTop: space.sm, marginBottom: space.xs }}>
+            <CalendarPicker />
           </View>
+          {showBrief && <BriefCard />}
+          <FocusPill />
           {error && (
             <PressFeedback
               onPress={loadTodos}
@@ -199,6 +157,7 @@ export default function TasksScreen() {
               ItemSeparatorComponent={GroupGap}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingTop: 8, paddingBottom: 12, flexGrow: 1 }}
+              removeClippedSubviews={Platform.OS === 'android'}
               ListEmptyComponent={empty}
             />
           ) : (
@@ -209,9 +168,17 @@ export default function TasksScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingBottom: 12, flexGrow: 1 }}
               ListEmptyComponent={empty}
+              removeClippedSubviews={Platform.OS === 'android'}
             />
           )}
-          <View style={{ paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View
+            style={{
+              paddingTop: space.sm,
+              paddingBottom: space.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: space.sm,
+            }}>
             <View style={{ flex: 1 }}>
               <QuickAdd />
             </View>
@@ -220,19 +187,19 @@ export default function TasksScreen() {
               accessibilityLabel="Pick for me"
               onPress={() => router.push('/pick')}
               style={{
-                minHeight: 44,
-                minWidth: 44,
-                paddingHorizontal: wide ? 14 : 10,
-                borderRadius: 12,
+                minHeight: 52,
+                minWidth: 52,
+                paddingHorizontal: wide ? space.lg : 0,
+                borderRadius: radius.lg,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
+                gap: space.sm,
                 backgroundColor: c.surfaceContainer,
               }}>
-              <Ionicons name="shuffle-outline" size={20} color={c.primary} />
+              <Ionicons name="shuffle" size={20} color={c.primary} />
               {wide && (
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: c.onSurface }}>
+                <Text style={{ fontFamily: fonts.medium, ...type.label, color: c.onSurface }}>
                   Pick for me
                 </Text>
               )}
@@ -244,14 +211,14 @@ export default function TasksScreen() {
             style={{
               width: 300,
               paddingHorizontal: 24,
-              paddingTop: 24,
-              borderLeftWidth: 1,
+              paddingTop: 32,
+              borderLeftWidth: StyleSheet.hairlineWidth,
               borderLeftColor: c.outlineVariant,
             }}>
             <Text
               style={{
-                fontFamily: 'PlayfairDisplay_400Regular',
-                fontSize: 20,
+                fontFamily: DISPLAY_FONT,
+                ...type.title,
                 color: c.onSurface,
               }}>
               On your mind
@@ -273,8 +240,8 @@ export default function TasksScreen() {
                 accessibilityRole="button"
                 onPress={() => router.push(`/note/${n.id}`)}
                 style={{
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
+                  paddingVertical: 12,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
                   borderBottomColor: c.outlineVariant,
                 }}>
                 <Text

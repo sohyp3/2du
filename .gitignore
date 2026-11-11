@@ -40,3 +40,6 @@ npm-debug.*
 .metro-health-check*
 *.orig.*
 .DS_Store
+
+
+plans/

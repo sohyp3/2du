@@ -1,19 +1,12 @@
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { Segmented } from '@/components/Chip';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CalendarPicker } from '@/components/CalendarPicker';
 import { useCalendarsStore } from '@/store/calendarsStore';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  FlatList,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useColors, useFontFamily } from '@/utils/theme';
 import { getTodosByDateRange, Todo } from '@/db/todos';
@@ -33,6 +26,11 @@ import { useThemeStore } from '@/store/themeStore';
 import { useSyncStore } from '@/store/syncStore';
 
 type CalendarView = 'day' | 'week' | 'month';
+const VIEWS = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+] as const satisfies readonly { value: CalendarView; label: string }[];
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -94,24 +92,15 @@ function formatHour(hour: number, is24h: boolean) {
 
 type Colors = ReturnType<typeof useColors>;
 
-// Dark or white ink, whichever has more contrast on a #rrggbb background.
-function readableOn(hex: string) {
-  const [r, g, b] = [1, 3, 5].map((i) => {
-    const v = parseInt(hex.slice(i, i + 2), 16) / 255;
-    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? '#14130f' : '#ffffff';
-}
-
-// Completed items keep a faint tint so their calendar stays recognisable.
+// Items are tinted with their calendar's colour rather than filled with it, so a busy day
+// stays calm; completed items keep only a faint tint so their calendar stays recognisable.
 function itemTone(color: string, isCompleted: boolean, c: Colors) {
   return isCompleted
-    ? { bg: `${color}2e`, fg: c.onSurfaceVariant }
-    : { bg: color, fg: readableOn(color) };
+    ? { bg: `${color}14`, fg: c.onSurfaceVariant }
+    : { bg: `${color}2e`, fg: c.onSurface };
 }
 
 export default function CalendarScreen() {
-  const insets = useSafeAreaInsets();
   const showGreeting = useThemeStore((st) => st.showGreeting);
   const c = useColors();
   const fonts = useFontFamily();
@@ -263,20 +252,50 @@ export default function CalendarScreen() {
         width: '100%',
         alignSelf: 'center',
       }}>
-      <View className="px-4" style={{ paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12 }}>
-        {showGreeting && (
-          <Text
-            accessibilityRole="header"
-            style={{
-              fontFamily: 'PlayfairDisplay_400Regular',
-              color: c.onSurface,
-              fontSize: 26,
-              marginBottom: 6,
-            }}>
-            A view of what’s ahead.
-          </Text>
-        )}
-        <CalendarPicker />
+      <View className="px-4">
+        <ScreenHeader
+          title={headerLabel}
+          subtitle={showGreeting ? 'A view of what’s ahead.' : undefined}
+          actions={
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go to today"
+                onPress={() => setSelectedDate(new Date())}
+                style={{ minHeight: 40, paddingHorizontal: 8, justifyContent: 'center' }}>
+                <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>
+                  Today
+                </Text>
+              </Pressable>
+              {(['prev', 'next'] as const).map((dir) => (
+                <Pressable
+                  key={dir}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    dir === 'prev' ? 'Previous calendar period' : 'Next calendar period'
+                  }
+                  onPress={() => navigate(dir)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 12,
+                  }}>
+                  <Ionicons
+                    name={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
+                    size={18}
+                    color={c.onSurfaceVariant}
+                  />
+                </Pressable>
+              ))}
+            </>
+          }
+        />
+        <Segmented options={VIEWS} value={view} onChange={setView} />
+        <View style={{ marginTop: 8 }}>
+          <CalendarPicker />
+        </View>
         <View style={{ minHeight: 16, justifyContent: 'center' }}>
           {error ? (
             <Pressable accessibilityRole="button" onPress={loadData}>
@@ -292,82 +311,7 @@ export default function CalendarScreen() {
             </Text>
           ) : null}
         </View>
-        <View style={{ marginTop: 2, marginBottom: 8, gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ flex: 1, color: c.onSurface, fontFamily: fonts.medium, fontSize: 16 }}>
-              {headerLabel}
-            </Text>
-            {(['prev', 'next'] as const).map((dir) => (
-              <Pressable
-                key={dir}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  dir === 'prev' ? 'Previous calendar period' : 'Next calendar period'
-                }
-                onPress={() => navigate(dir)}
-                style={{
-                  minWidth: 38,
-                  minHeight: 38,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: c.surfaceContainer,
-                  borderRadius: 8,
-                }}>
-                <Ionicons
-                  name={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
-                  size={18}
-                  color={c.onSurfaceVariant}
-                />
-              </Pressable>
-            ))}
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                backgroundColor: c.surfaceContainer,
-                borderRadius: 10,
-                padding: 3,
-              }}>
-              {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
-                <Pressable
-                  key={v}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${v} view`}
-                  accessibilityState={{ selected: view === v }}
-                  aria-selected={view === v}
-                  onPress={() => setView(v)}
-                  style={{
-                    flex: 1,
-                    minHeight: 32,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: view === v ? c.surfaceContainerHighest : 'transparent',
-                    borderRadius: 7,
-                  }}>
-                  <Text
-                    style={{
-                      color: view === v ? c.onSurface : c.onSurfaceVariant,
-                      fontFamily: fonts.medium,
-                      fontSize: 13,
-                      textTransform: 'capitalize',
-                    }}>
-                    {v}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go to today"
-              onPress={() => setSelectedDate(new Date())}
-              style={{ minHeight: 38, paddingHorizontal: 10, justifyContent: 'center' }}>
-              <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>
-                Today
-              </Text>
-            </Pressable>
-          </View>
+        <View style={{ marginBottom: 8 }}>
           <Overview
             todos={rangeTodos}
             calendars={selectedCalendar ? [] : calendars}

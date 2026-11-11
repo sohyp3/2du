@@ -1,6 +1,8 @@
 import { test, expect } from 'bun:test';
 import {
   scoreCandidates,
+  scoreGoals,
+  bestTaskFor,
   pick,
   type Candidate,
   type PickGoal,
@@ -203,4 +205,29 @@ test('reasons of an overdue linked todo with a weekly target include importance,
   expect(reasons).toContain('importance');
   expect(reasons).toContain('overdue');
   expect(reasons).toContain('weekly target');
+});
+
+test('scoreGoals: every active goal is a candidate, with or without open tasks', () => {
+  const todos = [todo({ id: 'has', goal_id: 'busy' })];
+  const goals = [
+    goal({ id: 'busy', importance: 9 }),
+    goal({ id: 'idle', importance: 2 }),
+    goal({ id: 'paused', status: 'paused' }),
+  ];
+  const cs = scoreGoals({ todos, goals, now, weekStart });
+  expect(cs.map((c) => c.id)).toEqual(['busy', 'idle']);
+  expect(cs.every((c) => c.kind === 'goal')).toBe(true);
+});
+
+test('bestTaskFor: the heaviest task of that goal, or null', () => {
+  const cs = score(
+    [
+      todo({ id: 'soon', goal_id: 'g1', datetime: iso(now.getTime() - DAY) }),
+      todo({ id: 'later', goal_id: 'g1', datetime: iso(now.getTime() + 5 * DAY) }),
+      todo({ id: 'other', goal_id: null, priority: 'urgent' }),
+    ],
+    [goal({ id: 'g1' }), goal({ id: 'g2' })]
+  );
+  expect(bestTaskFor('g1', cs)!.id).toBe('soon');
+  expect(bestTaskFor('g2', cs)).toBeNull();
 });

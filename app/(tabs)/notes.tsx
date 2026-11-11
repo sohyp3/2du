@@ -235,9 +235,8 @@ export default function NotesScreen() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 10,
-                  borderWidth: 1,
-                  borderColor: c.outlineVariant,
-                  borderRadius: 10,
+                  backgroundColor: c.surfaceContainer,
+                  borderRadius: 12,
                   paddingHorizontal: 14,
                   minHeight: 44,
                   flexGrow: desktop ? 0 : 1,
@@ -333,6 +332,7 @@ const NoteComposer = memo(function NoteComposer({
   width: number;
   onSaved: () => void;
 }) {
+  const c = useColors();
   const fonts = useFontFamily();
   const addNote = useNoteStore((s) => s.addNote);
   const clearError = useNoteStore((s) => s.clearError);
@@ -372,9 +372,9 @@ const NoteComposer = memo(function NoteComposer({
   return (
     <View
       style={{
-        backgroundColor: '#eae3d4',
-        borderRadius: 12,
-        padding: desktop ? 16 : 12,
+        backgroundColor: c.surfaceContainer,
+        borderRadius: 16,
+        padding: desktop ? 16 : 14,
         marginBottom: 12,
         flexDirection: desktop ? 'row' : 'column',
         gap: desktop ? 20 : 6,
@@ -383,7 +383,7 @@ const NoteComposer = memo(function NoteComposer({
         <View style={{ width: desktop ? 200 : undefined }}>
           <Text
             style={{
-              color: '#342c20',
+              color: c.onSurface,
               fontFamily: 'PlayfairDisplay_400Regular',
               fontSize: 20,
               lineHeight: 26,
@@ -393,7 +393,7 @@ const NoteComposer = memo(function NoteComposer({
           {width >= 700 && (
             <Text
               style={{
-                color: '#695d49',
+                color: c.onSurfaceVariant,
                 fontFamily: fonts.regular,
                 fontSize: 13,
                 lineHeight: 21,
@@ -409,13 +409,13 @@ const NoteComposer = memo(function NoteComposer({
           ref={input}
           accessibilityLabel="Capture a thought"
           placeholder="What’s on your mind?"
-          placeholderTextColor="#786b55"
+          placeholderTextColor={c.outline}
           value={draft}
           onChangeText={setDraft}
           multiline
           editable={!saving}
           style={{
-            color: '#342c20',
+            color: c.onSurface,
             fontFamily: fonts.regular,
             fontSize: 14,
             lineHeight: 20,
@@ -441,13 +441,13 @@ const NoteComposer = memo(function NoteComposer({
                 testID="note-saved"
                 accessibilityLiveRegion="polite"
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="checkmark-circle" size={17} color="#426031" />
-                <Text style={{ color: '#426031', fontFamily: fonts.medium, fontSize: 12 }}>
+                <Ionicons name="checkmark-circle" size={17} color={c.primary} />
+                <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 12 }}>
                   Saved to your notebook
                 </Text>
               </Animated.View>
             ) : (
-              <Text style={{ color: '#695d49', fontFamily: fonts.regular, fontSize: 12 }}>
+              <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
                 The first line becomes your title.
               </Text>
             )}
@@ -461,16 +461,16 @@ const NoteComposer = memo(function NoteComposer({
               minHeight: 36,
               paddingHorizontal: 12,
               borderRadius: 8,
-              backgroundColor: '#342c20',
+              backgroundColor: c.primary,
               opacity: !draft.trim() || saving ? 0.5 : 1,
               flexDirection: 'row',
               gap: 10,
               alignItems: 'center',
             }}>
-            <Text style={{ color: '#f7f0e2', fontFamily: fonts.medium, fontSize: 13 }}>
+            <Text style={{ color: c.onPrimary, fontFamily: fonts.medium, fontSize: 13 }}>
               {saving ? 'Saving…' : 'Save thought'}
             </Text>
-            <Ionicons name="arrow-up" size={16} color="#f7f0e2" />
+            <Ionicons name="arrow-up" size={16} color={c.onPrimary} />
           </PressFeedback>
         </View>
       </View>
@@ -504,9 +504,7 @@ const NoteCard = memo(function NoteCard({
           flex: 1,
           minHeight: 120,
           backgroundColor: tone.surface,
-          borderWidth: 1,
-          borderColor: tone.outline,
-          borderRadius: 12,
+          borderRadius: 14,
         }}>
         <PressFeedback
           accessibilityRole="button"

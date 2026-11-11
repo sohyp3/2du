@@ -27,8 +27,8 @@ export function SettingsSwitch(props: {
         value={props.value}
         onValueChange={props.onValueChange}
         disabled={props.disabled}
-        trackColor={{ false: c.outlineVariant, true: c.primary }}
-        thumbColor={props.value ? c.onPrimary : c.surfaceContainerHighest}
+        trackColor={{ false: c.surfaceContainerHighest, true: c.primary }}
+        thumbColor={props.value ? c.onPrimary : c.outline}
         {...({ activeThumbColor: c.onPrimary } as object)}
       />
     </Pressable>
