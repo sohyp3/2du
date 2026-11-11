@@ -1,4 +1,4 @@
-export const entities = ['todos', 'notes', 'calendars', 'goals'] as const;
+export const entities = ['todos', 'notes', 'calendars', 'goals', 'briefs'] as const;
 export type Entity = (typeof entities)[number];
 export interface Change {
   entity: Entity;
@@ -34,6 +34,7 @@ export const fields = {
     'created_at',
     'updated_at',
   ],
+  briefs: ['id', 'date', 'content', 'created_at', 'updated_at'],
 } satisfies Record<Entity, string[]>;
 
 export function validateChange(value: unknown): Change {
@@ -83,6 +84,11 @@ export function validateChange(value: unknown): Change {
       text(d.name, 100);
       if (typeof d.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(d.color))
         throw new Error('Invalid calendar color');
+    } else if (c.entity === 'briefs') {
+      if (typeof d.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.date) || d.date !== c.id)
+        throw new Error('Invalid brief');
+      if (typeof d.content !== 'string' || d.content.length > 20000)
+        throw new Error('Invalid brief');
     } else {
       text(d.name, 200);
       text(d.description, 10000, true);

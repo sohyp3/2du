@@ -65,3 +65,18 @@ test('a todo may carry a goal_id, and unknown goal fields are still refused', ()
     validateChange({ entity: 'todos', id: 't1', data: { ...todo, mood: 'x' }, updated_at: now })
   ).toThrow('Unknown record field');
 });
+
+const briefChange = (over: Record<string, unknown> = {}, id = '2026-11-10') => ({
+  entity: 'briefs',
+  id,
+  data: { id, date: id, content: '# Today', created_at: now, updated_at: now, ...over },
+  updated_at: now,
+});
+
+test('briefs accept a valid record and reject a date that differs from the id or long content', () => {
+  expect(() => validateChange(briefChange())).not.toThrow();
+  expect(() => validateChange(briefChange({ date: '2026-11-11' }))).toThrow('Invalid brief');
+  expect(() => validateChange(briefChange({ content: 'x'.repeat(20001) }))).toThrow(
+    'Invalid brief'
+  );
+});

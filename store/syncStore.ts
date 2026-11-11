@@ -8,6 +8,7 @@ import { useTodoStore } from './todoStore';
 import { useNoteStore } from './noteStore';
 import { useGoalStore } from './goalStore';
 import { useCalendarsStore } from './calendarsStore';
+import { useBriefStore } from './briefStore';
 interface Outbox {
   entity: Entity;
   id: string;
@@ -272,6 +273,7 @@ export const useSyncStore = create<SyncState>((set, get) => {
             changed.has('notes') && useNoteStore.getState().loadNotes(),
             changed.has('calendars') && useCalendarsStore.getState().load(),
             changed.has('goals') && useGoalStore.getState().load(),
+            changed.has('briefs') && useBriefStore.getState().load(),
           ]);
           set((s) => ({ revision: s.revision + 1 }));
         }
