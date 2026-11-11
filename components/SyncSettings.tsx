@@ -6,6 +6,7 @@ import { useColors, useFontFamily } from '@/utils/theme';
 import { AuthForm, type AuthFormHandle } from './AuthForm';
 import { PressFeedback } from './PressFeedback';
 import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
+import { BookingSettings } from './settings/BookingSettings';
 import { SettingsRow } from './settings/SettingsRow';
 import { SettingsSection, SPACE } from './settings/SettingsSection';
 
@@ -188,6 +189,8 @@ export function SyncSettings() {
           right={busy ? <ActivityIndicator size="small" color={c.primary} /> : undefined}
         />
       </SettingsSection>
+
+      <BookingSettings />
 
       <SettingsSection
         title="Agent keys"
