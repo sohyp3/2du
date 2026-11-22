@@ -1,9 +1,10 @@
 import { Children, Fragment, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { space, useColors, useFontFamily } from '@/utils/theme';
+import { Card } from '@/components/Card';
+import { DISPLAY_FONT_SEMI, space, useColors, useFontFamily } from '@/utils/theme';
 
 export interface SettingsSectionProps {
-  /** Small label above the group. */
+  /** Heading above the group. */
   title: string;
   /** Optional note under the group, for context that applies to all of its rows. */
   footer?: string;
@@ -11,7 +12,7 @@ export interface SettingsSectionProps {
   children: ReactNode;
 }
 
-/** A titled, rounded group of `SettingsRow`s with hairlines between rows. */
+/** A titled card of `SettingsRow`s with hairlines between rows. */
 export function SettingsSection({ title, footer, children }: SettingsSectionProps) {
   const c = useColors(),
     fonts = useFontFamily();
@@ -21,23 +22,23 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
       <Text
         accessibilityRole="header"
         style={{
-          fontFamily: fonts.medium,
-          color: c.onSurfaceVariant,
-          fontSize: 13,
-          lineHeight: 18,
-          paddingHorizontal: space.lg,
+          fontFamily: DISPLAY_FONT_SEMI,
+          color: c.onSurface,
+          fontSize: 18,
+          lineHeight: 24,
+          paddingHorizontal: space.xs,
           marginBottom: space.sm,
         }}>
         {title}
       </Text>
-      <View style={{ backgroundColor: c.surfaceContainer, borderRadius: 16, overflow: 'hidden' }}>
+      <Card padded={false}>
         {rows.map((row, i) => (
           <Fragment key={i}>
             {i > 0 && (
               <View
                 style={{
                   height: StyleSheet.hairlineWidth,
-                  backgroundColor: c.surfaceContainerHighest,
+                  backgroundColor: c.outlineVariant,
                   marginLeft: space.lg,
                 }}
               />
@@ -45,7 +46,7 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
             {row}
           </Fragment>
         ))}
-      </View>
+      </Card>
       {!!footer && (
         <Text
           style={{
@@ -53,7 +54,7 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
             color: c.onSurfaceVariant,
             fontSize: 12,
             lineHeight: 18,
-            paddingHorizontal: space.lg,
+            paddingHorizontal: space.xs,
             marginTop: space.sm,
           }}>
           {footer}

@@ -2,9 +2,9 @@ import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTodoStore } from '@/store/todoStore';
 import { getFilterLabel, type FilterPeriod } from '@/utils/dates';
-import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import { space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
-import { ScreenHeader } from './ScreenHeader';
+import { HeaderAction, ScreenHeader } from './ScreenHeader';
 import { Segmented } from './Chip';
 
 const PERIODS = [
@@ -28,24 +28,12 @@ export function TimeFilter({ subtitle }: { subtitle?: string }) {
     fonts = useFontFamily();
   const label = getFilterLabel(period, referenceDate);
   const iconButton = (dir: 'prev' | 'next') => (
-    <PressFeedback
+    <HeaderAction
       key={dir}
-      accessibilityRole="button"
-      accessibilityLabel={dir === 'prev' ? 'Previous period' : 'Next period'}
+      icon={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
+      label={dir === 'prev' ? 'Previous period' : 'Next period'}
       onPress={() => navigatePeriod(dir)}
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: radius.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-      <Ionicons
-        name={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
-        size={18}
-        color={c.onSurfaceVariant}
-      />
-    </PressFeedback>
+    />
   );
   return (
     <View>

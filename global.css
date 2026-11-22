@@ -25,6 +25,10 @@
   outline: 2px solid var(--accent, #6c4dff);
   outline-offset: 4px;
 }
+/* FormInput draws its own accent ring on focus. */
+[data-testid='form-input']:focus-visible {
+  outline: none;
+}
 input,
 textarea {
   caret-color: var(--accent, #6c4dff);
@@ -53,9 +57,13 @@ textarea {
     transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
     opacity 140ms cubic-bezier(0.23, 1, 0.32, 1);
 }
+@media (hover: hover) and (pointer: fine) {
+  [data-testid='motion-press']:hover:not([aria-disabled='true']) {
+    transform: translateY(-1px);
+  }
+}
 [data-testid='motion-press']:active:not([aria-disabled='true']) {
   transform: scale(0.97);
-  opacity: 0.78;
 }
 [data-testid='note-card'] {
   transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
@@ -94,10 +102,18 @@ textarea {
   [data-testid='motion-press'] {
     transition: opacity 120ms cubic-bezier(0.23, 1, 0.32, 1);
   }
+  [data-testid='motion-press']:hover,
   [data-testid='motion-press']:active,
   [data-testid='note-card']:hover,
   [data-testid='note-card']:focus-within {
     transform: none;
+  }
+  [data-testid='motion-press']:hover:not([aria-disabled='true']),
+  [data-testid='motion-press']:active:not([aria-disabled='true']) {
+    transform: none;
+  }
+  [data-testid='motion-press']:active:not([aria-disabled='true']) {
+    opacity: 0.7;
   }
   [data-testid='note-card'] {
     transition: none;

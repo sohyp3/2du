@@ -4,13 +4,21 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const PRESS_IN = { duration: 70, easing: Easing.out(Easing.quad) };
-const PRESS_OUT = { duration: 140, easing: Easing.out(Easing.quad) };
+import * as haptics from '@/utils/haptics';
 
-function WebPressFeedback(props: PressableProps) {
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const SPRING = { damping: 15, stiffness: 400 };
+const FADE = { duration: 120, easing: Easing.out(Easing.quad) };
+
+export type PressFeedbackProps = PressableProps & {
+  /** A haptic on press-in (phones only). */
+  haptic?: 'tap' | 'select';
+};
+
+function WebPressFeedback({ haptic: _haptic, ...props }: PressFeedbackProps) {
   return (
     <Pressable
       {...props}
@@ -24,22 +32,31 @@ function WebPressFeedback(props: PressableProps) {
 
 // Press feedback runs entirely on the UI thread: pressing never re-renders the
 // component, so taps respond instantly even while JS is busy.
-function NativePressFeedback({ style, onPressIn, onPressOut, ...props }: PressableProps) {
+function NativePressFeedback({
+  style,
+  onPressIn,
+  onPressOut,
+  haptic,
+  ...props
+}: PressFeedbackProps) {
   const reduced = useReducedMotion();
-  const pressed = useSharedValue(0);
-  const animated = useAnimatedStyle(() => ({
-    opacity: 1 - pressed.value * 0.2,
-    transform: [{ scale: reduced ? 1 : 1 - pressed.value * 0.02 }],
-  }));
+  const scale = useSharedValue(1);
+  const fade = useSharedValue(1);
+  const animated = useAnimatedStyle(() =>
+    reduced ? { opacity: fade.value } : { transform: [{ scale: scale.value }] }
+  );
   return (
     <AnimatedPressable
       {...props}
       onPressIn={(e) => {
-        pressed.value = withTiming(1, PRESS_IN);
+        if (reduced) fade.value = withTiming(0.7, FADE);
+        else scale.value = withSpring(0.96, SPRING);
+        if (haptic) haptics[haptic]();
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        pressed.value = withTiming(0, PRESS_OUT);
+        if (reduced) fade.value = withTiming(1, FADE);
+        else scale.value = withSpring(1, SPRING);
         onPressOut?.(e);
       }}
       style={[
@@ -50,4 +67,5 @@ function NativePressFeedback({ style, onPressIn, onPressOut, ...props }: Pressab
   );
 }
 
-export const PressFeedback = Platform.OS === 'web' ? WebPressFeedback : NativePressFeedback;
+export const PressFeedback: (props: PressFeedbackProps) => React.JSX.Element =
+  Platform.OS === 'web' ? WebPressFeedback : NativePressFeedback;

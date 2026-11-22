@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { PressFeedback } from '@/components/PressFeedback';
-import { space, useColors, useFontFamily } from '@/utils/theme';
+import { contrastText } from '@/utils/palette';
+import { radius, space, useColors, useFontFamily } from '@/utils/theme';
 
 export interface SettingsRowProps {
   label: string;
@@ -9,6 +11,10 @@ export interface SettingsRowProps {
   hint?: string;
   /** Leading mark before the label, such as a calendar's colour square. */
   left?: ReactNode;
+  /** An icon in a coloured badge before the label. */
+  icon?: keyof typeof Ionicons.glyphMap;
+  /** The badge fill, a hex colour. Defaults to the accent. */
+  iconColor?: string;
   /** Trailing control or value: a `Switch`, a value, a chevron. */
   right?: ReactNode;
   /**
@@ -30,6 +36,8 @@ export function SettingsRow({
   label,
   hint,
   left,
+  icon,
+  iconColor,
   right,
   trailing,
   onPress,
@@ -39,9 +47,23 @@ export function SettingsRow({
 }: SettingsRowProps) {
   const c = useColors(),
     fonts = useFontFamily();
+  const badge = iconColor ?? c.primary;
   const content = (
     <>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+        {!!icon && (
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: radius.sm,
+              backgroundColor: badge,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <Ionicons name={icon} size={18} color={contrastText(badge)} />
+          </View>
+        )}
         {left}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
@@ -72,7 +94,7 @@ export function SettingsRow({
     </>
   );
   const style = {
-    minHeight: 52,
+    minHeight: 56,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     justifyContent: 'center',

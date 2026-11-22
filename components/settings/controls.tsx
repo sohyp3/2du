@@ -4,10 +4,12 @@ import {
   Switch,
   Text,
   TextInput,
+  View,
   type TextInputProps,
 } from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
-import { space, useColors, useFontFamily } from '@/utils/theme';
+import { mix } from '@/utils/palette';
+import { radius, space, useColors, useFontFamily } from '@/utils/theme';
 
 /** Themed switch for the right side of a `SettingsRow`. */
 export function SettingsSwitch(props: {
@@ -48,9 +50,9 @@ export function SettingsInput({ style, ...props }: TextInputProps) {
           backgroundColor: c.surfaceContainerHigh,
           fontFamily: fonts.regular,
           fontSize: 16,
-          minHeight: 48,
-          paddingHorizontal: space.md,
-          borderRadius: 8,
+          minHeight: 52,
+          paddingHorizontal: space.lg,
+          borderRadius: radius.md,
         },
         style,
       ]}
@@ -58,7 +60,7 @@ export function SettingsInput({ style, ...props }: TextInputProps) {
   );
 }
 
-/** Button for forms inside a row. `primary` is the one main action of its form. */
+/** Button for forms inside a row, styled like `FormButton`. `primary` is the form's main action. */
 export function SettingsButton(props: {
   label: string;
   onPress: () => void;
@@ -74,6 +76,7 @@ export function SettingsButton(props: {
   const filled = props.primary || props.selected;
   return (
     <PressFeedback
+      haptic={props.primary ? 'tap' : 'select'}
       accessibilityRole="button"
       accessibilityLabel={props.label}
       accessibilityState={{ disabled: !!props.disabled, selected: props.selected }}
@@ -81,12 +84,12 @@ export function SettingsButton(props: {
       onPress={props.onPress}
       style={{
         flex: props.grow ? 1 : undefined,
-        minHeight: 44,
-        paddingHorizontal: space.lg,
+        minHeight: 52,
+        paddingHorizontal: space.xl,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 8,
-        backgroundColor: filled ? c.primary : c.surfaceContainerHigh,
+        borderRadius: radius.pill,
+        backgroundColor: filled ? c.primary : c.surfaceContainer,
         opacity: props.disabled ? 0.5 : 1,
       }}>
       {props.busy ? (
@@ -94,8 +97,8 @@ export function SettingsButton(props: {
       ) : (
         <Text
           style={{
-            fontFamily: fonts.medium,
-            fontSize: 14,
+            fontFamily: fonts.bold,
+            fontSize: 15,
             color: filled ? c.onPrimary : c.onSurface,
             textAlign: 'center',
           }}>
@@ -106,23 +109,43 @@ export function SettingsButton(props: {
   );
 }
 
-/** Inline message row for a section: an error by default, or a neutral notice. */
-export function SettingsMessage({ text, notice }: { text: string; notice?: boolean }) {
+/** Inline message row for a section: an error by default, a success, or a neutral notice. */
+export function SettingsMessage({
+  text,
+  notice,
+  tone = notice ? 'notice' : 'error',
+}: {
+  text: string;
+  /** Shorthand for `tone="notice"`. */
+  notice?: boolean;
+  tone?: 'error' | 'success' | 'notice';
+}) {
   const c = useColors(),
     fonts = useFontFamily();
+  const ink = tone === 'error' ? c.onErrorContainer : tone === 'success' ? c.success : c.onSurface;
+  const fill =
+    tone === 'error'
+      ? c.errorContainer
+      : tone === 'success'
+        ? mix(c.surface, c.success, 0.16)
+        : c.accentSoft;
   return (
-    <Text
-      accessibilityRole="alert"
-      style={{
-        fontFamily: fonts.regular,
-        color: notice ? c.onSurface : c.error,
-        backgroundColor: notice ? c.primaryContainer : undefined,
-        fontSize: 14,
-        lineHeight: 20,
-        paddingHorizontal: space.lg,
-        paddingVertical: space.md,
-      }}>
-      {text}
-    </Text>
+    <View style={{ paddingHorizontal: space.md, paddingVertical: space.sm }}>
+      <Text
+        accessibilityRole="alert"
+        style={{
+          fontFamily: fonts.medium,
+          color: ink,
+          backgroundColor: fill,
+          borderRadius: radius.md,
+          overflow: 'hidden',
+          fontSize: 14,
+          lineHeight: 20,
+          paddingHorizontal: space.md,
+          paddingVertical: space.md,
+        }}>
+        {text}
+      </Text>
+    </View>
   );
 }

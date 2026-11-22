@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -21,15 +21,25 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-/** A borderless tonal text field. */
-export function FormInput({ style, multiline, ...props }: TextInputProps) {
+/** A tonal text field that gains a 2px accent ring while focused. */
+export function FormInput({ style, multiline, onFocus, onBlur, ...props }: TextInputProps) {
   const c = useColors(),
     fonts = useFontFamily();
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
       placeholderTextColor={c.outline}
       multiline={multiline}
       textAlignVertical={multiline ? 'top' : 'center'}
+      testID="form-input"
+      onFocus={(e) => {
+        setFocused(true);
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        onBlur?.(e);
+      }}
       {...props}
       style={[
         {
@@ -37,9 +47,12 @@ export function FormInput({ style, multiline, ...props }: TextInputProps) {
           color: c.onSurface,
           backgroundColor: c.surfaceContainer,
           borderRadius: radius.md,
-          paddingHorizontal: space.lg,
-          paddingVertical: space.md,
-          minHeight: multiline ? 96 : 48,
+          // A transparent border keeps the text from shifting when the focus ring appears.
+          borderWidth: 2,
+          borderColor: focused ? c.primary : 'transparent',
+          paddingHorizontal: space.lg - 2,
+          paddingVertical: space.md - 2,
+          minHeight: multiline ? 96 : 52,
           writingDirection: 'auto',
           ...type.body,
         },
@@ -142,6 +155,7 @@ export function SwitchRow({
     fonts = useFontFamily();
   return (
     <PressFeedback
+      haptic="select"
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       disabled={disabled}
@@ -216,6 +230,7 @@ export function FormButton({
     kind === 'primary' ? c.onPrimary : kind === 'danger' ? c.onErrorContainer : c.onSurface;
   return (
     <PressFeedback
+      haptic="tap"
       accessibilityRole="button"
       accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
       disabled={disabled || busy}
@@ -223,7 +238,8 @@ export function FormButton({
       style={{
         flex: 1,
         minHeight: 52,
-        borderRadius: radius.lg,
+        paddingHorizontal: space.xl,
+        borderRadius: radius.pill,
         flexDirection: 'row',
         gap: space.sm,
         alignItems: 'center',
@@ -238,7 +254,7 @@ export function FormButton({
           {icon && <Ionicons name={icon} size={18} color={ink} />}
           <Text
             style={{
-              fontFamily: kind === 'primary' ? fonts.bold : fonts.medium,
+              fontFamily: fonts.bold,
               color: ink,
               ...type.body,
             }}>

@@ -1,18 +1,58 @@
 import type { ReactNode } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { DISPLAY_FONT, space, type, useColors, useFontFamily } from '@/utils/theme';
+import { PressFeedback } from './PressFeedback';
 
-/** The title block every tab starts with: display title, optional quiet subtitle, actions. */
+/** A round 44×44 header button, for the `actions` slot of `ScreenHeader`. */
+export function HeaderAction({
+  icon,
+  label,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const c = useColors();
+  return (
+    <PressFeedback
+      haptic="tap"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: c.surfaceContainer,
+        opacity: disabled ? 0.5 : 1,
+      }}>
+      <Ionicons name={icon} size={20} color={c.onSurface} />
+    </PressFeedback>
+  );
+}
+
+/** The title block every tab starts with: display title, optional subtitle, actions. */
 export function ScreenHeader({
   title,
   subtitle,
   actions,
+  emoji,
   inset = true,
 }: {
   title: string;
   subtitle?: ReactNode;
   actions?: ReactNode;
+  /** Shown before the title. */
+  emoji?: string;
   /** Pad for the status bar; off when the parent already does. */
   inset?: boolean;
 }) {
@@ -33,6 +73,7 @@ export function ScreenHeader({
           accessibilityRole="header"
           numberOfLines={1}
           style={{ fontFamily: DISPLAY_FONT, color: c.onSurface, ...type.display }}>
+          {emoji ? `${emoji} ` : ''}
           {title}
         </Text>
         {subtitle ? (
@@ -41,7 +82,7 @@ export function ScreenHeader({
             style={{
               fontFamily: fonts.regular,
               color: c.onSurfaceVariant,
-              ...type.label,
+              ...type.body,
               marginTop: 2,
             }}>
             {subtitle}
@@ -49,7 +90,7 @@ export function ScreenHeader({
         ) : null}
       </View>
       {actions ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>{actions}</View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>{actions}</View>
       ) : null}
     </View>
   );
