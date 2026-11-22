@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Platform, Text, useWindowDimensions, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DISPLAY_FONT, space, type, useColors, useFontFamily } from '@/utils/theme';
@@ -47,6 +48,7 @@ export function ScreenHeader({
   actions,
   emoji,
   inset = true,
+  showSettings = false,
 }: {
   title: string;
   subtitle?: ReactNode;
@@ -55,10 +57,15 @@ export function ScreenHeader({
   emoji?: string;
   /** Pad for the status bar; off when the parent already does. */
   inset?: boolean;
+  /** A gear that opens Settings, on phones (the desktop sidebar has its own link). */
+  showSettings?: boolean;
 }) {
   const c = useColors(),
-    fonts = useFontFamily();
+    fonts = useFontFamily(),
+    router = useRouter();
   const insets = useSafeAreaInsets();
+  const phone = useWindowDimensions().width < 1000;
+  const gear = showSettings && phone;
   return (
     <View
       style={{
@@ -89,8 +96,17 @@ export function ScreenHeader({
           </Text>
         ) : null}
       </View>
-      {actions ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>{actions}</View>
+      {actions || gear ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          {actions}
+          {gear && (
+            <HeaderAction
+              icon="settings-outline"
+              label="Settings"
+              onPress={() => router.push('/settings')}
+            />
+          )}
+        </View>
       ) : null}
     </View>
   );

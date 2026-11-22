@@ -235,6 +235,7 @@ export default function GoalsScreen() {
       <View style={{ width: '100%', maxWidth: 840, alignSelf: 'center', paddingHorizontal: 16 }}>
         <ScreenHeader
           title="Goals"
+          showSettings
           subtitle={
             groups.active.length
               ? `${groups.active.length} active`

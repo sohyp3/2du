@@ -255,6 +255,7 @@ export default function CalendarScreen() {
       <View className="px-4">
         <ScreenHeader
           title={headerLabel}
+          showSettings
           subtitle={showGreeting ? 'A view of what’s ahead.' : undefined}
           actions={
             <>

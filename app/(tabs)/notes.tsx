@@ -9,6 +9,7 @@ import { useThemeStore, NOTE_PAPERS, type NotePaper } from '@/store/themeStore';
 import { Note } from '@/db/notes';
 import { DISPLAY_FONT_SEMI, useColors, useFontFamily, useScheme } from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
+import { HeaderAction } from '@/components/ScreenHeader';
 const SAVED_ENTER = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 const SAVED_EXIT = FadeOut.duration(140).reduceMotion(ReduceMotion.System);
 
@@ -121,29 +122,38 @@ export default function NotesScreen() {
                 }}>
                 Notes & thoughts<Text style={{ color: c.primary }}>.</Text>
               </Text>
-              <PressFeedback
-                accessibilityRole="button"
-                accessibilityLabel="New note"
-                onPress={handleAdd}
-                style={{
-                  flexDirection: 'row',
-                  gap: 10,
-                  alignItems: 'center',
-                  minHeight: 40,
-                  paddingHorizontal: desktop ? 14 : 0,
-                  width: desktop ? undefined : 40,
-                  flexShrink: 0,
-                  justifyContent: 'center',
-                  borderRadius: 12,
-                  backgroundColor: c.primary,
-                }}>
-                <Ionicons name="add" size={20} color={c.onPrimary} />
-                {desktop && (
-                  <Text style={{ color: c.onPrimary, fontFamily: fonts.medium, fontSize: 14 }}>
-                    Write a note
-                  </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <PressFeedback
+                  accessibilityRole="button"
+                  accessibilityLabel="New note"
+                  onPress={handleAdd}
+                  style={{
+                    flexDirection: 'row',
+                    gap: 10,
+                    alignItems: 'center',
+                    minHeight: 40,
+                    paddingHorizontal: desktop ? 14 : 0,
+                    width: desktop ? undefined : 40,
+                    flexShrink: 0,
+                    justifyContent: 'center',
+                    borderRadius: 12,
+                    backgroundColor: c.primary,
+                  }}>
+                  <Ionicons name="add" size={20} color={c.onPrimary} />
+                  {desktop && (
+                    <Text style={{ color: c.onPrimary, fontFamily: fonts.medium, fontSize: 14 }}>
+                      Write a note
+                    </Text>
+                  )}
+                </PressFeedback>
+                {!desktop && (
+                  <HeaderAction
+                    icon="settings-outline"
+                    label="Settings"
+                    onPress={() => router.push('/settings')}
+                  />
                 )}
-              </PressFeedback>
+              </View>
             </View>
             {showGreeting && (
               <Text

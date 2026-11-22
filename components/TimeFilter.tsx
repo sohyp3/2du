@@ -40,6 +40,7 @@ export function TimeFilter({ subtitle }: { subtitle?: string }) {
       <ScreenHeader
         title={label}
         subtitle={subtitle}
+        showSettings
         actions={
           <>
             {!CURRENT.has(label) && (
