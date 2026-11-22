@@ -9,7 +9,7 @@ import { useBriefStore } from '@/store/briefStore';
 import { useFocusStore } from '@/store/focusStore';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -20,17 +20,14 @@ import { useFonts } from 'expo-font';
 import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { PlayfairDisplay_400Regular } from '@expo-google-fonts/playfair-display/400Regular';
-import { PlayfairDisplay_500Medium } from '@expo-google-fonts/playfair-display/500Medium';
-import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display/700Bold';
-import { CormorantGaramond_400Regular } from '@expo-google-fonts/cormorant-garamond/400Regular';
-import { CormorantGaramond_500Medium } from '@expo-google-fonts/cormorant-garamond/500Medium';
-import { CormorantGaramond_700Bold } from '@expo-google-fonts/cormorant-garamond/700Bold';
+import { BricolageGrotesque_600SemiBold } from '@expo-google-fonts/bricolage-grotesque/600SemiBold';
+import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
 import { initDatabase, DatabaseError, getSetting, setSetting } from '@/db/database';
 import { getTodoById } from '@/db/todos';
 import { setupNotifications, snoozeTodoReminder } from '@/utils/notifications';
 import { useTodoStore } from '@/store/todoStore';
-import { useThemeStore, THEME_COLORS, FONT_FAMILIES } from '@/store/themeStore';
+import { useThemeStore, type ThemeColors } from '@/store/themeStore';
+import { useColors, useFontFamily, useScheme } from '@/utils/theme';
 import { useCalendarStore } from '@/store/calendarStore';
 import { AppTitle } from '@/components/AppTitle';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -74,12 +71,13 @@ export default function Layout() {
 
 function App() {
   const reducedMotion = useReducedMotion();
-  const themeKey = useThemeStore((s) => s.themeKey);
-  const fontKey = useThemeStore((s) => s.fontKey);
+  const mode = useThemeStore((s) => s.mode);
+  const scheme = useScheme();
+  const fonts = useFontFamily();
   const loadSettings = useThemeStore((s) => s.loadSettings);
   const loadCalendarSettings = useCalendarStore((s) => s.loadSettings);
   const { setColorScheme } = useColorScheme();
-  const c = THEME_COLORS[themeKey];
+  const c = useColors();
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
@@ -89,12 +87,8 @@ function App() {
     Inter_400Regular,
     Inter_500Medium,
     Inter_700Bold,
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_500Medium,
-    PlayfairDisplay_700Bold,
-    CormorantGaramond_400Regular,
-    CormorantGaramond_500Medium,
-    CormorantGaramond_700Bold,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_800ExtraBold,
   });
 
   // Startup timing, logged once in development. `fonts` is measured from the start of
@@ -177,17 +171,22 @@ function App() {
   }, [fontsLoaded, isInitializing]);
 
   useEffect(() => {
-    setColorScheme(themeKey === 'silver' ? 'light' : 'dark');
+    // Pass the mode, not the resolved scheme: on native a forced scheme overrides the OS value
+    // that `useColorScheme()` reports, so `system` must stay unforced to keep following the OS.
+    setColorScheme(mode);
     if (Platform.OS !== 'web') return;
     // Browser-drawn surfaces (focus ring, caret, selection, scrollbar) follow the theme too.
     const root = document.documentElement.style;
+    for (const key of Object.keys(c) as (keyof ThemeColors)[])
+      root.setProperty(`--c-${key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`, c[key]);
+    root.colorScheme = scheme;
     root.setProperty('--accent', c.primary);
     root.setProperty('--selection', `${c.primary}40`);
     root.setProperty('--ink', c.onSurface);
     root.setProperty('--scrollbar', c.surfaceContainerHighest);
     document.body.style.backgroundColor = c.surface;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c.surface);
-  }, [themeKey, setColorScheme, c]);
+  }, [mode, scheme, setColorScheme, c]);
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -318,7 +317,7 @@ function App() {
     );
   }
 
-  const navigationTheme = themeKey === 'silver' ? DefaultTheme : DarkTheme;
+  const navigationTheme = scheme === 'light' ? DefaultTheme : DarkTheme;
   return (
     <ThemeProvider
       value={{
@@ -335,6 +334,7 @@ function App() {
       <ErrorBoundary>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
+            <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} />
             <Stack
               screenOptions={{
                 // Android 13+'s system default transition runs 450ms; the iOS-style slide
@@ -347,7 +347,7 @@ function App() {
                 headerStyle: { backgroundColor: c.surface },
                 headerShadowVisible: false,
                 headerTintColor: c.primary,
-                headerTitleStyle: { color: c.onSurface, fontFamily: FONT_FAMILIES[fontKey].medium },
+                headerTitleStyle: { color: c.onSurface, fontFamily: fonts.medium },
                 contentStyle: { backgroundColor: c.surface },
               }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

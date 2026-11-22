@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
-import { useColors, useFontFamily } from '@/utils/theme';
-import { SPACE } from './SettingsSection';
+import { space, useColors, useFontFamily } from '@/utils/theme';
 
 export interface SettingsRowProps {
   label: string;
@@ -42,7 +41,7 @@ export function SettingsRow({
     fonts = useFontFamily();
   const content = (
     <>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACE.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
         {left}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
@@ -61,7 +60,7 @@ export function SettingsRow({
                 color: c.onSurfaceVariant,
                 fontSize: 13,
                 lineHeight: 18,
-                marginTop: SPACE.xs,
+                marginTop: space.xs,
               }}>
               {hint}
             </Text>
@@ -69,13 +68,13 @@ export function SettingsRow({
         </View>
         {right}
       </View>
-      {!!children && <View style={{ marginTop: SPACE.md }}>{children}</View>}
+      {!!children && <View style={{ marginTop: space.md }}>{children}</View>}
     </>
   );
   const style = {
     minHeight: 52,
-    paddingHorizontal: SPACE.lg,
-    paddingVertical: SPACE.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     justifyContent: 'center',
     opacity: disabled ? 0.5 : 1,
   } as const;
@@ -95,7 +94,7 @@ export function SettingsRow({
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       {row}
-      <View style={{ paddingRight: SPACE.lg }}>{trailing}</View>
+      <View style={{ paddingRight: space.lg }}>{trailing}</View>
     </View>
   );
 }

@@ -7,10 +7,10 @@ import { useCalendarStore } from '@/store/calendarStore';
 import { useSyncStore } from '@/store/syncStore';
 import { defaultLink, linkErrors, slugify, type BookingLink } from '@/shared/bookingLink';
 import { shareLink } from '@/utils/shareLink';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { space, useColors, useFontFamily } from '@/utils/theme';
 import { SettingsButton, SettingsInput, SettingsMessage, SettingsSwitch } from './controls';
 import { SettingsRow } from './SettingsRow';
-import { SettingsSection, SPACE } from './SettingsSection';
+import { SettingsSection } from './SettingsSection';
 
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120];
 const NOTICE = [
@@ -147,7 +147,7 @@ export function BookingSettings() {
     value: T,
     onChange: (v: T) => void
   ) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.sm, marginTop: SPACE.sm }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
       {options.map(([label, v]) => (
         <SettingsButton key={v} label={label} selected={value === v} onPress={() => onChange(v)} />
       ))}
@@ -203,7 +203,7 @@ export function BookingSettings() {
       title="Booking links"
       footer="People can book free time in your availability. Only tasks with a duration block time.">
       {!links && !error && (
-        <View style={{ padding: SPACE.lg }}>
+        <View style={{ padding: space.lg }}>
           <ActivityIndicator color={c.primary} />
         </View>
       )}
@@ -217,7 +217,7 @@ export function BookingSettings() {
             setEditor({ link: l, isNew: false, slugEdited: true });
           }}
           trailing={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACE.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               <PressFeedback
                 accessibilityRole="button"
                 accessibilityLabel={`Share ${l.title}`}
@@ -276,7 +276,7 @@ export function BookingSettings() {
             )}
           </SettingsRow>
           <SettingsRow label="Days">
-            <View style={{ flexDirection: 'row', gap: SPACE.xs, marginTop: SPACE.sm }}>
+            <View style={{ flexDirection: 'row', gap: space.xs, marginTop: space.sm }}>
               {DAYS.map(([label, d]) => {
                 const on = e.days.includes(d);
                 return (
@@ -332,7 +332,7 @@ export function BookingSettings() {
           {problems.map((p) => (
             <SettingsMessage key={p} text={p} />
           ))}
-          <View style={{ flexDirection: 'row', gap: SPACE.sm, padding: SPACE.lg }}>
+          <View style={{ flexDirection: 'row', gap: space.sm, padding: space.lg }}>
             <SettingsButton label="Cancel" grow disabled={busy} onPress={() => setEditor(null)} />
             <SettingsButton label="Save" grow primary busy={busy} onPress={() => void save()} />
           </View>

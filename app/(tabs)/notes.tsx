@@ -5,9 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { useNoteStore } from '@/store/noteStore';
-import { useThemeStore, NOTE_PAPERS } from '@/store/themeStore';
+import { useThemeStore, NOTE_PAPERS, type NotePaper } from '@/store/themeStore';
 import { Note } from '@/db/notes';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT_SEMI, useColors, useFontFamily, useScheme } from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
 const SAVED_ENTER = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 const SAVED_EXIT = FadeOut.duration(140).reduceMotion(ReduceMotion.System);
@@ -21,7 +21,7 @@ export default function NotesScreen() {
     error = useNoteStore((s) => s.error),
     loadNotes = useNoteStore((s) => s.loadNotes),
     addNote = useNoteStore((s) => s.addNote);
-  const theme = useThemeStore((s) => s.themeKey);
+  const theme = useScheme();
   const showGreeting = useThemeStore((s) => s.showGreeting);
   const c = useColors(),
     fonts = useFontFamily(),
@@ -114,7 +114,7 @@ export default function NotesScreen() {
                 accessibilityRole="header"
                 style={{
                   color: c.onSurface,
-                  fontFamily: 'PlayfairDisplay_400Regular',
+                  fontFamily: DISPLAY_FONT_SEMI,
                   fontSize: desktop ? 30 : 24,
                   flexShrink: 1,
                   letterSpacing: -0.5,
@@ -286,7 +286,7 @@ export default function NotesScreen() {
             <Text
               style={{
                 color: c.onSurface,
-                fontFamily: 'PlayfairDisplay_400Regular',
+                fontFamily: DISPLAY_FONT_SEMI,
                 fontSize: 26,
                 textAlign: 'center',
               }}>
@@ -384,7 +384,7 @@ const NoteComposer = memo(function NoteComposer({
           <Text
             style={{
               color: c.onSurface,
-              fontFamily: 'PlayfairDisplay_400Regular',
+              fontFamily: DISPLAY_FONT_SEMI,
               fontSize: 20,
               lineHeight: 26,
             }}>
@@ -484,7 +484,7 @@ const NoteCard = memo(function NoteCard({
   columns,
 }: {
   note: Note;
-  tone: (typeof NOTE_PAPERS)[keyof typeof NOTE_PAPERS][number];
+  tone: NotePaper;
   columns: number;
 }) {
   const fonts = useFontFamily(),

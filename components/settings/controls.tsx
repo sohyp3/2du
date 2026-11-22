@@ -7,8 +7,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { PressFeedback } from '@/components/PressFeedback';
-import { useColors, useFontFamily } from '@/utils/theme';
-import { SPACE } from './SettingsSection';
+import { space, useColors, useFontFamily } from '@/utils/theme';
 
 /** Themed switch for the right side of a `SettingsRow`. */
 export function SettingsSwitch(props: {
@@ -50,7 +49,7 @@ export function SettingsInput({ style, ...props }: TextInputProps) {
           fontFamily: fonts.regular,
           fontSize: 16,
           minHeight: 48,
-          paddingHorizontal: SPACE.md,
+          paddingHorizontal: space.md,
           borderRadius: 8,
         },
         style,
@@ -83,7 +82,7 @@ export function SettingsButton(props: {
       style={{
         flex: props.grow ? 1 : undefined,
         minHeight: 44,
-        paddingHorizontal: SPACE.lg,
+        paddingHorizontal: space.lg,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 8,
@@ -120,8 +119,8 @@ export function SettingsMessage({ text, notice }: { text: string; notice?: boole
         backgroundColor: notice ? c.primaryContainer : undefined,
         fontSize: 14,
         lineHeight: 20,
-        paddingHorizontal: SPACE.lg,
-        paddingVertical: SPACE.md,
+        paddingHorizontal: space.lg,
+        paddingVertical: space.md,
       }}>
       {text}
     </Text>

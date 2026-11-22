@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { DISPLAY_FONT_SEMI } from '@/utils/theme';
 
 export interface MarkdownInk {
   ink: string;
@@ -16,7 +17,7 @@ export function buildMarkdownStyles(
     body: { color: paper.ink, fontFamily: fonts.regular, fontSize: 17, lineHeight: 29 },
     heading1: {
       color: paper.ink,
-      fontFamily: 'PlayfairDisplay_500Medium',
+      fontFamily: DISPLAY_FONT_SEMI,
       fontSize: 32,
       lineHeight: 40,
       marginTop: 24,
@@ -24,7 +25,7 @@ export function buildMarkdownStyles(
     },
     heading2: {
       color: paper.ink,
-      fontFamily: 'PlayfairDisplay_500Medium',
+      fontFamily: DISPLAY_FONT_SEMI,
       fontSize: 26,
       lineHeight: 34,
       marginTop: 20,

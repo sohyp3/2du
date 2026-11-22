@@ -1,12 +1,6 @@
 import { Children, Fragment, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useColors, useFontFamily } from '@/utils/theme';
-
-/**
- * Settings spacing scale. Every margin, padding and gap in Settings is one of these values.
- * Rows sit `md` apart from their own content and sections sit `xl` apart.
- */
-export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+import { space, useColors, useFontFamily } from '@/utils/theme';
 
 export interface SettingsSectionProps {
   /** Small label above the group. */
@@ -23,7 +17,7 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
     fonts = useFontFamily();
   const rows = Children.toArray(children);
   return (
-    <View style={{ marginBottom: SPACE.xl }}>
+    <View style={{ marginBottom: space.xl }}>
       <Text
         accessibilityRole="header"
         style={{
@@ -31,8 +25,8 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
           color: c.onSurfaceVariant,
           fontSize: 13,
           lineHeight: 18,
-          paddingHorizontal: SPACE.lg,
-          marginBottom: SPACE.sm,
+          paddingHorizontal: space.lg,
+          marginBottom: space.sm,
         }}>
         {title}
       </Text>
@@ -44,7 +38,7 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
                 style={{
                   height: StyleSheet.hairlineWidth,
                   backgroundColor: c.surfaceContainerHighest,
-                  marginLeft: SPACE.lg,
+                  marginLeft: space.lg,
                 }}
               />
             )}
@@ -59,8 +53,8 @@ export function SettingsSection({ title, footer, children }: SettingsSectionProp
             color: c.onSurfaceVariant,
             fontSize: 12,
             lineHeight: 18,
-            paddingHorizontal: SPACE.lg,
-            marginTop: SPACE.sm,
+            paddingHorizontal: space.lg,
+            marginTop: space.sm,
           }}>
           {footer}
         </Text>

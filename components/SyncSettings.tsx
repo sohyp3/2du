@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useSyncStore } from '@/store/syncStore';
 import { AuthError, NetworkError } from '@/utils/http';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { space, useColors, useFontFamily } from '@/utils/theme';
 import { AuthForm, type AuthFormHandle } from './AuthForm';
 import { PressFeedback } from './PressFeedback';
 import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
 import { BookingSettings } from './settings/BookingSettings';
 import { SettingsRow } from './settings/SettingsRow';
-import { SettingsSection, SPACE } from './settings/SettingsSection';
+import { SettingsSection } from './settings/SettingsSection';
 
 function hostOf(url: string) {
   try {
@@ -131,7 +131,7 @@ export function SyncSettings() {
             />
           </SettingsRow>
           {!!message && <SettingsMessage text={message} />}
-          <View style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md, gap: SPACE.xs }}>
+          <View style={{ paddingHorizontal: space.lg, paddingVertical: space.md, gap: space.xs }}>
             <SettingsButton
               primary
               label={
@@ -196,13 +196,13 @@ export function SyncSettings() {
         title="Agent keys"
         footer="Connect any agent over the REST API. Read-only keys can explore; read & write keys can create, edit, and delete your tasks, notes, and calendars.">
         <SettingsRow label="New key">
-          <View style={{ gap: SPACE.md }}>
+          <View style={{ gap: space.md }}>
             <SettingsInput
               accessibilityLabel="API key name"
               value={keyName}
               onChangeText={setKeyName}
             />
-            <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
               <SettingsButton
                 grow
                 label="Read only"
@@ -225,7 +225,7 @@ export function SyncSettings() {
         </SettingsRow>
         {!!newKey && (
           <SettingsRow label="Copy this key now" hint="It is only shown once.">
-            <View style={{ gap: SPACE.md }}>
+            <View style={{ gap: space.md }}>
               <Text
                 selectable
                 style={{
@@ -233,7 +233,7 @@ export function SyncSettings() {
                   backgroundColor: c.surfaceContainerHigh,
                   fontSize: 13,
                   lineHeight: 20,
-                  padding: SPACE.md,
+                  padding: space.md,
                   borderRadius: 8,
                 }}>
                 {newKey}

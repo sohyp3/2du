@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useThemeStore } from '@/store/themeStore';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT_SEMI, useColors, useFontFamily } from '@/utils/theme';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useSyncStore } from '@/store/syncStore';
 import { PressFeedback } from '@/components/PressFeedback';
@@ -80,7 +80,7 @@ export default function TabLayout() {
           }}>
           <Text
             style={{
-              fontFamily: 'PlayfairDisplay_500Medium',
+              fontFamily: DISPLAY_FONT_SEMI,
               fontSize: 38,
               color: c.onSurface,
               letterSpacing: -1,

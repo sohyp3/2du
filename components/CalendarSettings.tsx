@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCalendarsStore } from '@/store/calendarsStore';
-import { useColors } from '@/utils/theme';
+import { space, useColors } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
 import { SettingsRow } from './settings/SettingsRow';
-import { SettingsSection, SPACE } from './settings/SettingsSection';
+import { SettingsSection } from './settings/SettingsSection';
 
 const colors = ['#a7c968', '#bb8ed6', '#eccb73', '#8bcdec', '#eeaba0', '#d9945c'];
 /** `editing` value for the "Add calendar" row; real calendars use their id. */
@@ -63,7 +63,7 @@ export function CalendarSettings() {
     <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: value }} />
   );
   const editor = (
-    <View style={{ gap: SPACE.md }}>
+    <View style={{ gap: space.md }}>
       <SettingsInput
         accessibilityLabel="Calendar name"
         value={name}
@@ -95,7 +95,7 @@ export function CalendarSettings() {
           </PressFeedback>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
         <SettingsButton
           primary
           label={editing ? 'Save calendar' : 'Add calendar'}

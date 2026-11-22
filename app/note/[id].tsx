@@ -15,7 +15,7 @@ import Markdown from 'react-native-markdown-display';
 import { buildMarkdownStyles } from '@/utils/markdownStyles';
 import { useNoteStore } from '@/store/noteStore';
 import { PressFeedback as Pressable } from '@/components/PressFeedback';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT_SEMI, useColors, useFontFamily } from '@/utils/theme';
 
 const paper = { surface: '#f1eadc', ink: '#342c20', muted: '#695d49', rule: '#d8cfbd' };
 
@@ -322,7 +322,7 @@ export default function NoteScreen() {
                   multiline
                   maxLength={500}
                   style={{
-                    fontFamily: 'PlayfairDisplay_500Medium',
+                    fontFamily: DISPLAY_FONT_SEMI,
                     fontSize: 34,
                     lineHeight: 43,
                     color: paper.ink,
@@ -334,7 +334,7 @@ export default function NoteScreen() {
                 <Text
                   accessibilityRole="header"
                   style={{
-                    fontFamily: 'PlayfairDisplay_500Medium',
+                    fontFamily: DISPLAY_FONT_SEMI,
                     fontSize: 34,
                     lineHeight: 43,
                     color: paper.ink,
@@ -378,7 +378,7 @@ export default function NoteScreen() {
                   <Ionicons name="create-outline" size={26} color={paper.muted} />
                   <Text
                     style={{
-                      fontFamily: 'PlayfairDisplay_400Regular',
+                      fontFamily: DISPLAY_FONT_SEMI,
                       color: paper.ink,
                       fontSize: 25,
                     }}>

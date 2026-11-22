@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/db/database';
+import { contrastText, mix } from '@/utils/palette';
 
-export type ThemeKey = 'quest' | 'silver' | 'gold';
-export type FontKey = 'inter' | 'playfair' | 'cormorant';
+export type Mode = 'system' | 'light' | 'dark';
+export type Scheme = 'light' | 'dark';
+export type AccentKey = 'violet' | 'coral' | 'lime' | 'sky' | 'pink';
 
 export interface ThemeColors {
   surface: string;
@@ -23,137 +25,124 @@ export interface ThemeColors {
   error: string;
   errorContainer: string;
   onErrorContainer: string;
+  /** The accent mixed softly into the surface, for selected chips and highlights. */
+  accentSoft: string;
+  success: string;
+  warning: string;
+  /** Tinted shadow colour for raised cards and the tab bar. */
+  shadow: string;
 }
 
-// Palettes are quiet on purpose: close surface steps, hairline outlines that recede, softer ink,
-// and one muted accent per theme that marks only the current or primary thing on a screen.
-// Text pairs are checked for 4.5:1 (body) against every surface they sit on.
-
-// "Paper": warm light paper with a deep ink-green accent. Key stays `silver` for saved settings.
-const SILVER_COLORS: ThemeColors = {
-  surface: '#f7f5f0',
-  surfaceDim: '#f1eee8',
-  surfaceContainer: '#ebe7df',
-  surfaceContainerLow: '#f0ede6',
-  surfaceContainerHigh: '#e3dfd5',
-  surfaceContainerHighest: '#d8d3c8',
-  onSurface: '#1d1c19',
-  onSurfaceVariant: '#5c574e',
-  primary: '#2e5a4c',
-  primaryContainer: '#d8e5de',
-  primaryDim: '#1f4237',
-  onPrimary: '#f7f5f0',
-  outline: '#6b655a',
-  outlineVariant: '#e2ded5',
-  secondary: '#6b4f7a',
-  error: '#b3261e',
-  errorContainer: '#f6dcd7',
-  onErrorContainer: '#410e0b',
-};
-
-// Deep umber with soft brass.
-const GOLD_COLORS: ThemeColors = {
-  surface: '#14120f',
-  surfaceDim: '#110f0d',
-  surfaceContainer: '#1d1a16',
-  surfaceContainerLow: '#181613',
-  surfaceContainerHigh: '#26231e',
-  surfaceContainerHighest: '#302c26',
-  onSurface: '#ece4d4',
-  onSurfaceVariant: '#a89f8e',
-  primary: '#d2b26e',
-  primaryContainer: '#3a2f17',
-  primaryDim: '#e6cd93',
-  onPrimary: '#2a2108',
-  outline: '#938a7a',
-  outlineVariant: '#2a2621',
-  secondary: '#c9b79a',
-  error: '#eba69a',
-  errorContainer: '#3e231e',
-  onErrorContainer: '#f5cbc2',
-};
-
-// Warm charcoal with muted moss.
-const QUEST_COLORS: ThemeColors = {
-  surface: '#121110',
-  surfaceDim: '#0f0e0d',
-  surfaceContainer: '#1b1a17',
-  surfaceContainerLow: '#161513',
-  surfaceContainerHigh: '#23221e',
-  surfaceContainerHighest: '#2d2b26',
-  onSurface: '#ede8de',
-  onSurfaceVariant: '#a39d92',
-  primary: '#a8c27c',
-  primaryContainer: '#26301b',
-  primaryDim: '#c3d6a0',
-  onPrimary: '#151c0b',
-  outline: '#8e887c',
-  outlineVariant: '#26241f',
-  secondary: '#b9a2cc',
-  error: '#e8a598',
-  errorContainer: '#3b221e',
-  onErrorContainer: '#f5cbc2',
-};
-export const THEME_COLORS: Record<ThemeKey, ThemeColors> = {
-  quest: QUEST_COLORS,
-  silver: SILVER_COLORS,
-  gold: GOLD_COLORS,
-};
-
-export const THEMES: { key: ThemeKey; label: string; preview: { bg: string; accent: string } }[] = [
-  {
-    key: 'quest',
-    label: 'Moss',
-    preview: { bg: QUEST_COLORS.surface, accent: QUEST_COLORS.primary },
-  },
-  {
-    key: 'silver',
-    label: 'Paper',
-    preview: { bg: SILVER_COLORS.surface, accent: SILVER_COLORS.primary },
-  },
-  {
-    key: 'gold',
-    label: 'Brass',
-    preview: { bg: GOLD_COLORS.surface, accent: GOLD_COLORS.primary },
-  },
+// Sky and pink are a touch deeper than the brief's #0A84D6 and #E6338A in light mode, so white
+// text on them reaches 4.5:1.
+export const ACCENTS: { key: AccentKey; label: string; light: string; dark: string }[] = [
+  { key: 'violet', label: 'Violet', light: '#6C4DFF', dark: '#9B85FF' },
+  { key: 'coral', label: 'Coral', light: '#FF5A3C', dark: '#FF8A70' },
+  { key: 'lime', label: 'Lime', light: '#3F9E1A', dark: '#9BE15D' },
+  { key: 'sky', label: 'Sky', light: '#0979C5', dark: '#5CC2FF' },
+  { key: 'pink', label: 'Pink', light: '#D42F7F', dark: '#FF7DBE' },
 ];
 
-export const FONTS: { key: FontKey; label: string; family: string }[] = [
-  { key: 'inter', label: 'Inter', family: 'Inter_400Regular' },
-  { key: 'playfair', label: 'Playfair Display', family: 'PlayfairDisplay_400Regular' },
-  { key: 'cormorant', label: 'Cormorant Garamond', family: 'CormorantGaramond_400Regular' },
-];
-
-export const FONT_FAMILIES: Record<FontKey, { regular: string; medium: string; bold: string }> = {
-  inter: {
-    regular: 'Inter_400Regular',
-    medium: 'Inter_500Medium',
-    bold: 'Inter_700Bold',
+const BASE: Record<
+  Scheme,
+  Omit<
+    ThemeColors,
+    'primary' | 'primaryContainer' | 'primaryDim' | 'onPrimary' | 'secondary' | 'accentSoft'
+  >
+> = {
+  light: {
+    surface: '#FFFBF5',
+    surfaceDim: '#FFF7EE',
+    surfaceContainerLow: '#FFFFFF',
+    surfaceContainer: '#FFF4E6',
+    surfaceContainerHigh: '#FBE9D7',
+    surfaceContainerHighest: '#F4DCC4',
+    onSurface: '#1A1530',
+    onSurfaceVariant: '#5B5470',
+    outline: '#8A8399',
+    outlineVariant: '#EDE3D6',
+    error: '#C62828',
+    errorContainer: '#FFE1DC',
+    onErrorContainer: '#5C0B0B',
+    success: '#2E8B3E',
+    warning: '#B86E00',
+    shadow: 'rgba(76, 50, 200, 0.12)',
   },
-  playfair: {
-    regular: 'PlayfairDisplay_400Regular',
-    medium: 'PlayfairDisplay_500Medium',
-    bold: 'PlayfairDisplay_700Bold',
-  },
-  cormorant: {
-    regular: 'CormorantGaramond_400Regular',
-    medium: 'CormorantGaramond_500Medium',
-    bold: 'CormorantGaramond_700Bold',
+  dark: {
+    surface: '#14112A',
+    surfaceDim: '#100E22',
+    surfaceContainerLow: '#1A1634',
+    surfaceContainer: '#1F1B3D',
+    surfaceContainerHigh: '#28234D',
+    surfaceContainerHighest: '#332D5E',
+    onSurface: '#F5F2FF',
+    onSurfaceVariant: '#B4ADD0',
+    outline: '#8C84AD',
+    outlineVariant: '#2E2856',
+    error: '#FF8A80',
+    errorContainer: '#4A1F2A',
+    onErrorContainer: '#FFD9D4',
+    success: '#7EE29A',
+    warning: '#FFC266',
+    shadow: 'rgba(0, 0, 0, 0.4)',
   },
 };
+
+export function buildColors(scheme: Scheme, accent: AccentKey): ThemeColors {
+  const base = BASE[scheme];
+  const i = Math.max(
+    0,
+    ACCENTS.findIndex((a) => a.key === accent)
+  );
+  const primary = ACCENTS[i][scheme];
+  const soft = mix(base.surface, primary, 0.16);
+  return {
+    ...base,
+    primary,
+    primaryContainer: soft,
+    accentSoft: soft,
+    onPrimary: contrastText(primary),
+    primaryDim: mix(primary, scheme === 'light' ? '#000000' : '#FFFFFF', 0.15),
+    secondary: ACCENTS[(i + 1) % ACCENTS.length][scheme],
+  };
+}
+
+export interface NotePaper {
+  surface: string;
+  ink: string;
+  muted: string;
+  accent: string;
+  outline: string;
+}
+
+// Notebook surfaces: butter, mint, lilac, peach. Ink and muted text keep 4.5:1 on each.
+export const NOTE_PAPERS: Record<Scheme, NotePaper[]> = {
+  light: [
+    { surface: '#FFF1B8', ink: '#1A1530', muted: '#5B5040', accent: '#8A6400', outline: '#F2DE8A' },
+    { surface: '#D6F5E3', ink: '#1A1530', muted: '#3F5A4C', accent: '#1E7A4A', outline: '#B2E6C8' },
+    { surface: '#E9E0FF', ink: '#1A1530', muted: '#55497A', accent: '#5A3FD6', outline: '#D2C4FA' },
+    { surface: '#FFE0CC', ink: '#1A1530', muted: '#6A4A3A', accent: '#B8461E', outline: '#F7C6A8' },
+  ],
+  dark: [
+    { surface: '#3A3218', ink: '#FFF6D6', muted: '#D9CC9C', accent: '#FFD95C', outline: '#574B26' },
+    { surface: '#16362A', ink: '#E2FFF0', muted: '#A6D9BE', accent: '#6EE7A8', outline: '#24513F' },
+    { surface: '#2C2452', ink: '#F1EBFF', muted: '#C4B8EE', accent: '#B9A6FF', outline: '#433874' },
+    { surface: '#3C2418', ink: '#FFEDE2', muted: '#E3BFA8', accent: '#FFA37A', outline: '#5A3826' },
+  ],
+};
+
+const MODES: Mode[] = ['system', 'light', 'dark'];
 
 interface ThemeState {
-  themeKey: ThemeKey;
-  fontKey: FontKey;
-  debugMode: boolean;
+  mode: Mode;
+  accent: AccentKey;
   zenMode: boolean;
   /** Tasks screen shows one card per calendar instead of a flat list. */
   groupByCalendar: boolean;
   showGreeting: boolean;
   isLoading: boolean;
-  setTheme: (key: ThemeKey) => Promise<void>;
-  setFont: (key: FontKey) => Promise<void>;
-  setDebugMode: (v: boolean) => Promise<void>;
+  setMode: (mode: Mode) => Promise<void>;
+  setAccent: (accent: AccentKey) => Promise<void>;
   setZenMode: (v: boolean) => Promise<void>;
   setGroupByCalendar: (v: boolean) => Promise<void>;
   setShowGreeting: (v: boolean) => Promise<void>;
@@ -161,9 +150,8 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  themeKey: 'quest',
-  fontKey: 'inter',
-  debugMode: false,
+  mode: 'system',
+  accent: 'violet',
   zenMode: false,
   groupByCalendar: false,
   showGreeting: false,
@@ -172,28 +160,27 @@ export const useThemeStore = create<ThemeState>((set) => ({
   loadSettings: async () => {
     set({ isLoading: true });
     try {
-      const savedTheme = await getSetting('theme');
-      const savedFont = await getSetting('font');
-      const savedPlus = await getSetting('debugMode');
+      let savedMode = await getSetting('theme_mode');
+      const savedAccent = await getSetting('theme_accent');
       const savedZen = await getSetting('zenMode');
       const savedGroup = await getSetting('groupByCalendar');
       const savedGreeting = await getSetting('showGreeting');
 
-      const updates: Partial<ThemeState> = { isLoading: false };
+      // Installs from before modes existed kept one of three named themes.
+      if (!savedMode) {
+        const legacy = await getSetting('theme');
+        const migrated =
+          legacy === 'silver' ? 'light' : legacy === 'quest' || legacy === 'gold' ? 'dark' : null;
+        if (migrated) {
+          savedMode = migrated;
+          await setSetting('theme_mode', migrated);
+        }
+      }
 
-      if (
-        savedTheme &&
-        (savedTheme === 'quest' || savedTheme === 'silver' || savedTheme === 'gold')
-      ) {
-        updates.themeKey = savedTheme as ThemeKey;
-      }
-      if (
-        savedFont &&
-        (savedFont === 'inter' || savedFont === 'playfair' || savedFont === 'cormorant')
-      ) {
-        updates.fontKey = savedFont as FontKey;
-      }
-      if (savedPlus === 'true') updates.debugMode = true;
+      const updates: Partial<ThemeState> = { isLoading: false };
+      if (savedMode && (MODES as string[]).includes(savedMode)) updates.mode = savedMode as Mode;
+      if (savedAccent && ACCENTS.some((a) => a.key === savedAccent))
+        updates.accent = savedAccent as AccentKey;
       if (savedZen === 'true') updates.zenMode = true;
       if (savedGroup === 'true') updates.groupByCalendar = true;
       if (savedGreeting === 'true') updates.showGreeting = true;
@@ -205,30 +192,21 @@ export const useThemeStore = create<ThemeState>((set) => ({
     }
   },
 
-  setTheme: async (key) => {
-    set({ themeKey: key });
+  setMode: async (mode) => {
+    set({ mode });
     try {
-      await setSetting('theme', key);
+      await setSetting('theme_mode', mode);
     } catch (error) {
-      console.error('Failed to save theme setting:', error);
+      console.error('Failed to save theme mode:', error);
     }
   },
 
-  setFont: async (key) => {
-    set({ fontKey: key });
+  setAccent: async (accent) => {
+    set({ accent });
     try {
-      await setSetting('font', key);
+      await setSetting('theme_accent', accent);
     } catch (error) {
-      console.error('Failed to save font setting:', error);
-    }
-  },
-
-  setDebugMode: async (v) => {
-    set({ debugMode: v });
-    try {
-      await setSetting('debugMode', v ? 'true' : 'false');
-    } catch (error) {
-      console.error('Failed to save plus setting:', error);
+      console.error('Failed to save accent:', error);
     }
   },
 
@@ -259,21 +237,3 @@ export const useThemeStore = create<ThemeState>((set) => ({
     }
   },
 }));
-
-// Notebook surfaces keep the text and its tint together across themes.
-const DARK_NOTE_PAPERS = [
-  { surface: '#30291e', ink: '#f9edda', muted: '#c9bda5', accent: '#e6c77e', outline: '#504636' },
-  { surface: '#252d23', ink: '#edf2dd', muted: '#b5c2a8', accent: '#b9d68a', outline: '#3d4b36' },
-  { surface: '#2d2530', ink: '#f1e5ef', muted: '#c7b1c5', accent: '#dab4dc', outline: '#4c3c50' },
-  { surface: '#222c30', ink: '#e2eff2', muted: '#acc2ca', accent: '#a4d5e1', outline: '#3c4d53' },
-];
-export const NOTE_PAPERS = {
-  quest: DARK_NOTE_PAPERS,
-  gold: DARK_NOTE_PAPERS,
-  silver: [
-    { surface: '#f4ead8', ink: '#332b1d', muted: '#685a43', accent: '#786027', outline: '#ddceb3' },
-    { surface: '#e7eddf', ink: '#283320', muted: '#526344', accent: '#506b32', outline: '#c8d5bd' },
-    { surface: '#eee4ef', ink: '#38273b', muted: '#6e5674', accent: '#795584', outline: '#d8c6dc' },
-    { surface: '#e2edf0', ink: '#24343a', muted: '#4f6670', accent: '#396777', outline: '#c0d6de' },
-  ],
-};

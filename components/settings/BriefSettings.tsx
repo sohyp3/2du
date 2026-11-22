@@ -6,10 +6,10 @@ import { setSetting } from '@/db/database';
 import { useCalendarStore } from '@/store/calendarStore';
 import { useSyncStore } from '@/store/syncStore';
 import { scheduleBriefNotification } from '@/utils/notifications';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { space, useColors, useFontFamily } from '@/utils/theme';
 import { SettingsButton, SettingsMessage, SettingsSwitch } from './controls';
 import { SettingsRow } from './SettingsRow';
-import { SettingsSection, SPACE } from './SettingsSection';
+import { SettingsSection } from './SettingsSection';
 
 interface Prefs {
   brief_enabled: boolean;
@@ -83,7 +83,7 @@ export function BriefSettings() {
   const suffix = timeFormat === '24h' ? '' : hour < 12 ? ' AM' : ' PM';
 
   const stepper = (label: string, value: string, minus: () => void, plus: () => void) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACE.sm }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
       <PressFeedback
         accessibilityRole="button"
         accessibilityLabel={`Earlier ${label}`}
@@ -116,7 +116,7 @@ export function BriefSettings() {
       title="Daily brief"
       footer="Written on your server each morning and synced to your devices.">
       {!prefs && !error ? (
-        <View style={{ padding: SPACE.lg }}>
+        <View style={{ padding: space.lg }}>
           <ActivityIndicator color={c.primary} />
         </View>
       ) : null}
@@ -158,7 +158,7 @@ export function BriefSettings() {
             }
           />
           <SettingsRow label="Language">
-            <View style={{ flexDirection: 'row', gap: SPACE.sm, marginTop: SPACE.sm }}>
+            <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
               <SettingsButton
                 label="English"
                 grow

@@ -8,21 +8,27 @@ import { exportData, importData, ImportExportError } from '@/db/importExport';
 import { useCalendarStore } from '@/store/calendarStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useNoteStore } from '@/store/noteStore';
-import { useThemeStore, THEMES, FONTS, FONT_FAMILIES } from '@/store/themeStore';
+import { useThemeStore, ACCENTS, type Mode } from '@/store/themeStore';
 import { useTodoStore } from '@/store/todoStore';
-import { useColors, useFontFamily } from '@/utils/theme';
-import { SettingsButton, SettingsInput, SettingsSwitch } from './controls';
+import { radius, space, useColors, useFontFamily, useIsDark } from '@/utils/theme';
+import { Segmented } from '@/components/Chip';
+import { SettingsButton, SettingsSwitch } from './controls';
 import { BriefSettings } from './BriefSettings';
 import { SettingsRow } from './SettingsRow';
-import { SettingsSection, SPACE } from './SettingsSection';
+import { SettingsSection } from './SettingsSection';
+
+const MODE_OPTIONS: readonly { value: Mode; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 export function GeneralSettings() {
-  const themeKey = useThemeStore((s) => s.themeKey);
-  const fontKey = useThemeStore((s) => s.fontKey);
-  const setTheme = useThemeStore((s) => s.setTheme);
-  const setFont = useThemeStore((s) => s.setFont);
-  const debugMode = useThemeStore((s) => s.debugMode);
-  const setDebugMode = useThemeStore((s) => s.setDebugMode);
+  const mode = useThemeStore((s) => s.mode);
+  const setMode = useThemeStore((s) => s.setMode);
+  const accent = useThemeStore((s) => s.accent);
+  const setAccent = useThemeStore((s) => s.setAccent);
+  const isDark = useIsDark();
   const zenMode = useThemeStore((s) => s.zenMode);
   const setZenMode = useThemeStore((s) => s.setZenMode);
   const groupByCalendar = useThemeStore((s) => s.groupByCalendar);
@@ -30,9 +36,6 @@ export function GeneralSettings() {
   const showGreeting = useThemeStore((s) => s.showGreeting);
   const setShowGreeting = useThemeStore((s) => s.setShowGreeting);
   const themeLoading = useThemeStore((s) => s.isLoading);
-  const [showPlusPrompt, setShowPlusPrompt] = useState(false);
-  const [plusPassword, setPlusPassword] = useState('');
-  const [isActivating, setIsActivating] = useState(false);
   const dayViewStartHour = useCalendarStore((s) => s.dayViewStartHour);
   const setDayViewStartHour = useCalendarStore((s) => s.setDayViewStartHour);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
@@ -55,22 +58,6 @@ export function GeneralSettings() {
     if (h === 12) return '12 PM';
     if (h < 12) return `${h} AM`;
     return `${h - 12} PM`;
-  };
-
-  const handleActivateDebug = async () => {
-    setIsActivating(true);
-    try {
-      if (plusPassword === 'hehe') {
-        await setDebugMode(true);
-        setShowPlusPrompt(false);
-        setPlusPassword('');
-      } else {
-        Alert.alert('Wrong code', 'That activation code is incorrect.');
-        setPlusPassword('');
-      }
-    } finally {
-      setIsActivating(false);
-    }
   };
 
   const handleExport = async () => {
@@ -129,99 +116,39 @@ export function GeneralSettings() {
   return (
     <View>
       <SettingsSection title="Appearance">
-        <SettingsRow label="Theme">
-          <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
-            {THEMES.map((t) => {
-              const selected = t.key === themeKey;
+        <SettingsRow label="Mode">
+          <Segmented grow options={MODE_OPTIONS} value={mode} onChange={(m) => void setMode(m)} />
+        </SettingsRow>
+        <SettingsRow label="Accent">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.md }}>
+            {ACCENTS.map((a) => {
+              const selected = a.key === accent;
               return (
                 <PressFeedback
-                  key={t.key}
+                  key={a.key}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t.label} theme`}
+                  accessibilityLabel={`${a.label} accent`}
                   accessibilityState={{ selected, disabled: themeLoading }}
-                  onPress={() => setTheme(t.key)}
+                  onPress={() => setAccent(a.key)}
                   disabled={themeLoading}
                   style={{
-                    flex: 1,
-                    minHeight: 88,
+                    width: 44,
+                    height: 44,
+                    borderRadius: radius.pill,
+                    borderWidth: 3,
+                    borderColor: selected ? c.onSurface : 'transparent',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: SPACE.sm,
-                    padding: SPACE.md,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    backgroundColor: t.preview.bg,
-                    borderColor: selected ? c.primary : c.outlineVariant,
                     opacity: themeLoading ? 0.5 : 1,
                   }}>
                   <View
                     style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      backgroundColor: t.preview.accent,
+                      width: 32,
+                      height: 32,
+                      borderRadius: radius.pill,
+                      backgroundColor: isDark ? a.dark : a.light,
                     }}
                   />
-                  <Text
-                    style={{
-                      fontFamily: fonts.medium,
-                      fontSize: 13,
-                      lineHeight: 18,
-                      textAlign: 'center',
-                      color: THEME_PREVIEW_TEXT[t.key === 'silver' ? 'light' : 'dark'],
-                    }}>
-                    {t.label}
-                  </Text>
-                </PressFeedback>
-              );
-            })}
-          </View>
-        </SettingsRow>
-        <SettingsRow label="Font">
-          <View style={{ gap: SPACE.xs }}>
-            {FONTS.map((f) => {
-              const selected = f.key === fontKey;
-              const preview = FONT_FAMILIES[f.key];
-              return (
-                <PressFeedback
-                  key={f.key}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${f.label} font`}
-                  accessibilityState={{ selected, disabled: themeLoading }}
-                  onPress={() => setFont(f.key)}
-                  disabled={themeLoading}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: SPACE.md,
-                    minHeight: 56,
-                    paddingHorizontal: SPACE.md,
-                    paddingVertical: SPACE.sm,
-                    borderRadius: 8,
-                    backgroundColor: selected ? c.surfaceContainerHigh : 'transparent',
-                    opacity: themeLoading ? 0.5 : 1,
-                  }}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={{
-                        fontFamily: preview.bold,
-                        color: c.onSurface,
-                        fontSize: 17,
-                        lineHeight: 22,
-                      }}>
-                      {f.label}
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: preview.regular,
-                        color: c.onSurfaceVariant,
-                        fontSize: 14,
-                        lineHeight: 20,
-                      }}>
-                      The quick brown fox jumps over the lazy dog
-                    </Text>
-                  </View>
-                  {selected && <Ionicons name="checkmark" size={20} color={c.primary} />}
                 </PressFeedback>
               );
             })}
@@ -277,7 +204,7 @@ export function GeneralSettings() {
 
       <SettingsSection title="Calendar view">
         <SettingsRow label="Time format">
-          <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
+          <View style={{ flexDirection: 'row', gap: space.sm }}>
             {(['12h', '24h'] as const).map((f) => (
               <SettingsButton
                 key={f}
@@ -294,7 +221,7 @@ export function GeneralSettings() {
           label="Day view start hour"
           hint="The first hour shown when you open a day"
           right={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACE.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
               {stepHour('Start one hour earlier', 'remove', Math.max(0, dayViewStartHour - 1))}
               <Text
                 accessibilityLiveRegion="polite"
@@ -342,62 +269,6 @@ export function GeneralSettings() {
           }
         />
       </SettingsSection>
-
-      <SettingsSection title="Advanced">
-        {debugMode ? (
-          <SettingsRow
-            label="Debug mode"
-            right={
-              <Text style={{ fontFamily: fonts.medium, color: c.primary, fontSize: 14 }}>
-                Active
-              </Text>
-            }
-          />
-        ) : !showPlusPrompt ? (
-          <SettingsRow
-            label="Activate debug"
-            onPress={() => setShowPlusPrompt(true)}
-            right={<Ionicons name="chevron-forward" size={18} color={c.onSurfaceVariant} />}
-          />
-        ) : (
-          <SettingsRow label="Enter activation code">
-            <View style={{ gap: SPACE.md }}>
-              <SettingsInput
-                accessibilityLabel="Activation code"
-                value={plusPassword}
-                onChangeText={setPlusPassword}
-                onSubmitEditing={handleActivateDebug}
-                secureTextEntry
-                autoFocus
-                placeholder="Password"
-                editable={!isActivating}
-              />
-              <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
-                <SettingsButton
-                  grow
-                  label="Cancel"
-                  disabled={isActivating}
-                  onPress={() => {
-                    setShowPlusPrompt(false);
-                    setPlusPassword('');
-                  }}
-                />
-                <SettingsButton
-                  grow
-                  primary
-                  label="Activate"
-                  busy={isActivating}
-                  onPress={handleActivateDebug}
-                />
-              </View>
-            </View>
-          </SettingsRow>
-        )}
-      </SettingsSection>
     </View>
   );
 }
-
-// Theme swatches show another theme's background, so their label cannot use the active
-// theme's text colour. These are the two swatch-label inks the screen already used.
-const THEME_PREVIEW_TEXT = { dark: '#ece4d4', light: '#1a1a1a' } as const;
