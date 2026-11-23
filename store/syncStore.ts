@@ -40,6 +40,7 @@ export class BindingConflict extends Error {
   }
 }
 export type ConnectMode = 'merge' | 'fresh';
+export type KeyScope = 'read' | 'write' | 'add' | 'book' | 'feed';
 export interface ApiKey {
   id: string;
   name: string;
@@ -87,7 +88,11 @@ interface SyncState {
   sync: () => Promise<void>;
   request: (path: string, options?: RequestInit) => Promise<any>;
   loadKeys: () => Promise<void>;
-  createKey: (name: string, scope: string) => Promise<string>;
+  createKey: (
+    name: string,
+    scope: KeyScope,
+    opts?: { expires_days?: number | null; calendar_ids?: string[] }
+  ) => Promise<{ key: string; id: string }>;
   revokeKey: (id: string) => Promise<void>;
 }
 export const useSyncStore = create<SyncState>((set, get) => {
@@ -373,13 +378,14 @@ export const useSyncStore = create<SyncState>((set, get) => {
       }
     },
     loadKeys: async () => set({ keys: await get().request('keys') }),
-    createKey: async (name, scope) => {
+    createKey: async (name, scope, opts = {}) => {
+      // JSON.stringify leaves out undefined fields.
       const result = await get().request('keys', {
         method: 'POST',
-        body: JSON.stringify({ name, scope }),
+        body: JSON.stringify({ name, scope, ...opts }),
       });
       await get().loadKeys();
-      return result.key;
+      return { key: result.key, id: result.id };
     },
     revokeKey: async (id) => {
       await get().request(`keys/${id}`, { method: 'DELETE' });
