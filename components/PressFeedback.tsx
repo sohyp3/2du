@@ -7,7 +7,9 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import * as haptics from '@/utils/haptics';
+import { select, tap } from '@/utils/haptics';
+
+const HAPTICS = { tap, select };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SPRING = { damping: 15, stiffness: 400 };
@@ -51,7 +53,7 @@ function NativePressFeedback({
       onPressIn={(e) => {
         if (reduced) fade.value = withTiming(0.7, FADE);
         else scale.value = withSpring(0.96, SPRING);
-        if (haptic) haptics[haptic]();
+        if (haptic) HAPTICS[haptic]();
         onPressIn?.(e);
       }}
       onPressOut={(e) => {

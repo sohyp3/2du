@@ -191,8 +191,8 @@ function SignedOut() {
             />
             <TextButton label="Cancel" onPress={() => setConflict(false)} />
             <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, ...type.caption }}>
-              Merge moves this device's data into {username.trim() || 'the account'}. Start fresh
-              removes it from this device and loads the account's data.
+              Merge moves this device&apos;s data into {username.trim() || 'the account'}. Start
+              fresh removes it from this device and loads the account&apos;s data.
             </Text>
           </Confirm>
         ) : (
