@@ -3,6 +3,8 @@ import { ActivityIndicator, Alert, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { exportData, importData, ImportExportError } from '@/db/importExport';
 import { useCalendarsStore } from '@/store/calendarsStore';
+import { useGoalCategoriesStore } from '@/store/goalCategoriesStore';
+import { useGoalStore } from '@/store/goalStore';
 import { useNoteStore } from '@/store/noteStore';
 import { useTodoStore } from '@/store/todoStore';
 import { useColors } from '@/utils/theme';
@@ -37,6 +39,8 @@ export function DataSettings() {
         await loadTodos();
         await loadNotes();
         await useCalendarsStore.getState().load();
+        await useGoalCategoriesStore.getState().load();
+        await useGoalStore.getState().load();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Import failed';

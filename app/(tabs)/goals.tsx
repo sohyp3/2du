@@ -7,10 +7,23 @@ import { useSyncStore } from '@/store/syncStore';
 import { getTodosForPick, type Todo } from '@/db/todos';
 import type { Goal, GoalStatus } from '@/db/goals';
 import { getStartOfWeek } from '@/utils/dates';
-import { useColors, useFontFamily, radius, space, type } from '@/utils/theme';
+import { useGoalCategoriesStore } from '@/store/goalCategoriesStore';
+import { contrastText } from '@/utils/palette';
+import { DISPLAY_FONT_SEMI, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
 import { GoalEditor } from '@/components/GoalEditor';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { Card } from '@/components/Card';
+import { Chip, ColorChip } from '@/components/Chip';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+
+/** The filter value that shows every category. */
+const ALL = '';
 
 interface Progress {
   done: number;
@@ -27,6 +40,8 @@ export default function GoalsScreen() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [editor, setEditor] = useState<{ goal?: Goal } | null>(null);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [filter, setFilter] = useState<string>(ALL);
+  const categories = useGoalCategoriesStore((s) => s.categories);
   const handledId = useRef<string | null>(null);
   const scroll = useRef<ScrollView>(null);
 
@@ -69,10 +84,38 @@ export default function GoalsScreen() {
     return byGoal;
   }, [todos]);
 
+  const categoryById = useMemo(() => new Map(categories.map((x) => [x.id, x])), [categories]);
+  /** A goal's category id, or null when it has none or its category is gone. */
+  const categoryOf = useCallback(
+    (g: Goal) => (g.category_id && categoryById.has(g.category_id) ? g.category_id : null),
+    [categoryById]
+  );
+
   const groups = useMemo(() => {
-    const by = (status: GoalStatus) => goals.filter((g) => g.status === status);
-    return { active: by('active'), paused: by('paused'), done: by('done') };
-  }, [goals]);
+    const shown = goals.filter((g) => filter === ALL || categoryOf(g) === filter);
+    const by = (status: GoalStatus) => shown.filter((g) => g.status === status);
+    const current = [...by('active'), ...by('paused')];
+    const byCategory = [...categories, null].map((cat) => ({
+      category: cat,
+      goals: current.filter((g) => categoryOf(g) === (cat?.id ?? null)),
+    }));
+    return {
+      active: by('active'),
+      current: byCategory.filter((group) => group.goals.length > 0),
+      done: by('done'),
+    };
+  }, [goals, categories, filter, categoryOf]);
+
+  /** Categories with at least one goal, for the filter row. */
+  const usedCategories = useMemo(
+    () => categories.filter((cat) => goals.some((g) => categoryOf(g) === cat.id)),
+    [categories, goals, categoryOf]
+  );
+
+  // A filter on a category that no longer has goals falls back to All.
+  useEffect(() => {
+    if (filter !== ALL && !usedCategories.some((cat) => cat.id === filter)) setFilter(ALL);
+  }, [filter, usedCategories]);
 
   const openEditor = (next: { goal?: Goal }) => {
     setEditor(next);
@@ -107,122 +150,99 @@ export default function GoalsScreen() {
   const renderRow = (goal: Goal) => {
     const p = progress.get(goal.id) ?? { done: 0, open: 0 };
     const target = goal.weekly_target;
-    const percent = target ? Math.min(100, (p.done / target) * 100) : 0;
+    const met = target != null && p.done >= target;
+    const fill = categoryById.get(goal.category_id ?? '')?.color ?? c.primary;
     return (
-      <View
-        key={goal.id}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderRadius: radius.lg,
-          backgroundColor: c.surfaceContainer,
-          marginBottom: space.sm,
-        }}>
-        <PressFeedback
-          accessibilityRole="button"
-          accessibilityLabel={`Edit ${goal.name}`}
-          onPress={() => openEditor({ goal })}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            minHeight: 44,
-            padding: 14,
-          }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              numberOfLines={1}
-              style={{ fontFamily: fonts.medium, fontSize: 16, color: c.onSurface }}>
-              {goal.name}
-            </Text>
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: 13,
-                color: c.onSurfaceVariant,
-                marginTop: 2,
-              }}>
-              {p.open ? `${p.open} open ${p.open === 1 ? 'task' : 'tasks'}` : 'No tasks yet'}
-            </Text>
-            {target != null && (
-              <View style={{ marginTop: 8 }}>
-                <View
-                  style={{
-                    height: 3,
-                    borderRadius: 2,
-                    backgroundColor: c.surfaceContainerHighest,
-                    overflow: 'hidden',
-                  }}>
-                  <View
-                    style={{
-                      height: 3,
-                      width: `${percent}%`,
-                      backgroundColor: c.primary,
-                    }}
-                  />
-                </View>
-                <Text
-                  style={{
-                    fontFamily: fonts.regular,
-                    fontSize: 12,
-                    color: c.onSurfaceVariant,
-                    marginTop: 4,
-                  }}>
-                  {`${p.done} of ${target} this week`}
+      <Card key={goal.id} padded={false} style={{ marginBottom: space.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <PressFeedback
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${goal.name}`}
+            onPress={() => openEditor({ goal })}
+            style={{ flex: 1, minWidth: 0, minHeight: 44, padding: space.lg, gap: space.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  flexShrink: 1,
+                  fontFamily: DISPLAY_FONT_SEMI,
+                  fontSize: 18,
+                  lineHeight: 24,
+                  color: c.onSurface,
+                }}>
+                {goal.name}
+              </Text>
+              <View
+                accessibilityLabel={`Importance ${goal.importance}`}
+                style={{
+                  paddingHorizontal: space.sm,
+                  paddingVertical: 2,
+                  borderRadius: radius.pill,
+                  backgroundColor: c.surfaceContainerHigh,
+                }}>
+                <Text style={{ fontFamily: fonts.bold, ...type.caption, color: c.onSurface }}>
+                  {`★ ${goal.importance}`}
                 </Text>
               </View>
-            )}
-          </View>
-          <View
-            accessibilityLabel={`Importance ${goal.importance}`}
+              {goal.status === 'paused' && (
+                <Text
+                  style={{ fontFamily: fonts.medium, ...type.caption, color: c.onSurfaceVariant }}>
+                  Paused
+                </Text>
+              )}
+            </View>
+            {target != null && <ProgressBar fraction={p.done / target} color={fill} />}
+            <Text style={{ fontFamily: fonts.regular, ...type.label, color: c.onSurfaceVariant }}>
+              {[
+                target != null ? `${p.done} / ${target} this week${met ? ' 🔥' : ''}` : null,
+                p.open ? `${p.open} open ${p.open === 1 ? 'task' : 'tasks'}` : 'No open tasks',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+          </PressFeedback>
+          <PressFeedback
+            accessibilityRole="button"
+            accessibilityLabel={`Add task to ${goal.name}`}
+            onPress={() => router.push({ pathname: '/add-todo', params: { goal: goal.id } })}
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
+              width: 44,
+              height: 44,
+              marginRight: space.sm,
+              borderRadius: 22,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: c.surfaceContainerHigh,
             }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: c.secondary }}>
-              {goal.importance}
-            </Text>
-          </View>
-        </PressFeedback>
-        <PressFeedback
-          accessibilityRole="button"
-          accessibilityLabel={`Add task to ${goal.name}`}
-          onPress={() => router.push({ pathname: '/add-todo', params: { goal: goal.id } })}
-          style={{
-            width: 44,
-            height: 44,
-            marginRight: 6,
-            borderRadius: 22,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Ionicons name="add-circle-outline" size={24} color={c.primary} />
-        </PressFeedback>
-      </View>
+            <Ionicons name="add-circle-outline" size={26} color={c.primary} />
+          </PressFeedback>
+        </View>
+      </Card>
     );
   };
 
-  const section = (title: string, list: Goal[]) =>
-    list.length ? (
-      <View style={{ marginTop: space.lg }}>
-        <Text
-          style={{
-            fontFamily: fonts.medium,
-            fontSize: 13,
-            color: c.onSurfaceVariant,
-            marginBottom: 8,
-          }}>
-          {title}
-        </Text>
-        {list.map(renderRow)}
-      </View>
-    ) : null;
+  const banner = (label: string, count: number, color: string, ink: string) => (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: space.sm,
+        paddingHorizontal: space.md,
+        paddingVertical: 6,
+        borderRadius: radius.pill,
+        backgroundColor: color,
+        marginBottom: space.md,
+      }}>
+      <Text
+        accessibilityRole="header"
+        style={{ fontFamily: fonts.bold, ...type.label, color: ink }}>
+        {label}
+      </Text>
+      <Text style={{ fontFamily: fonts.medium, ...type.label, color: ink, opacity: 0.8 }}>
+        {count}
+      </Text>
+    </View>
+  );
 
   const empty = goals.length === 0;
 
@@ -235,6 +255,7 @@ export default function GoalsScreen() {
       <View style={{ width: '100%', maxWidth: 840, alignSelf: 'center', paddingHorizontal: 16 }}>
         <ScreenHeader
           title="Goals"
+          emoji="🎯"
           showSettings
           subtitle={
             groups.active.length
@@ -249,24 +270,55 @@ export default function GoalsScreen() {
           )}
 
           {empty ? (
-            <View style={{ alignItems: 'center', paddingVertical: 48, gap: 16 }}>
+            <View style={{ alignItems: 'center', paddingVertical: 48, gap: space.lg }}>
+              <Text style={{ fontSize: 56, lineHeight: 68 }}>🎯</Text>
               <Text
                 style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 15,
-                  lineHeight: 22,
-                  color: c.onSurfaceVariant,
+                  fontFamily: DISPLAY_FONT_SEMI,
+                  ...type.title,
+                  color: c.onSurface,
                   textAlign: 'center',
                 }}>
-                Nothing here yet. Add the things you want to move forward: a language, a project, a
-                habit.
+                What do you want to get better at?
               </Text>
               {newGoalButton}
             </View>
           ) : (
             <>
-              {section('Active', groups.active)}
-              {section('Paused', groups.paused)}
+              {usedCategories.length > 0 && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: space.sm,
+                    marginBottom: space.sm,
+                  }}>
+                  <Chip label="All" selected={filter === ALL} onPress={() => setFilter(ALL)} />
+                  {usedCategories.map((cat) => (
+                    <ColorChip
+                      key={cat.id}
+                      label={cat.name}
+                      color={cat.color}
+                      selected={filter === cat.id}
+                      icon={filter === cat.id ? 'checkmark' : undefined}
+                      onPress={() => setFilter(cat.id)}
+                    />
+                  ))}
+                </View>
+              )}
+              {groups.current.map(({ category, goals: list }) => (
+                <View key={category?.id ?? 'none'} style={{ marginTop: space.lg }}>
+                  {category
+                    ? banner(
+                        category.name,
+                        list.length,
+                        category.color,
+                        contrastText(category.color)
+                      )
+                    : banner('Uncategorized', list.length, c.surfaceContainerHighest, c.onSurface)}
+                  {list.map(renderRow)}
+                </View>
+              ))}
               {groups.done.length > 0 && (
                 <View style={{ marginTop: 20 }}>
                   <PressFeedback
@@ -301,5 +353,30 @@ export default function GoalsScreen() {
         </View>
       </View>
     </ScrollView>
+  );
+}
+
+/** A weekly progress track that springs to `fraction` on mount and when it changes. */
+function ProgressBar({ fraction, color }: { fraction: number; color: string }) {
+  const c = useColors();
+  const reduced = useReducedMotion();
+  const target = Math.max(0, Math.min(1, fraction));
+  const width = useSharedValue(reduced ? target : 0);
+  useEffect(() => {
+    width.value = reduced ? target : withSpring(target, { damping: 18, stiffness: 120 });
+  }, [target, reduced, width]);
+  const fill = useAnimatedStyle(() => ({ width: `${width.value * 100}%` }));
+  return (
+    <View
+      style={{
+        height: 8,
+        borderRadius: radius.pill,
+        backgroundColor: c.surfaceContainerHighest,
+        overflow: 'hidden',
+      }}>
+      <Animated.View
+        style={[{ height: 8, borderRadius: radius.pill, backgroundColor: color }, fill]}
+      />
+    </View>
   );
 }

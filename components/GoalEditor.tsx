@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useGoalStore } from '@/store/goalStore';
 import type { Goal, GoalStatus } from '@/db/goals';
 import { useColors, useFontFamily } from '@/utils/theme';
+import { CategoryPicker } from './CategoryPicker';
 import { PressFeedback } from './PressFeedback';
 
 const STATUSES: { value: GoalStatus; label: string }[] = [
@@ -21,6 +22,7 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
   const [importance, setImportance] = useState(goal?.importance ?? 5);
   const [weeklyTarget, setWeeklyTarget] = useState<number | null>(goal?.weekly_target ?? null);
   const [notes, setNotes] = useState(goal?.description ?? '');
+  const [categoryId, setCategoryId] = useState<string | null>(goal?.category_id ?? null);
   const [status, setStatus] = useState<GoalStatus>(goal?.status ?? 'active');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,6 +55,7 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
         importance,
         weekly_target: weeklyTarget,
         status: goal ? status : 'active',
+        category_id: categoryId,
       });
       onClose();
     } catch (e) {
@@ -113,6 +116,9 @@ export function GoalEditor({ goal, onClose }: { goal?: Goal; onClose: () => void
         onChangeText={setName}
         autoFocus={!goal}
       />
+
+      {label('Category')}
+      <CategoryPicker value={categoryId} onChange={setCategoryId} />
 
       {label('Importance')}
       <View style={{ flexDirection: 'row', gap: 4 }}>
