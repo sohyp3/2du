@@ -12,9 +12,9 @@ bun run check
 bun test
 ```
 
-Quest is the default theme, inspired by autismaxer.quest: warm black, ivory type, moss and plum accents. Silver and Gold remain in Settings. Local SQLite data is migrated without replacing existing tasks/notes. Tasks can be assigned to named/color-coded calendars, filtered together or individually, and viewed by day/week/month. Notes support Markdown and pinning.
+2du has a light and a dark mode that follow the system by default, with saturated accent colours to pick from in Settings → Appearance. Headings use Bricolage Grotesque. Local SQLite data is migrated without replacing existing tasks/notes. Tasks can be assigned to named/color-coded calendars, filtered together or individually, and viewed by day/week/month. Goals can be grouped into coloured categories. Notes support Markdown and pinning.
 
-For optional cross-device sync: [server setup](docs/SERVER.md). For external AI agents: [REST API](docs/AGENT-API.md).
+Sync: sign in under Settings → Account & sync. The shared server is https://2du.hyp3.cafe; to use your own, open Advanced. To host one yourself, see the [2duServer README](../2duServer/README.md) ([summary](docs/SERVER.md)). For external AI agents: [agent keys and API](docs/AGENT-API.md).
 
 ## Build output
 
@@ -68,6 +68,6 @@ The production web build is an installable PWA. After the first visit it opens f
 
 Always build with `bun run build:web`: `scripts/precache.ts` writes the file list into `sw.js` after the export, and the service worker fails to install without that step. A new deploy downloads in the background and takes over on the next launch, so an open app is never interrupted. Serve `sw.js` without long-lived caching. The installed app and a browser tab share the same SQLite lock, so only one can be open at a time.
 
-In Settings → Sync, enter the sync server origin and credentials. On first use create an account if the server permits registration; other devices sign in. Sync runs while the app is open. Generate revocable read-only or read/write keys for agents; no AI provider account is required by 2du.
+Sync runs while the app is open. Under Settings you can create revocable agent keys (read, write, add only, booking only) and calendar feed links; no AI provider account is required by 2du.
 
 Native reminder scheduling stays device-local. New native dependencies require rebuilding your development/production client. File, font, and sharing packages are aligned with Expo SDK 54. Test a release build on your physical devices before distributing.
