@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Card } from './Card';
 import { useBriefStore } from '@/store/briefStore';
 import { useThemeStore } from '@/store/themeStore';
 import { getSetting, setSetting } from '@/db/database';
 import { localDateKey } from '@/shared/localDate';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT_SEMI, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 
 export function BriefCard() {
@@ -41,33 +42,32 @@ export function BriefCard() {
     );
   };
   return (
-    <View
-      style={{
-        backgroundColor: c.surfaceContainer,
-        borderRadius: 16,
-        padding: 14,
-        marginBottom: 8,
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-      }}>
+    <Card
+      tone="soft"
+      style={{ marginBottom: space.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
       <PressFeedback
         accessibilityRole="button"
         accessibilityLabel="Open today's brief"
         onPress={() => router.push('/brief')}
-        style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <Ionicons name="sunny-outline" size={16} color={c.primary} />
-          <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 12 }}>
+        style={{ flex: 1, minWidth: 0 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.sm,
+            marginBottom: space.xs,
+          }}>
+          <Text style={{ fontSize: 20 }}>📰</Text>
+          <Text style={{ color: c.onSurface, fontFamily: DISPLAY_FONT_SEMI, ...type.title }}>
             Today&apos;s brief
           </Text>
         </View>
         <Text
           numberOfLines={3}
           style={{
-            color: c.onSurface,
+            color: c.onSurfaceVariant,
             fontFamily: fonts.regular,
-            fontSize: 14,
-            lineHeight: 20,
+            ...type.body,
             writingDirection: 'auto',
           }}>
           {preview}
@@ -80,13 +80,13 @@ export function BriefCard() {
         style={{
           width: 44,
           height: 44,
-          marginTop: -10,
-          marginRight: -10,
+          marginTop: -space.md,
+          marginRight: -space.md,
           alignItems: 'center',
           justifyContent: 'center',
         }}>
         <Ionicons name="close" size={18} color={c.onSurfaceVariant} />
       </PressFeedback>
-    </View>
+    </Card>
   );
 }

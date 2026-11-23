@@ -1,7 +1,9 @@
 import { memo } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import type { Todo } from '@/db/todos';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { useCalendarsStore } from '@/store/calendarsStore';
+import { space } from '@/utils/theme';
+import { ColorChip } from './Chip';
 import { TodoItem } from './TodoItem';
 
 export interface CalendarCardProps {
@@ -9,37 +11,22 @@ export interface CalendarCardProps {
   todos: Todo[];
 }
 
-/** One calendar's tasks for the current period, grouped under its name on the Tasks screen. */
+/** One calendar's tasks for the current period: a colour chip header, then its rows. Tapping
+ * the chip shows only that calendar. */
 export const CalendarCard = memo(function CalendarCard({ calendar, todos }: CalendarCardProps) {
-  const c = useColors(),
-    fonts = useFontFamily();
+  const select = useCalendarsStore((s) => s.select);
   const completed = todos.filter((t) => t.status === 'completed').length;
   return (
-    // A labelled group rather than a card: the calendar's colour is its dot, as on every row.
     <View>
       <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-          paddingVertical: 6,
-        }}>
-        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: calendar.color }} />
-        <Text
-          accessibilityRole="header"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            color: c.onSurfaceVariant,
-            fontFamily: fonts.medium,
-            fontSize: 13,
-          }}>
-          {calendar.name}
-        </Text>
-        <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.regular, fontSize: 12 }}>
-          {completed} of {todos.length}
-        </Text>
+        accessibilityRole="header"
+        style={{ flexDirection: 'row', marginBottom: space.sm, marginTop: space.xs }}>
+        <ColorChip
+          label={`${calendar.name} · ${completed}/${todos.length}`}
+          color={calendar.color}
+          selected={false}
+          onPress={() => select(calendar.id)}
+        />
       </View>
       {todos.map((todo) => (
         <TodoItem key={todo.id} todo={todo} />

@@ -2,9 +2,9 @@ import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTodoStore } from '@/store/todoStore';
 import { getFilterLabel, type FilterPeriod } from '@/utils/dates';
-import { space, type, useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT_SEMI, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
-import { HeaderAction, ScreenHeader } from './ScreenHeader';
+import { HeaderAction } from './ScreenHeader';
 import { Segmented } from './Chip';
 
 const PERIODS = [
@@ -15,8 +15,8 @@ const PERIODS = [
 const CURRENT = new Set(['Today', 'This Week', 'This Month']);
 const STATUS_LABEL = { all: 'All', active: 'Active', completed: 'Done' } as const;
 
-/** Tasks header: the period as the title, progress as the subtitle, then period + status. */
-export function TimeFilter({ subtitle }: { subtitle?: string }) {
+/** The period bar: the period title with round prev and next, then period and status. */
+export function TimeFilter() {
   const period = useTodoStore((s) => s.period),
     referenceDate = useTodoStore((s) => s.referenceDate),
     statusFilter = useTodoStore((s) => s.statusFilter),
@@ -36,29 +36,45 @@ export function TimeFilter({ subtitle }: { subtitle?: string }) {
     />
   );
   return (
-    <View>
-      <ScreenHeader
-        title={label}
-        subtitle={subtitle}
-        showSettings
-        actions={
-          <>
-            {!CURRENT.has(label) && (
-              <PressFeedback
-                accessibilityRole="button"
-                onPress={goToToday}
-                style={{ minHeight: 40, paddingHorizontal: space.sm, justifyContent: 'center' }}>
-                <Text style={{ color: c.primary, fontFamily: fonts.medium, ...type.label }}>
-                  Today
-                </Text>
-              </PressFeedback>
-            )}
-            {iconButton('prev')}
-            {iconButton('next')}
-          </>
-        }
-      />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        rowGap: space.sm,
+        columnGap: space.lg,
+      }}>
+      <View
+        style={{
+          flexGrow: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: space.sm,
+        }}>
+        <Text
+          accessibilityRole="header"
+          numberOfLines={1}
+          style={{
+            flexShrink: 1,
+            fontFamily: DISPLAY_FONT_SEMI,
+            fontSize: 22,
+            lineHeight: 28,
+            color: c.onSurface,
+          }}>
+          {label}
+        </Text>
+        {iconButton('prev')}
+        {iconButton('next')}
+        {!CURRENT.has(label) && (
+          <PressFeedback
+            accessibilityRole="button"
+            onPress={goToToday}
+            style={{ minHeight: 40, paddingHorizontal: space.sm, justifyContent: 'center' }}>
+            <Text style={{ color: c.primary, fontFamily: fonts.bold, ...type.label }}>Today</Text>
+          </PressFeedback>
+        )}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
         <Segmented options={PERIODS} value={period} onChange={setPeriod} />
         <PressFeedback
           accessibilityRole="button"

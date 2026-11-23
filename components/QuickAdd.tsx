@@ -13,7 +13,7 @@ function getDefaultTimeMinutes(): number {
   return total % (24 * 60);
 }
 
-/** One field with the add button inside it. Long-press the button for the full form. */
+/** A pill field with the add button inside it. Long-press the button for the full form. */
 export function QuickAdd() {
   const [name, setName] = useState('');
   const [timeMinutes] = useState(getDefaultTimeMinutes);
@@ -52,10 +52,10 @@ export function QuickAdd() {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: c.surfaceContainer,
-        borderRadius: radius.lg,
-        paddingLeft: space.lg,
+        borderRadius: radius.pill,
+        paddingLeft: space.xl,
         paddingRight: space.xs,
-        minHeight: 52,
+        height: 56,
       }}>
       <TextInput
         ref={inputRef}
@@ -68,7 +68,7 @@ export function QuickAdd() {
           ...type.body,
         }}
         placeholderTextColor={c.outline}
-        placeholder="Add a task"
+        placeholder="Add something to do…"
         value={name}
         onChangeText={setName}
         onSubmitEditing={handleSubmit}
@@ -89,16 +89,12 @@ export function QuickAdd() {
         style={{
           width: 44,
           height: 44,
-          borderRadius: radius.md,
+          borderRadius: radius.pill,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: hasText ? c.primary : 'transparent',
+          backgroundColor: c.primary,
         }}>
-        <Ionicons
-          name={hasText ? 'arrow-up' : 'add'}
-          size={22}
-          color={hasText ? c.onPrimary : c.onSurfaceVariant}
-        />
+        <Ionicons name={hasText ? 'arrow-up' : 'add'} size={22} color={c.onPrimary} />
       </Pressable>
     </View>
   );
