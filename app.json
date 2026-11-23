@@ -2,7 +2,7 @@
   "expo": {
     "name": "2du",
     "slug": "2du",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "scheme": "x2du",
     "platforms": ["ios", "android", "web"],
     "web": {
@@ -20,7 +20,7 @@
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#121110"
+      "backgroundColor": "#14112A"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -32,7 +32,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0d0c0a"
+        "backgroundColor": "#14112A"
       },
       "package": "com.hyp3.x2du"
     },

@@ -28,7 +28,7 @@ Local Android production build:
 
 ```sh
 mkdir -p build/out
-eas build --profile production --platform android --local --output build/out/2du-1.0.1.aab
+eas build --profile production --platform android --local --output build/out/2du-1.1.0.aab
 ./apk.sh # Newest .aab (build/out/ or root build-*.aab) -> universal APK; installs if ADB sees a device.
 ```
 
