@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useSyncStore } from '@/store/syncStore';
-import { AuthError, NetworkError } from '@/utils/http';
 import { space, useColors, useFontFamily } from '@/utils/theme';
 import { AuthForm, type AuthFormHandle } from './AuthForm';
 import { PressFeedback } from './PressFeedback';
 import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
-import { BookingSettings } from './settings/BookingSettings';
 import { SettingsRow } from './settings/SettingsRow';
 import { SettingsSection } from './settings/SettingsSection';
 
@@ -27,33 +25,20 @@ export function SyncSettings() {
     needsLogin = useSyncStore((s) => s.needsLogin),
     lastSync = useSyncStore((s) => s.lastSync),
     pending = useSyncStore((s) => s.pending),
-    keys = useSyncStore((s) => s.keys),
     connect = useSyncStore((s) => s.connect),
     syncNow = useSyncStore((s) => s.sync),
-    disconnect = useSyncStore((s) => s.disconnect),
-    loadKeys = useSyncStore((s) => s.loadKeys),
-    createKey = useSyncStore((s) => s.createKey),
-    revokeKey = useSyncStore((s) => s.revokeKey);
+    disconnect = useSyncStore((s) => s.disconnect);
   const c = useColors(),
     fonts = useFontFamily();
   const [url, setUrl] = useState(syncUrl),
     [username, setUsername] = useState(syncUsername),
     [password, setPassword] = useState('');
   const [register, setRegister] = useState(false),
-    [keyName, setKeyName] = useState('My agent'),
-    [scope, setScope] = useState('read'),
-    [newKey, setNewKey] = useState(''),
     [error, setError] = useState('');
   // A dead session asks for the same account again, never for a new one.
   useEffect(() => {
     if (needsLogin) setRegister(false);
   }, [needsLogin]);
-  useEffect(() => {
-    if (syncToken)
-      loadKeys().catch((e) => {
-        if (!(e instanceof NetworkError || e instanceof AuthError)) setError(e.message);
-      });
-  }, [syncToken, loadKeys]);
   const run = async (fn: () => Promise<unknown>) => {
     setError('');
     try {
@@ -188,74 +173,6 @@ export function SyncSettings() {
           onPress={() => void syncNow()}
           right={busy ? <ActivityIndicator size="small" color={c.primary} /> : undefined}
         />
-      </SettingsSection>
-
-      <BookingSettings />
-
-      <SettingsSection
-        title="Agent keys"
-        footer="Connect any agent over the REST API. Read-only keys can explore; read & write keys can create, edit, and delete your tasks, notes, and calendars.">
-        <SettingsRow label="New key">
-          <View style={{ gap: space.md }}>
-            <SettingsInput
-              accessibilityLabel="API key name"
-              value={keyName}
-              onChangeText={setKeyName}
-            />
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <SettingsButton
-                grow
-                label="Read only"
-                selected={scope === 'read'}
-                onPress={() => setScope('read')}
-              />
-              <SettingsButton
-                grow
-                label="Read & write"
-                selected={scope === 'write'}
-                onPress={() => setScope('write')}
-              />
-            </View>
-            <SettingsButton
-              label="Create API key"
-              disabled={busy}
-              onPress={() => void run(async () => setNewKey(await createKey(keyName, scope)))}
-            />
-          </View>
-        </SettingsRow>
-        {!!newKey && (
-          <SettingsRow label="Copy this key now" hint="It is only shown once.">
-            <View style={{ gap: space.md }}>
-              <Text
-                selectable
-                style={{
-                  color: c.primary,
-                  backgroundColor: c.surfaceContainerHigh,
-                  fontSize: 13,
-                  lineHeight: 20,
-                  padding: space.md,
-                  borderRadius: 8,
-                }}>
-                {newKey}
-              </Text>
-              <SettingsButton label="I saved it, hide key" onPress={() => setNewKey('')} />
-            </View>
-          </SettingsRow>
-        )}
-        {keys.map((k) => (
-          <SettingsRow
-            key={k.id}
-            label={k.name}
-            hint={k.scope === 'read' ? 'Read only' : 'Read & write'}
-            right={
-              <SettingsButton
-                label="Revoke"
-                disabled={busy}
-                onPress={() => void run(() => revokeKey(k.id))}
-              />
-            }
-          />
-        ))}
       </SettingsSection>
     </View>
   );

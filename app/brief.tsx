@@ -135,7 +135,7 @@ export default function BriefScreen() {
               <>
                 {note('Connect to your sync server to get a daily brief.')}
                 {action('Connect', () =>
-                  router.push({ pathname: '/settings', params: { tab: 'sync' } })
+                  router.push({ pathname: '/settings', params: { section: 'account' } })
                 )}
               </>
             )}

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCalendarsStore } from '@/store/calendarsStore';
+import { SWATCHES } from '@/utils/palette';
 import { space, useColors } from '@/utils/theme';
+import { ColorChip } from './Chip';
 import { PressFeedback } from './PressFeedback';
 import { SettingsButton, SettingsInput, SettingsMessage } from './settings/controls';
 import { SettingsRow } from './settings/SettingsRow';
 import { SettingsSection } from './settings/SettingsSection';
 
-const colors = ['#a7c968', '#bb8ed6', '#eccb73', '#8bcdec', '#eeaba0', '#d9945c'];
 /** `editing` value for the "Add calendar" row; real calendars use their id. */
 const NEW = '';
 
@@ -17,7 +18,7 @@ export function CalendarSettings() {
     save = useCalendarsStore((s) => s.save),
     remove = useCalendarsStore((s) => s.remove);
   const [name, setName] = useState(''),
-    [color, setColor] = useState(colors[0]),
+    [color, setColor] = useState<string>(SWATCHES[0]),
     [editing, setEditing] = useState<string | undefined>(),
     [error, setError] = useState('');
   const c = useColors();
@@ -73,26 +74,16 @@ export function CalendarSettings() {
         maxLength={100}
         autoFocus
       />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {colors.map((v) => (
-          <PressFeedback
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+        {SWATCHES.map((v) => (
+          <ColorChip
             key={v}
-            accessibilityRole="button"
+            color={v}
+            selected={color === v}
+            icon={color === v ? 'checkmark' : undefined}
             accessibilityLabel={`Calendar color ${v}`}
-            accessibilityState={{ selected: color === v }}
             onPress={() => setColor(v)}
-            style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
-            <View
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 12,
-                backgroundColor: v,
-                borderWidth: color === v ? 3 : 0,
-                borderColor: c.onSurface,
-              }}
-            />
-          </PressFeedback>
+          />
         ))}
       </View>
       <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -140,7 +131,7 @@ export function CalendarSettings() {
       ) : (
         <SettingsRow
           label="Add calendar"
-          onPress={() => open(NEW, '', colors[0])}
+          onPress={() => open(NEW, '', SWATCHES[0])}
           right={<Ionicons name="add" size={20} color={c.primary} />}
         />
       )}

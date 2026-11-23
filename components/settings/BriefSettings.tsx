@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { PressFeedback } from '@/components/PressFeedback';
 import { setSetting } from '@/db/database';
 import { useCalendarStore } from '@/store/calendarStore';
@@ -21,8 +20,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 export function BriefSettings() {
   const c = useColors(),
-    fonts = useFontFamily(),
-    router = useRouter();
+    fonts = useFontFamily();
   const connected = useSyncStore((s) => !!s.token);
   const timeFormat = useCalendarStore((s) => s.timeFormat);
   const [prefs, setPrefs] = useState<Prefs | null>(null);
@@ -40,16 +38,6 @@ export function BriefSettings() {
       alive = false;
     };
   }, [connected]);
-
-  if (!connected)
-    return (
-      <SettingsSection title="Daily brief">
-        <SettingsRow
-          label="Connect to your sync server to use the daily brief"
-          onPress={() => router.push({ pathname: '/settings', params: { tab: 'sync' } })}
-        />
-      </SettingsSection>
-    );
 
   const change = async (patch: Partial<Prefs>) => {
     if (!prefs) return;

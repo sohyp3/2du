@@ -59,12 +59,15 @@ export function ColorChip({
   selected,
   onPress,
   icon,
+  accessibilityLabel,
 }: {
-  label: string;
+  /** Leave empty for a bare swatch. */
+  label?: string;
   color: string;
   selected: boolean;
   onPress: () => void;
   icon?: keyof typeof Ionicons.glyphMap;
+  accessibilityLabel?: string;
 }) {
   const c = useColors(),
     fonts = useFontFamily();
@@ -73,17 +76,22 @@ export function ColorChip({
     <PressFeedback
       haptic="select"
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected }}
       onPress={onPress}
       hitSlop={{ top: 6, bottom: 6 }}
       style={{
         ...CHIP,
+        justifyContent: 'center',
+        ...(label ? null : { width: 44, paddingHorizontal: 0 }),
         backgroundColor: color,
         borderWidth: 2,
         borderColor: selected ? c.onSurface : 'transparent',
       }}>
       {icon && <Ionicons name={icon} size={16} color={ink} />}
-      <Text style={{ fontFamily: fonts.bold, color: ink, ...type.label }}>{label}</Text>
+      {!!label && (
+        <Text style={{ fontFamily: fonts.bold, color: ink, ...type.label }}>{label}</Text>
+      )}
     </PressFeedback>
   );
 }
