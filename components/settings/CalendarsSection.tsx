@@ -4,6 +4,7 @@ import { CalendarSettings } from '@/components/CalendarSettings';
 import { PressFeedback } from '@/components/PressFeedback';
 import { useCalendarStore } from '@/store/calendarStore';
 import { space, useColors, useFontFamily } from '@/utils/theme';
+import { CalendarFeed } from './CalendarFeed';
 import { SettingsButton } from './controls';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSection } from './SettingsSection';
@@ -53,6 +54,7 @@ export function CalendarsSection() {
   return (
     <View>
       <CalendarSettings />
+      <CalendarFeed />
 
       <SettingsSection title="Calendar view">
         <SettingsRow label="Time format">

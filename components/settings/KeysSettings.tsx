@@ -65,7 +65,7 @@ const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'mon
 const formatDate = (d: Date | number | string) =>
   new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
-function relative(iso: string) {
+export function relative(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return 'just now';
   const units: [number, string][] = [
@@ -98,7 +98,7 @@ function Badge({ label, fill, ink }: { label: string; fill: string; ink: string 
 }
 
 /** A monospace box with a Copy button that confirms for two seconds. */
-function CopyBox({ text, label }: { text: string; label: string }) {
+export function CopyBox({ text, label }: { text: string; label: string }) {
   const c = useColors(),
     fonts = useFontFamily();
   const [copied, setCopied] = useState(false);
