@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { fields, validateChange, type Entity } from '@/shared/records';
 import type { Calendar } from './calendars';
 import type { Goal } from './goals';
+import type { GoalCategory } from './goalCategories';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
@@ -13,6 +14,7 @@ export interface ExportData {
   version: 1 | 2;
   calendars?: Calendar[];
   goals?: Goal[];
+  goal_categories?: GoalCategory[];
   exportedAt: string;
   todos: Todo[];
   notes: Note[];
@@ -56,6 +58,7 @@ export async function exportData(): Promise<void> {
       version: 2,
       calendars: await db.getAllAsync<Calendar>('SELECT * FROM calendars'),
       goals: await db.getAllAsync<Goal>('SELECT * FROM goals'),
+      goal_categories: await db.getAllAsync<GoalCategory>('SELECT * FROM goal_categories'),
       exportedAt: new Date().toISOString(),
       todos,
       notes,
@@ -129,6 +132,11 @@ export async function importData(
     if (data.calendars)
       groups.unshift(['calendars', data.calendars as unknown as Record<string, unknown>[]]);
     if (data.goals) groups.unshift(['goals', data.goals as unknown as Record<string, unknown>[]]);
+    if (data.goal_categories)
+      groups.unshift([
+        'goal_categories',
+        data.goal_categories as unknown as Record<string, unknown>[],
+      ]);
     // Validate the entire file before the first write; imports are additive and sync as local edits.
     for (const [entity, rows] of groups) {
       if (!Array.isArray(rows)) throw new Error('Invalid backup records');

@@ -1,4 +1,11 @@
-export const entities = ['todos', 'notes', 'calendars', 'goals', 'briefs'] as const;
+export const entities = [
+  'todos',
+  'notes',
+  'calendars',
+  'goals',
+  'briefs',
+  'goal_categories',
+] as const;
 export type Entity = (typeof entities)[number];
 export interface Change {
   entity: Entity;
@@ -31,10 +38,12 @@ export const fields = {
     'importance',
     'weekly_target',
     'status',
+    'category_id',
     'created_at',
     'updated_at',
   ],
   briefs: ['id', 'date', 'content', 'created_at', 'updated_at'],
+  goal_categories: ['id', 'name', 'color', 'created_at', 'updated_at'],
 } satisfies Record<Entity, string[]>;
 
 export function validateChange(value: unknown): Change {
@@ -89,6 +98,10 @@ export function validateChange(value: unknown): Change {
         throw new Error('Invalid brief');
       if (typeof d.content !== 'string' || d.content.length > 20000)
         throw new Error('Invalid brief');
+    } else if (c.entity === 'goal_categories') {
+      text(d.name, 60);
+      if (typeof d.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(d.color))
+        throw new Error('Invalid category color');
     } else {
       text(d.name, 200);
       text(d.description, 10000, true);
@@ -102,6 +115,11 @@ export function validateChange(value: unknown): Change {
       )
         throw new Error('Invalid weekly target');
       if (!['active', 'paused', 'done'].includes(String(d.status))) throw new Error('Invalid goal');
+      if (
+        d.category_id != null &&
+        (typeof d.category_id !== 'string' || !/^[\w-]{1,128}$/.test(d.category_id))
+      )
+        throw new Error('Invalid reference');
     }
   }
   return c;

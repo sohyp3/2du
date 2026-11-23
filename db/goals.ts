@@ -10,6 +10,7 @@ export interface Goal {
   importance: number;
   weekly_target: number | null;
   status: GoalStatus;
+  category_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -19,15 +20,21 @@ export async function getGoals(): Promise<Goal[]> {
 }
 
 async function saveGoalLocal(goal: Goal) {
-  validateChange({ entity: 'goals', id: goal.id, data: { ...goal }, updated_at: goal.updated_at });
+  validateChange({
+    entity: 'goals',
+    id: goal.id,
+    data: { ...goal, category_id: goal.category_id ?? null },
+    updated_at: goal.updated_at,
+  });
   await db.runAsync(
-    'INSERT OR REPLACE INTO goals (id,name,description,importance,weekly_target,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',
+    'INSERT OR REPLACE INTO goals (id,name,description,importance,weekly_target,status,category_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
     goal.id,
     goal.name.trim(),
     goal.description ?? null,
     goal.importance,
     goal.weekly_target ?? null,
     goal.status,
+    goal.category_id ?? null,
     goal.created_at,
     goal.updated_at
   );

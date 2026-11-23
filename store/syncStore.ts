@@ -16,6 +16,7 @@ import { useNoteStore } from './noteStore';
 import { useGoalStore } from './goalStore';
 import { useCalendarsStore } from './calendarsStore';
 import { useBriefStore } from './briefStore';
+import { useGoalCategoriesStore } from './goalCategoriesStore';
 interface Outbox {
   entity: Entity;
   id: string;
@@ -57,6 +58,7 @@ async function reloadStores() {
     useCalendarsStore.getState().load(),
     useGoalStore.getState().load(),
     useBriefStore.getState().load(),
+    useGoalCategoriesStore.getState().load(),
   ]);
 }
 interface SyncState {
@@ -356,6 +358,7 @@ export const useSyncStore = create<SyncState>((set, get) => {
             changed.has('calendars') && useCalendarsStore.getState().load(),
             changed.has('goals') && useGoalStore.getState().load(),
             changed.has('briefs') && useBriefStore.getState().load(),
+            changed.has('goal_categories') && useGoalCategoriesStore.getState().load(),
           ]);
           set((s) => ({ revision: s.revision + 1 }));
         }

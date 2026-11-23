@@ -13,6 +13,7 @@ export const useGoalStore = create<{
     importance: number;
     weekly_target: number | null;
     status?: GoalStatus;
+    category_id?: string | null;
   }) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }>((set, get) => ({
@@ -31,6 +32,8 @@ export const useGoalStore = create<{
       importance: input.importance,
       weekly_target: input.weekly_target,
       status: input.status ?? existing?.status ?? 'active',
+      category_id:
+        input.category_id !== undefined ? input.category_id : (existing?.category_id ?? null),
       created_at: existing?.created_at ?? now,
       updated_at: now,
     });

@@ -80,3 +80,28 @@ test('briefs accept a valid record and reject a date that differs from the id or
     'Invalid brief'
   );
 });
+
+const categoryChange = (over: Record<string, unknown> = {}) => ({
+  entity: 'goal_categories',
+  id: 'c1',
+  data: { id: 'c1', name: 'Health', color: '#ff6b6b', created_at: now, updated_at: now, ...over },
+  updated_at: now,
+});
+
+test('goal categories need a short name and a six-digit hex colour', () => {
+  expect(() => validateChange(categoryChange())).not.toThrow();
+  expect(() => validateChange(categoryChange({ name: 'x'.repeat(61) }))).toThrow('Invalid text');
+  expect(() => validateChange(categoryChange({ name: '  ' }))).toThrow('Invalid text');
+  expect(() => validateChange(categoryChange({ color: 'red' }))).toThrow('Invalid category color');
+  expect(() => validateChange(categoryChange({ color: '#fff' }))).toThrow('Invalid category color');
+  expect(() => validateChange(categoryChange({ icon: 'x' }))).toThrow('Unknown record field');
+});
+
+test('a goal may carry a category_id that is null or an identifier', () => {
+  expect(() => validateChange(goalChange({ category_id: null }))).not.toThrow();
+  expect(() => validateChange(goalChange({ category_id: 'c1' }))).not.toThrow();
+  expect(() => validateChange(goalChange({ category_id: 'not an id' }))).toThrow(
+    'Invalid reference'
+  );
+  expect(() => validateChange(goalChange({ category_id: 5 }))).toThrow('Invalid reference');
+});

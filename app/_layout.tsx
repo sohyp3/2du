@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { startSync, useSyncStore } from '@/store/syncStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useGoalStore } from '@/store/goalStore';
+import { useGoalCategoriesStore } from '@/store/goalCategoriesStore';
 import { useBriefStore } from '@/store/briefStore';
 import { useFocusStore } from '@/store/focusStore';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -132,6 +133,7 @@ function App() {
         );
         void useNoteStore.getState().loadNotes();
         void useGoalStore.getState().load();
+        void useGoalCategoriesStore.getState().load();
         void useBriefStore.getState().load();
         void useFocusStore.getState().load();
       } catch (error) {
