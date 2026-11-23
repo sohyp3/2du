@@ -1,7 +1,8 @@
 import { useState, useCallback, memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import { PressFeedback } from './PressFeedback';
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
@@ -57,68 +58,101 @@ function DatePickerRaw({ value, onChange }: DatePickerProps) {
   });
 
   return (
-    <View style={{ backgroundColor: c.surfaceContainer }} className="rounded-xl p-3">
-      <View className="mb-2 flex-row items-center justify-between">
-        <Pressable
+    <View
+      style={{ backgroundColor: c.surfaceContainer, borderRadius: radius.md, padding: space.md }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: space.sm,
+        }}>
+        <PressFeedback
           onPress={prevMonth}
           accessibilityRole="button"
           accessibilityLabel="Previous month"
-          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
           <Ionicons name="chevron-back" size={18} color={c.onSurfaceVariant} />
-        </Pressable>
-        <Text style={{ fontFamily: fonts.medium, color: c.onSurface }} className="text-sm">
+        </PressFeedback>
+        <Text style={{ fontFamily: fonts.bold, color: c.onSurface, ...type.label }}>
           {monthLabel}
         </Text>
-        <Pressable
+        <PressFeedback
           onPress={nextMonth}
           accessibilityRole="button"
           accessibilityLabel="Next month"
-          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
           <Ionicons name="chevron-forward" size={18} color={c.onSurfaceVariant} />
-        </Pressable>
+        </PressFeedback>
       </View>
 
-      <View className="mb-1 flex-row">
+      <View style={{ flexDirection: 'row', marginBottom: space.xs }}>
         {WEEKDAYS.map((d) => (
-          <View key={d} className="flex-1 items-center">
-            <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-xs">
-              {d}
-            </Text>
+          <View key={d} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ fontFamily: fonts.bold, color: c.outline, ...type.caption }}>{d}</Text>
           </View>
         ))}
       </View>
 
-      <View className="flex-row flex-wrap">
-        {cells.map((day, i) => (
-          <Pressable
-            key={i}
-            onPress={() =>
-              day &&
-              onChange(new Date(viewYear, viewMonth, day, value.getHours(), value.getMinutes()))
-            }
-            className="w-[14.28%] items-center py-1.5">
-            {day ? (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {cells.map((day, i) => {
+          if (!day) return <View key={i} style={{ width: '14.28%', height: 40 }} />;
+          const selected = isSelected(day),
+            current = isToday(day);
+          return (
+            <PressFeedback
+              key={i}
+              accessibilityRole="button"
+              accessibilityLabel={new Date(viewYear, viewMonth, day).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              })}
+              accessibilityState={{ selected }}
+              onPress={() =>
+                onChange(new Date(viewYear, viewMonth, day, value.getHours(), value.getMinutes()))
+              }
+              style={{
+                width: '14.28%',
+                height: 40,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: radius.md,
+                backgroundColor: selected ? c.accentSoft : 'transparent',
+              }}>
               <View
-                style={isSelected(day) ? { backgroundColor: c.primary } : undefined}
-                className="h-8 w-8 items-center justify-center rounded-full">
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: current ? c.primary : 'transparent',
+                }}>
                 <Text
                   style={{
-                    fontFamily: isSelected(day) || isToday(day) ? fonts.bold : fonts.regular,
-                    color: isSelected(day)
-                      ? c.onPrimary
-                      : isToday(day)
-                        ? c.primary
-                        : c.onSurfaceVariant,
-                  }}
-                  className="text-sm">
+                    fontFamily: selected || current ? fonts.bold : fonts.regular,
+                    color: current ? c.onPrimary : c.onSurface,
+                    ...type.label,
+                  }}>
                   {day}
                 </Text>
               </View>
-            ) : (
-              <View className="h-8 w-8" />
-            )}
-          </Pressable>
-        ))}
+            </PressFeedback>
+          );
+        })}
       </View>
     </View>
   );

@@ -1,7 +1,9 @@
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 import { useCalendarsStore } from '@/store/calendarsStore';
-import { space, useColors } from '@/utils/theme';
-import { Chip } from './Chip';
+import { space } from '@/utils/theme';
+import { Chip, ColorChip } from './Chip';
+
+/** A row of calendar chips, each filled with its calendar's colour, plus an optional "All". */
 export function CalendarPicker({
   value,
   onChange,
@@ -15,7 +17,7 @@ export function CalendarPicker({
     selected = useCalendarsStore((s) => s.selected),
     select = useCalendarsStore((s) => s.select);
   const active = value === undefined ? selected : value;
-  const c = useColors();
+  const pick = onChange || select;
   return (
     <ScrollView
       style={{ flexGrow: 0, flexShrink: 0 }}
@@ -23,20 +25,23 @@ export function CalendarPicker({
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ gap: space.xs, paddingVertical: space.xs, alignItems: 'center' }}>
-      {(all ? [{ id: '', name: 'All', color: c.onSurfaceVariant }, ...calendars] : calendars).map(
-        (item) => (
-          <Chip
-            key={item.id}
-            label={item.name}
-            accessibilityLabel={item.id ? item.name : 'All calendars'}
-            selected={item.id === (active || '')}
-            onPress={() => (onChange || select)(item.id || null)}
-            leading={
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: item.color }} />
-            }
-          />
-        )
+      {all && (
+        <Chip
+          label="All"
+          accessibilityLabel="All calendars"
+          selected={!active}
+          onPress={() => pick(null)}
+        />
       )}
+      {calendars.map((item) => (
+        <ColorChip
+          key={item.id}
+          label={item.name}
+          color={item.color}
+          selected={item.id === active}
+          onPress={() => pick(item.id)}
+        />
+      ))}
     </ScrollView>
   );
 }

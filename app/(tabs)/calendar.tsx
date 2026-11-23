@@ -1,14 +1,33 @@
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { Segmented } from '@/components/Chip';
+import { ColorChip, Segmented } from '@/components/Chip';
+import { Card } from '@/components/Card';
+import { PressFeedback } from '@/components/PressFeedback';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CalendarPicker } from '@/components/CalendarPicker';
 import { useCalendarsStore } from '@/store/calendarsStore';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import {
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import { contrastText } from '@/utils/palette';
+import * as haptics from '@/utils/haptics';
 import { getTodosByDateRange, Todo } from '@/db/todos';
 import type { Calendar } from '@/db/calendars';
 import {
@@ -92,12 +111,115 @@ function formatHour(hour: number, is24h: boolean) {
 
 type Colors = ReturnType<typeof useColors>;
 
-// Items are tinted with their calendar's colour rather than filled with it, so a busy day
-// stays calm; completed items keep only a faint tint so their calendar stays recognisable.
-function itemTone(color: string, isCompleted: boolean, c: Colors) {
-  return isCompleted
-    ? { bg: `${color}14`, fg: c.onSurfaceVariant }
-    : { bg: `${color}2e`, fg: c.onSurface };
+const roundButton = (c: Colors): ViewStyle => ({
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: c.surfaceContainer,
+});
+
+const MAX_BARS = 3;
+
+/** The current time, refreshed every minute, for the "now" line. */
+function useNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+/** A primary line across an hour cell at the current minute. */
+function NowLine({ now, c }: { now: Date; c: Colors }) {
+  return (
+    <View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: `${(now.getMinutes() / 60) * 100}%`,
+        height: 2,
+        backgroundColor: c.primary,
+        zIndex: 1,
+      }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: -4,
+          top: -3,
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: c.primary,
+        }}
+      />
+    </View>
+  );
+}
+
+/** A solid event block in its calendar colour; completed ones fade and are struck through. */
+function EventBlock({
+  todo,
+  color,
+  onPress,
+  compact,
+  meta,
+  fonts,
+}: {
+  todo: Todo;
+  color: string;
+  onPress: (id: string) => void;
+  compact?: boolean;
+  meta?: string;
+  fonts: ReturnType<typeof useFontFamily>;
+}) {
+  const done = todo.status === 'completed';
+  const ink = contrastText(color);
+  const strike = done ? 'line-through' : 'none';
+  return (
+    <PressFeedback
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${todo.name}`}
+      onPress={() => onPress(todo.id)}
+      style={{
+        minHeight: compact ? 28 : 40,
+        marginBottom: 2,
+        borderRadius: radius.sm,
+        backgroundColor: color,
+        opacity: done ? 0.35 : 1,
+        justifyContent: 'center',
+        paddingHorizontal: compact ? space.xs : space.md,
+        paddingVertical: compact ? 2 : space.xs + 2,
+      }}>
+      <Text
+        numberOfLines={compact ? 1 : undefined}
+        style={{
+          fontFamily: fonts.bold,
+          color: ink,
+          textDecorationLine: strike,
+          ...(compact ? { fontSize: 10, lineHeight: 13 } : type.label),
+        }}>
+        {todo.name}
+      </Text>
+      {meta ? (
+        <Text
+          style={{
+            fontFamily: fonts.medium,
+            color: ink,
+            textDecorationLine: strike,
+            ...type.caption,
+          }}>
+          {meta}
+        </Text>
+      ) : null}
+    </PressFeedback>
+  );
 }
 
 export default function CalendarScreen() {
@@ -107,6 +229,7 @@ export default function CalendarScreen() {
   const router = useRouter();
   const selectedCalendar = useCalendarsStore((s) => s.selected);
   const calendars = useCalendarsStore((s) => s.calendars);
+  const selectCalendar = useCalendarsStore((s) => s.select);
   const colorOf = useCallback(
     (t: Todo) => calendars.find((k) => k.id === (t.calendar_id || 'daily'))?.color ?? c.primary,
     [calendars, c.primary]
@@ -215,11 +338,13 @@ export default function CalendarScreen() {
     [view]
   );
 
+  // Phones get short labels so the display-size title fits beside the settings gear.
+  const compact = useWindowDimensions().width < 600;
   const headerLabel = useMemo(() => {
     if (view === 'day') {
       if (isSameDay(selectedDate, today)) return 'Today';
       return selectedDate.toLocaleDateString('en-US', {
-        weekday: 'long',
+        weekday: compact ? 'short' : 'long',
         month: 'short',
         day: 'numeric',
       });
@@ -227,10 +352,15 @@ export default function CalendarScreen() {
     if (view === 'week') {
       const dates = getWeekDates(selectedDate);
       const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      return `${fmt(dates[0])} – ${fmt(dates[6])}`;
+      if (!compact) return `${fmt(dates[0])} – ${fmt(dates[6])}`;
+      const sameMonth = dates[0].getMonth() === dates[6].getMonth();
+      return `${fmt(dates[0])}–${sameMonth ? dates[6].getDate() : fmt(dates[6])}`;
     }
-    return selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }, [view, selectedDate, today]);
+    return selectedDate.toLocaleDateString('en-US', {
+      month: compact ? 'short' : 'long',
+      year: 'numeric',
+    });
+  }, [view, selectedDate, today, compact]);
 
   // Group todos by hour for day view, or by day+hour for week view
   const todosByHour = useMemo(() => {
@@ -252,58 +382,67 @@ export default function CalendarScreen() {
         width: '100%',
         alignSelf: 'center',
       }}>
-      <View className="px-4">
+      <View style={{ paddingHorizontal: space.lg }}>
         <ScreenHeader
           title={headerLabel}
+          emoji="📅"
           showSettings
           subtitle={showGreeting ? 'A view of what’s ahead.' : undefined}
-          actions={
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Go to today"
-                onPress={() => setSelectedDate(new Date())}
-                style={{ minHeight: 40, paddingHorizontal: 8, justifyContent: 'center' }}>
-                <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 13 }}>
-                  Today
-                </Text>
-              </Pressable>
-              {(['prev', 'next'] as const).map((dir) => (
-                <Pressable
-                  key={dir}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    dir === 'prev' ? 'Previous calendar period' : 'Next calendar period'
-                  }
-                  onPress={() => navigate(dir)}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 12,
-                  }}>
-                  <Ionicons
-                    name={dir === 'prev' ? 'chevron-back' : 'chevron-forward'}
-                    size={18}
-                    color={c.onSurfaceVariant}
-                  />
-                </Pressable>
-              ))}
-            </>
-          }
         />
-        <Segmented options={VIEWS} value={view} onChange={setView} />
-        <View style={{ marginTop: 8 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: space.sm,
+          }}>
+          <Segmented options={VIEWS} value={view} onChange={setView} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
+            <PressFeedback
+              haptic="tap"
+              accessibilityRole="button"
+              accessibilityLabel="Previous calendar period"
+              onPress={() => navigate('prev')}
+              style={roundButton(c)}>
+              <Ionicons name="chevron-back" size={18} color={c.onSurface} />
+            </PressFeedback>
+            <PressFeedback
+              haptic="tap"
+              accessibilityRole="button"
+              accessibilityLabel="Go to today"
+              onPress={() => setSelectedDate(new Date())}
+              style={{
+                height: 40,
+                paddingHorizontal: space.lg,
+                borderRadius: radius.pill,
+                justifyContent: 'center',
+                backgroundColor: c.primary,
+              }}>
+              <Text style={{ color: c.onPrimary, fontFamily: fonts.bold, ...type.label }}>
+                Today
+              </Text>
+            </PressFeedback>
+            <PressFeedback
+              haptic="tap"
+              accessibilityRole="button"
+              accessibilityLabel="Next calendar period"
+              onPress={() => navigate('next')}
+              style={roundButton(c)}>
+              <Ionicons name="chevron-forward" size={18} color={c.onSurface} />
+            </PressFeedback>
+          </View>
+        </View>
+        <View style={{ marginTop: space.sm }}>
           <CalendarPicker />
         </View>
         <View style={{ minHeight: 16, justifyContent: 'center' }}>
           {error ? (
-            <Pressable accessibilityRole="button" onPress={loadData}>
+            <PressFeedback accessibilityRole="button" onPress={loadData}>
               <Text accessibilityRole="alert" style={{ color: c.error, fontFamily: fonts.regular }}>
                 {error} · Retry
               </Text>
-            </Pressable>
+            </PressFeedback>
           ) : isLoading && !rangeTodos.length ? (
             <Text
               accessibilityLiveRegion="polite"
@@ -316,6 +455,7 @@ export default function CalendarScreen() {
           <Overview
             todos={rangeTodos}
             calendars={selectedCalendar ? [] : calendars}
+            onSelectCalendar={selectCalendar}
             isLoading={isLoading}
             c={c}
             fonts={fonts}
@@ -361,6 +501,7 @@ export default function CalendarScreen() {
       {view === 'day' && (
         <DayView
           selectedDate={selectedDate}
+          today={today}
           todosByHour={todosByHour}
           colorOf={colorOf}
           timeFormat={timeFormat}
@@ -381,12 +522,14 @@ export default function CalendarScreen() {
 function Overview({
   todos,
   calendars,
+  onSelectCalendar,
   isLoading,
   c,
   fonts,
 }: {
   todos: Todo[];
   calendars: Calendar[];
+  onSelectCalendar: (id: string) => void;
   isLoading: boolean;
   c: Colors;
   fonts: ReturnType<typeof useFontFamily>;
@@ -406,7 +549,7 @@ function Overview({
     }
     return stats;
   }, [todos]);
-  const labelStyle = { fontFamily: fonts.regular, color: c.onSurfaceVariant, fontSize: 12 };
+  const labelStyle = { fontFamily: fonts.regular, color: c.onSurfaceVariant, ...type.label };
 
   return (
     <View
@@ -415,27 +558,28 @@ function Overview({
         flexDirection: 'row',
         flexWrap: 'wrap',
         alignItems: 'center',
-        columnGap: 12,
-        rowGap: 2,
+        columnGap: space.sm,
+        rowGap: space.xs,
       }}>
       {left + done === 0 ? (
         !isLoading && <Text style={labelStyle}>Nothing scheduled</Text>
       ) : (
         <>
-          <Text style={labelStyle}>
-            <Text style={{ fontFamily: fonts.medium, color: c.onSurface }}>{left} left</Text>
+          <Text style={[labelStyle, { marginRight: space.xs }]}>
+            <Text style={{ fontFamily: fonts.bold, color: c.onSurface }}>{left} left</Text>
             {` · ${done} done`}
             {overdue > 0 && <Text style={{ color: c.error }}>{` · ${overdue} overdue`}</Text>}
           </Text>
           {calendars
             .filter((k) => perCalendar[k.id])
             .map((k) => (
-              <View key={k.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: k.color }} />
-                <Text style={labelStyle}>
-                  {k.name} {perCalendar[k.id]}
-                </Text>
-              </View>
+              <ColorChip
+                key={k.id}
+                label={`${k.name} ${perCalendar[k.id]}`}
+                color={k.color}
+                selected={false}
+                onPress={() => onSelectCalendar(k.id)}
+              />
             ))}
         </>
       )}
@@ -471,23 +615,27 @@ function MonthView({
   toggleComplete: (id: string) => void;
   refreshing: boolean;
   onRefresh: () => void;
-  c: ReturnType<typeof useColors>;
+  c: Colors;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
   return (
     <ScrollView
-      className="flex-1"
-      contentContainerStyle={{ paddingBottom: 16 }}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 120 }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
       }>
       {/* Weekday headers */}
-      <View className="flex-row px-4">
+      <View style={{ flexDirection: 'row', paddingHorizontal: space.lg }}>
         {WEEKDAYS.map((d) => (
-          <View key={d} className="flex-1 items-center py-1">
+          <View key={d} style={{ flex: 1, alignItems: 'center', paddingVertical: space.xs }}>
             <Text
-              style={{ fontFamily: fonts.bold, color: c.outline }}
-              className="text-xs uppercase">
+              style={{
+                fontFamily: fonts.bold,
+                color: c.outline,
+                textTransform: 'uppercase',
+                ...type.caption,
+              }}>
               {d}
             </Text>
           </View>
@@ -504,10 +652,16 @@ function MonthView({
       />
 
       {/* Selected day's todos */}
-      <View className="mt-2 px-4">
+      <View style={{ marginTop: space.lg, paddingHorizontal: space.lg }}>
         <Text
-          style={{ fontFamily: fonts.medium, color: c.onSurfaceVariant }}
-          className="mb-2 text-xs uppercase tracking-[2px]">
+          style={{
+            fontFamily: fonts.bold,
+            color: c.onSurfaceVariant,
+            textTransform: 'uppercase',
+            letterSpacing: 1.5,
+            marginBottom: space.sm,
+            ...type.caption,
+          }}>
           {selectedDate.toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'short',
@@ -516,8 +670,13 @@ function MonthView({
         </Text>
         {todos.length === 0 ? (
           <Text
-            style={{ fontFamily: fonts.regular, color: c.outline }}
-            className="py-4 text-center text-sm">
+            style={{
+              fontFamily: fonts.regular,
+              color: c.onSurfaceVariant,
+              textAlign: 'center',
+              paddingVertical: space.lg,
+              ...type.label,
+            }}>
             No todos
           </Text>
         ) : (
@@ -551,24 +710,24 @@ const MonthGrid = memo(function MonthGrid({
   today: Date;
   monthDots: Record<string, string[]>;
   onSelectDate: (d: Date) => void;
-  c: ReturnType<typeof useColors>;
+  c: Colors;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
   const year = selectedDate.getFullYear(),
     month = selectedDate.getMonth();
   const weeks = useMemo(() => getMonthGrid(year, month), [year, month]);
   return (
-    <View className="px-4">
+    <View style={{ paddingHorizontal: space.lg, gap: 2 }}>
       {weeks.map((week, wi) => (
-        <View key={wi} className="flex-row">
+        <View key={wi} style={{ flexDirection: 'row', gap: 2 }}>
           {week.map((day, di) => {
-            if (!day) return <View key={di} className="flex-1 p-1" />;
+            if (!day) return <View key={di} style={{ flex: 1 }} />;
             const key = toDateKey(day);
-            const dots = monthDots[key] || [];
+            const bars = monthDots[key] || [];
             const isToday = isSameDay(day, today);
             const isSelected = isSameDay(day, selectedDate);
             return (
-              <Pressable
+              <PressFeedback
                 key={di}
                 accessibilityRole="button"
                 accessibilityLabel={day.toLocaleDateString('en-US', {
@@ -578,40 +737,62 @@ const MonthGrid = memo(function MonthGrid({
                   day: 'numeric',
                 })}
                 accessibilityState={{ selected: isSelected }}
-                aria-selected={isSelected}
-                style={{ minHeight: 40 }}
                 onPress={() => onSelectDate(day)}
-                className="flex-1 items-center p-1">
+                style={{
+                  flex: 1,
+                  minHeight: 52,
+                  alignItems: 'center',
+                  paddingVertical: space.xs,
+                  borderRadius: radius.md,
+                  backgroundColor: isSelected ? c.accentSoft : 'transparent',
+                }}>
                 <View
-                  style={[
-                    isSelected
-                      ? { backgroundColor: c.primary }
-                      : isToday
-                        ? { backgroundColor: c.surfaceContainerHigh }
-                        : undefined,
-                  ]}
-                  className="h-9 w-9 items-center justify-center rounded-full">
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: isToday ? c.primary : 'transparent',
+                  }}>
                   <Text
                     style={{
                       fontFamily: isSelected || isToday ? fonts.bold : fonts.regular,
-                      color: isSelected ? c.onPrimary : isToday ? c.primary : c.onSurface,
-                    }}
-                    className="text-sm">
+                      color: isToday ? c.onPrimary : c.onSurface,
+                      ...type.label,
+                    }}>
                     {day.getDate()}
                   </Text>
                 </View>
-                {dots.length > 0 && (
-                  <View className="mt-0.5 flex-row gap-0.5">
-                    {dots.slice(0, 3).map((color, i) => (
+                {bars.length > 0 && (
+                  <View
+                    style={{
+                      marginTop: 3,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 2,
+                      height: 10,
+                    }}>
+                    {bars.slice(0, MAX_BARS).map((color, i) => (
                       <View
                         key={i}
-                        style={{ backgroundColor: color }}
-                        className="h-1 w-1 rounded-full"
+                        style={{ width: 8, height: 4, borderRadius: 2, backgroundColor: color }}
                       />
                     ))}
+                    {bars.length > MAX_BARS && (
+                      <Text
+                        style={{
+                          fontFamily: fonts.bold,
+                          color: c.onSurfaceVariant,
+                          fontSize: 9,
+                          lineHeight: 10,
+                        }}>
+                        +{bars.length - MAX_BARS}
+                      </Text>
+                    )}
                   </View>
                 )}
-              </Pressable>
+              </PressFeedback>
             );
           })}
         </View>
@@ -644,39 +825,49 @@ function WeekView({
   onTodoPress: (id: string) => void;
   refreshing: boolean;
   onRefresh: () => void;
-  c: ReturnType<typeof useColors>;
+  c: Colors;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const hours = useMemo(() => getDayHours(dayViewStartHour), [dayViewStartHour]);
   const is24h = timeFormat === '24h';
+  const now = useNow();
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       {/* Sticky day header */}
-      <View className="flex-row px-1 pb-2" style={{ borderColor: c.outlineVariant }}>
-        <View className="w-11" />
+      <View style={{ flexDirection: 'row', paddingHorizontal: space.xs, paddingBottom: space.sm }}>
+        <View style={{ width: 44 }} />
         {weekDates.map((d, i) => {
           const isToday = isSameDay(d, today);
           return (
-            <View key={i} className="flex-1 items-center">
+            <View key={i} style={{ flex: 1, alignItems: 'center' }}>
               <Text
                 style={{
-                  fontFamily: fonts.medium,
+                  fontFamily: fonts.bold,
                   color: isToday ? c.primary : c.outline,
-                }}
-                className="text-[10px] uppercase">
+                  textTransform: 'uppercase',
+                  fontSize: 10,
+                  lineHeight: 13,
+                }}>
                 {WEEKDAYS[i]}
               </Text>
               <View
-                style={isToday ? { backgroundColor: c.primary } : undefined}
-                className={`mt-0.5 h-7 w-7 items-center justify-center rounded-full`}>
+                style={{
+                  marginTop: 2,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isToday ? c.primary : 'transparent',
+                }}>
                 <Text
                   style={{
                     fontFamily: isToday ? fonts.bold : fonts.regular,
                     color: isToday ? c.onPrimary : c.onSurface,
-                  }}
-                  className="text-sm">
+                    ...type.label,
+                  }}>
                   {d.getDate()}
                 </Text>
               </View>
@@ -688,50 +879,51 @@ function WeekView({
       {/* Hourly grid */}
       <FlatList
         data={hours}
+        extraData={now}
         keyExtractor={(h) => String(h)}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: space.xs }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
         }
         renderItem={({ item: hour }) => (
-          <View className="flex-row" style={{ minHeight: 44 }}>
-            <View className="w-11 items-end justify-start pr-1.5 pt-0.5">
-              <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-[10px]">
+          <View style={{ flexDirection: 'row', minHeight: 44 }}>
+            <View style={{ width: 44, alignItems: 'flex-end', paddingRight: 6, paddingTop: 2 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  color: c.onSurfaceVariant,
+                  fontSize: 10,
+                  lineHeight: 13,
+                }}>
                 {formatHour(hour, is24h)}
               </Text>
             </View>
             {weekDates.map((d, i) => {
               const key = `${toDateKey(d)}-${hour}`;
               const items = todosByHour[key] || [];
+              const nowHere = isSameDay(d, now) && now.getHours() === hour;
               return (
                 <View
                   key={i}
-                  className="flex-1 border-l border-t px-0.5 py-0.5"
-                  style={{ borderColor: c.outlineVariant }}>
-                  {items.map((t) => {
-                    const isCompleted = t.status === 'completed';
-                    const tone = itemTone(colorOf(t), isCompleted, c);
-                    return (
-                      <Pressable
-                        key={t.id}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Open ${t.name}`}
-                        onPress={() => onTodoPress(t.id)}
-                        style={{ minHeight: 28, backgroundColor: tone.bg }}
-                        className="mb-0.5 rounded px-1 py-0.5">
-                        <Text
-                          style={{
-                            fontFamily: fonts.medium,
-                            color: tone.fg,
-                            textDecorationLine: isCompleted ? 'line-through' : 'none',
-                          }}
-                          className="text-[10px]"
-                          numberOfLines={1}>
-                          {t.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    borderLeftWidth: 1,
+                    borderTopWidth: 1,
+                    borderColor: c.outlineVariant,
+                    padding: 1,
+                  }}>
+                  {nowHere && <NowLine now={now} c={c} />}
+                  {items.map((t) => (
+                    <EventBlock
+                      key={t.id}
+                      todo={t}
+                      color={colorOf(t)}
+                      onPress={onTodoPress}
+                      compact
+                      fonts={fonts}
+                    />
+                  ))}
                 </View>
               );
             })}
@@ -746,6 +938,7 @@ function WeekView({
 
 function DayView({
   selectedDate,
+  today,
   todosByHour,
   colorOf,
   timeFormat,
@@ -757,6 +950,7 @@ function DayView({
   fonts,
 }: {
   selectedDate: Date;
+  today: Date;
   todosByHour: Record<string, Todo[]>;
   colorOf: (t: Todo) => string;
   timeFormat: '12h' | '24h';
@@ -764,16 +958,19 @@ function DayView({
   dayViewStartHour: number;
   refreshing: boolean;
   onRefresh: () => void;
-  c: ReturnType<typeof useColors>;
+  c: Colors;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
   const hours = useMemo(() => getDayHours(dayViewStartHour), [dayViewStartHour]);
+  const now = useNow();
+  const isToday = isSameDay(selectedDate, today) && isSameDay(selectedDate, now);
 
   return (
     <FlatList
       data={hours}
+      extraData={now}
       keyExtractor={(h) => String(h)}
-      contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 16 }}
+      contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: space.lg }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />
       }
@@ -781,35 +978,33 @@ function DayView({
         const items = todosByHour[String(hour)] || [];
         return (
           <View
-            className="flex-row border-b py-1"
-            style={{ borderColor: c.outlineVariant, minHeight: 40 }}>
-            <View className="w-14 items-end pr-3 pt-1">
-              <Text style={{ fontFamily: fonts.regular, color: c.outline }} className="text-xs">
+            style={{
+              flexDirection: 'row',
+              borderTopWidth: 1,
+              borderColor: c.outlineVariant,
+              minHeight: 48,
+            }}>
+            <View
+              style={{ width: 56, alignItems: 'flex-end', paddingRight: space.md, paddingTop: 4 }}>
+              <Text
+                style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, ...type.caption }}>
                 {formatHour(hour, timeFormat === '24h')}
               </Text>
             </View>
-            <View className="flex-1">
-              {items.map((t) => {
-                const isCompleted = t.status === 'completed';
-                const tone = itemTone(colorOf(t), isCompleted, c);
-                return (
-                  <Pressable
-                    key={t.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${t.name}`}
-                    onPress={() => onTodoPress(t.id)}
-                    style={{ minHeight: 36, backgroundColor: tone.bg }}
-                    className="mb-1 rounded-md px-2.5 py-1.5">
-                    <Text style={{ fontFamily: fonts.medium, color: tone.fg }} className="text-sm">
-                      {t.name}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.regular, color: tone.fg }} className="text-xs">
-                      {formatTime(t.datetime, timeFormat === '24h')}
-                      {t.time_needed ? ` · ${t.time_needed}m` : ''}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={{ flex: 1, minWidth: 0, paddingVertical: 2 }}>
+              {isToday && now.getHours() === hour && <NowLine now={now} c={c} />}
+              {items.map((t) => (
+                <EventBlock
+                  key={t.id}
+                  todo={t}
+                  color={colorOf(t)}
+                  onPress={onTodoPress}
+                  meta={`${formatTime(t.datetime, timeFormat === '24h')}${
+                    t.time_needed ? ` · ${t.time_needed}m` : ''
+                  }`}
+                  fonts={fonts}
+                />
+              ))}
             </View>
           </View>
         );
@@ -820,6 +1015,11 @@ function DayView({
 
 // ─── Todo Row (for month selected day list) ──────────────
 
+const BOX = 28;
+const POP = { duration: 220, dampingRatio: 0.5 };
+const SETTLE = { duration: 260, dampingRatio: 0.7 };
+
+// Same look as `TodoItem` on the Tasks screen, but completion flips this screen's local list.
 function TodoRow({
   todo,
   color,
@@ -834,66 +1034,84 @@ function TodoRow({
   timeFormat: '12h' | '24h';
   onPress: (id: string) => void;
   toggleComplete: (id: string) => void;
-  c: ReturnType<typeof useColors>;
+  c: Colors;
   fonts: ReturnType<typeof useFontFamily>;
 }) {
-  const isCompleted = todo.status === 'completed';
-  const tone = itemTone(color, isCompleted, c);
+  const done = todo.status === 'completed';
+  const reduced = useReducedMotion();
+  const scale = useSharedValue(1);
+  const boxStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
+  const complete = () => {
+    if (!done) {
+      void playTing();
+      haptics.success();
+      if (!reduced) scale.set(withSequence(withSpring(1.25, POP), withSpring(1, SETTLE)));
+    }
+    toggleComplete(todo.id);
+  };
   return (
-    <View
+    <Card
+      padded={false}
       style={{
-        backgroundColor: tone.bg,
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 8,
-        marginBottom: 4,
-        paddingHorizontal: 2,
+        minHeight: 56,
+        marginBottom: space.sm,
+        paddingLeft: space.sm,
       }}>
-      <Pressable
+      <PressFeedback
         accessibilityRole="checkbox"
         accessibilityLabel={`Complete ${todo.name}`}
-        accessibilityState={{ checked: isCompleted }}
-        aria-checked={isCompleted}
-        onPress={() => {
-          if (!isCompleted) void playTing();
-          toggleComplete(todo.id);
-        }}
-        style={{ minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons
-          name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-          size={22}
-          color={isCompleted ? c.primary : tone.fg}
-        />
-      </Pressable>
-      <Pressable
+        accessibilityState={{ checked: done }}
+        onPress={complete}
+        style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+        <Animated.View
+          style={[
+            {
+              width: BOX,
+              height: BOX,
+              borderRadius: BOX / 2,
+              borderWidth: 2,
+              borderColor: color,
+              backgroundColor: done ? color : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            boxStyle,
+          ]}>
+          {done && <Ionicons name="checkmark" size={18} color={contrastText(color)} />}
+        </Animated.View>
+      </PressFeedback>
+      <PressFeedback
         accessibilityRole="button"
         accessibilityLabel={`Open ${todo.name}`}
         onPress={() => onPress(todo.id)}
         style={{
           flex: 1,
           minWidth: 0,
-          minHeight: 40,
+          minHeight: 56,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 8,
-          paddingVertical: 8,
-          paddingRight: 10,
+          gap: space.sm,
+          paddingVertical: space.md,
+          paddingLeft: space.xs,
+          paddingRight: space.lg,
         }}>
         <Text
           style={{
             flex: 1,
-            fontFamily: fonts.medium,
-            color: tone.fg,
-            textDecorationLine: isCompleted ? 'line-through' : 'none',
-            fontSize: 14,
-            lineHeight: 19,
+            fontFamily: fonts.bold,
+            ...type.body,
+            color: done ? c.onSurfaceVariant : c.onSurface,
+            textDecorationLine: done ? 'line-through' : 'none',
+            textDecorationColor: c.onSurfaceVariant,
           }}>
           {todo.name}
         </Text>
-        <Text style={{ fontFamily: fonts.regular, color: tone.fg, fontSize: 12 }}>
+        <Text style={{ fontFamily: fonts.regular, color: c.onSurfaceVariant, ...type.caption }}>
           {formatTime(todo.datetime, timeFormat === '24h')}
         </Text>
-      </Pressable>
-    </View>
+      </PressFeedback>
+    </Card>
   );
 }
