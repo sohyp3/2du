@@ -12,12 +12,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Markdown from 'react-native-markdown-display';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { buildMarkdownStyles } from '@/utils/markdownStyles';
 import { useNoteStore } from '@/store/noteStore';
 import { PressFeedback as Pressable } from '@/components/PressFeedback';
-import { DISPLAY_FONT_SEMI, useColors, useFontFamily } from '@/utils/theme';
+import { NOTE_PAPERS, type NotePaper } from '@/store/themeStore';
+import { contrastText } from '@/utils/palette';
+import {
+  DISPLAY_FONT,
+  radius,
+  space,
+  type,
+  useColors,
+  useFontFamily,
+  useScheme,
+} from '@/utils/theme';
 
-const paper = { surface: '#f1eadc', ink: '#342c20', muted: '#695d49', rule: '#d8cfbd' };
+const SAVED_HOLD_MS = 1600;
 
 export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,6 +48,15 @@ export default function NoteScreen() {
   const togglePin = useNoteStore((s) => s.togglePin);
 
   const note = notes.find((n) => n.id === id);
+  const scheme = useScheme();
+  // Same tint as the note's card in the grid: by creation order, rotating through four.
+  const paperIndex = useMemo(() => {
+    const order = [...notes]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+      .findIndex((n) => n.id === id);
+    return Math.max(0, order) % 4;
+  }, [notes, id]);
+  const tone = NOTE_PAPERS[scheme][paperIndex];
 
   const isNew = note?.title === 'Untitled' && !note?.content;
   const [title, setTitle] = useState(isNew ? '' : (note?.title ?? ''));
@@ -39,7 +64,7 @@ export default function NoteScreen() {
   const [editing, setEditing] = useState(!note?.content);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleRef = useRef<TextInput>(null);
-  const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved');
+  const [saveState, setSaveState] = useState<SaveState>('saved');
 
   const draft = useRef({ title, content, dirty: false, deleted: false });
   const flush = useCallback(async () => {
@@ -112,7 +137,13 @@ export default function NoteScreen() {
   }, [id, deleteNote, router]);
 
   // Stable styles so the rendered markdown is not rebuilt on unrelated re-renders.
-  const markdownStyles = useMemo(() => buildMarkdownStyles(paper, fonts), [fonts]);
+  const markdownStyles = useMemo(() => {
+    const base = buildMarkdownStyles(
+      { ink: tone.ink, muted: tone.muted, rule: tone.outline, link: tone.accent },
+      fonts
+    );
+    return { ...base, body: { ...base.body, ...type.body, lineHeight: 26 } };
+  }, [tone, fonts]);
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;
   const back = async () => {
     if (await flush()) {
@@ -141,46 +172,47 @@ export default function NoteScreen() {
     );
   }
 
+  const roundButton = {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tone.outline,
+  } as const;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: c.surface }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: tone.surface }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'web' ? undefined : 'padding'}>
         <View
           style={{
             width: '100%',
-            maxWidth: 1040,
+            maxWidth: 820,
             alignSelf: 'center',
-            paddingHorizontal: 20,
-            paddingVertical: 16,
+            paddingHorizontal: space.lg,
+            paddingVertical: space.md,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 8,
+            gap: space.sm,
           }}>
           <Pressable
+            haptic="tap"
             accessibilityLabel="Back to notes"
             accessibilityRole="button"
             onPress={back}
-            style={{
-              minHeight: 48,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              paddingRight: 12,
-            }}>
-            <Ionicons name="arrow-back" size={20} color={c.onSurfaceVariant} />
-            <Text style={{ color: c.onSurface, fontFamily: fonts.medium, fontSize: 14 }}>
-              Notes
-            </Text>
+            style={roundButton}>
+            <Ionicons name="arrow-back" size={20} color={tone.ink} />
           </Pressable>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
             <View
               style={{
                 flexDirection: 'row',
                 padding: 4,
-                borderRadius: 10,
-                backgroundColor: c.surfaceContainerHigh,
+                borderRadius: radius.pill,
+                backgroundColor: tone.outline,
               }}>
               {[
                 { label: 'Write', edit: true },
@@ -188,6 +220,7 @@ export default function NoteScreen() {
               ].map((mode) => (
                 <Pressable
                   key={mode.label}
+                  haptic="select"
                   accessibilityRole="button"
                   accessibilityLabel={mode.edit ? 'Edit note' : 'Preview note'}
                   accessibilityState={{ selected: editing === mode.edit }}
@@ -195,18 +228,17 @@ export default function NoteScreen() {
                     if (await flush()) setEditing(mode.edit);
                   }}
                   style={{
-                    minHeight: 40,
-                    paddingHorizontal: 12,
+                    minHeight: 36,
+                    paddingHorizontal: 14,
                     justifyContent: 'center',
-                    borderRadius: 7,
-                    backgroundColor:
-                      editing === mode.edit ? c.surfaceContainerHighest : 'transparent',
+                    borderRadius: radius.pill,
+                    backgroundColor: editing === mode.edit ? tone.surface : 'transparent',
                   }}>
                   <Text
                     style={{
-                      color: editing === mode.edit ? c.onSurface : c.onSurfaceVariant,
-                      fontFamily: fonts.medium,
-                      fontSize: 13,
+                      color: editing === mode.edit ? tone.ink : tone.muted,
+                      fontFamily: fonts.bold,
+                      ...type.label,
                     }}>
                     {mode.label}
                   </Text>
@@ -214,33 +246,25 @@ export default function NoteScreen() {
               ))}
             </View>
             <Pressable
-              accessibilityLabel="Pin note"
+              haptic="tap"
+              accessibilityLabel={note.pinned ? 'Unpin note' : 'Pin note'}
               accessibilityRole="button"
               accessibilityState={{ selected: note.pinned }}
               onPress={() => togglePin(id!)}
-              style={{
-                minWidth: 44,
-                minHeight: 48,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
+              style={roundButton}>
               <Ionicons
                 name={note.pinned ? 'pin' : 'pin-outline'}
                 size={19}
-                color={note.pinned ? c.primary : c.onSurfaceVariant}
+                color={note.pinned ? tone.accent : tone.ink}
               />
             </Pressable>
             <Pressable
+              haptic="tap"
               accessibilityLabel="Delete note"
               accessibilityRole="button"
               onPress={handleDelete}
-              style={{
-                minWidth: 44,
-                minHeight: 48,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-              <Ionicons name="trash-outline" size={19} color={c.onSurfaceVariant} />
+              style={roundButton}>
+              <Ionicons name="trash-outline" size={19} color={tone.ink} />
             </Pressable>
           </View>
         </View>
@@ -249,7 +273,12 @@ export default function NoteScreen() {
             accessibilityRole="button"
             accessibilityLabel="Retry saving note"
             onPress={flush}
-            style={{ padding: 16, backgroundColor: c.errorContainer }}>
+            style={{
+              marginHorizontal: space.lg,
+              padding: space.lg,
+              borderRadius: radius.md,
+              backgroundColor: c.errorContainer,
+            }}>
             <Text accessibilityRole="alert" style={{ color: c.onErrorContainer }}>
               {saveError} · Retry saving
             </Text>
@@ -258,152 +287,120 @@ export default function NoteScreen() {
         <ScrollView
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 }}>
+          contentContainerStyle={{ paddingHorizontal: space.xl, paddingBottom: 40, flexGrow: 1 }}>
           <View
             testID="note-page"
             style={{
               width: '100%',
-              maxWidth: 960,
+              maxWidth: 700,
               alignSelf: 'center',
               flex: 1,
-              backgroundColor: paper.surface,
-              borderRadius: 16,
-              paddingHorizontal: 24,
-              paddingTop: 28,
-              paddingBottom: 24,
+              paddingTop: space.md,
             }}>
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: 12,
-                borderBottomWidth: 1,
-                borderBottomColor: paper.rule,
-                paddingBottom: 18,
-                marginBottom: 24,
+                gap: space.md,
+                minHeight: 28,
+                marginBottom: space.lg,
               }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons
-                  name={editing ? 'create-outline' : 'book-outline'}
-                  size={17}
-                  color={paper.muted}
-                />
-                <Text style={{ color: paper.muted, fontFamily: fonts.medium, fontSize: 12 }}>
-                  {editing ? 'A little room to think' : 'Your notebook'}
-                </Text>
-              </View>
-              <Text
-                accessibilityLiveRegion="polite"
-                style={{
-                  color: saveState === 'error' ? '#9c302b' : paper.muted,
-                  fontFamily: fonts.regular,
-                  fontSize: 12,
-                }}>
-                {saveState === 'saving'
-                  ? 'Saving…'
-                  : saveState === 'dirty'
-                    ? 'Unsaved changes'
-                    : saveState === 'error'
-                      ? 'Not saved'
-                      : 'Saved on this device'}
+              <Text style={{ color: tone.muted, fontFamily: fonts.medium, ...type.caption }}>
+                {editing ? 'A little room to think' : 'Your notebook'}
               </Text>
+              <SaveIndicator state={saveState} tone={tone} />
             </View>
-            <View style={{ width: '100%', maxWidth: 700, alignSelf: 'center', flex: 1 }}>
-              {editing ? (
-                <TextInput
-                  ref={titleRef}
-                  value={title}
-                  onChangeText={handleTitleChange}
-                  autoFocus={isNew}
-                  accessibilityLabel="Note title"
-                  placeholder="Give this thought a title"
-                  placeholderTextColor={paper.muted}
-                  multiline
-                  maxLength={500}
-                  style={{
-                    fontFamily: DISPLAY_FONT_SEMI,
-                    fontSize: 34,
-                    lineHeight: 43,
-                    color: paper.ink,
-                    padding: 0,
-                    marginBottom: 20,
-                  }}
-                />
-              ) : (
-                <Text
-                  accessibilityRole="header"
-                  style={{
-                    fontFamily: DISPLAY_FONT_SEMI,
-                    fontSize: 34,
-                    lineHeight: 43,
-                    color: paper.ink,
-                    marginBottom: 20,
-                  }}>
-                  {title || 'Untitled'}
+            {editing ? (
+              <TextInput
+                ref={titleRef}
+                value={title}
+                onChangeText={handleTitleChange}
+                autoFocus={isNew}
+                accessibilityLabel="Note title"
+                placeholder="Give this thought a title"
+                placeholderTextColor={tone.muted}
+                multiline
+                maxLength={500}
+                style={{
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: 28,
+                  lineHeight: 34,
+                  letterSpacing: -0.5,
+                  color: tone.ink,
+                  padding: 0,
+                  marginBottom: space.lg,
+                }}
+              />
+            ) : (
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: 28,
+                  lineHeight: 34,
+                  letterSpacing: -0.5,
+                  color: tone.ink,
+                  marginBottom: space.lg,
+                }}>
+                {title || 'Untitled'}
+              </Text>
+            )}
+            {editing ? (
+              <TextInput
+                value={content}
+                onChangeText={handleContentChange}
+                accessibilityLabel="Note content"
+                placeholder="Start anywhere. A sentence, a list, a whole new idea…"
+                placeholderTextColor={tone.muted}
+                multiline
+                autoFocus={!isNew}
+                textAlignVertical="top"
+                style={{
+                  flex: 1,
+                  minHeight: 360,
+                  fontFamily: fonts.regular,
+                  ...type.body,
+                  lineHeight: 26,
+                  color: tone.ink,
+                  padding: 0,
+                }}
+              />
+            ) : content ? (
+              <Markdown style={markdownStyles}>{content}</Markdown>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setEditing(true)}
+                style={{
+                  minHeight: 240,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: space.sm,
+                }}>
+                <Text style={{ fontSize: 44, lineHeight: 54 }}>✍️</Text>
+                <Text style={{ fontFamily: DISPLAY_FONT, color: tone.ink, ...type.title }}>
+                  A blank page, a fresh start.
                 </Text>
-              )}
-              {editing ? (
-                <TextInput
-                  value={content}
-                  onChangeText={handleContentChange}
-                  accessibilityLabel="Note content"
-                  placeholder="Start anywhere. A sentence, a list, a whole new idea…"
-                  placeholderTextColor={paper.muted}
-                  multiline
-                  autoFocus={!isNew}
-                  textAlignVertical="top"
-                  style={{
-                    flex: 1,
-                    minHeight: 360,
-                    fontFamily: fonts.regular,
-                    fontSize: 17,
-                    lineHeight: 29,
-                    color: paper.ink,
-                    padding: 0,
-                  }}
-                />
-              ) : content ? (
-                <Markdown style={markdownStyles}>{content}</Markdown>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setEditing(true)}
-                  style={{
-                    minHeight: 240,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}>
-                  <Ionicons name="create-outline" size={26} color={paper.muted} />
-                  <Text
-                    style={{
-                      fontFamily: DISPLAY_FONT_SEMI,
-                      color: paper.ink,
-                      fontSize: 25,
-                    }}>
-                    A blank page, a fresh start.
-                  </Text>
-                  <Text style={{ fontFamily: fonts.regular, color: paper.muted, fontSize: 14 }}>
-                    Tap here to start writing.
-                  </Text>
-                </Pressable>
-              )}
-            </View>
+                <Text style={{ fontFamily: fonts.regular, color: tone.muted, ...type.label }}>
+                  Tap here to start writing.
+                </Text>
+              </Pressable>
+            )}
             <View
               style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
-                gap: 12,
+                gap: space.md,
                 borderTopWidth: 1,
-                borderTopColor: paper.rule,
-                paddingTop: 18,
-                marginTop: 28,
+                borderTopColor: tone.outline,
+                paddingTop: space.lg,
+                marginTop: space.xl,
               }}>
-              <Text style={{ color: paper.muted, fontFamily: fonts.regular, fontSize: 12 }}>
+              <Text style={{ color: tone.muted, fontFamily: fonts.regular, ...type.caption }}>
                 {words} {words === 1 ? 'word' : 'words'}
               </Text>
-              <Text style={{ color: paper.muted, fontFamily: fonts.regular, fontSize: 12 }}>
+              <Text style={{ color: tone.muted, fontFamily: fonts.regular, ...type.caption }}>
                 {editing ? 'Markdown supported' : `${Math.max(1, Math.ceil(words / 200))} min read`}
               </Text>
             </View>
@@ -411,5 +408,90 @@ export default function NoteScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
+
+/**
+ * Quiet while you type; a small success pill fades in when a save lands and fades out again.
+ * Web uses the `note-saved` keyframes in global.css, native a Reanimated opacity.
+ */
+function SaveIndicator({ state, tone }: { state: SaveState; tone: NotePaper }) {
+  const c = useColors(),
+    fonts = useFontFamily();
+  const reduced = useReducedMotion();
+  const [phase, setPhase] = useState<'hidden' | 'in' | 'out'>('hidden');
+  const prev = useRef(state);
+  const opacity = useSharedValue(0);
+  const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = state;
+    if (state !== 'saved' || was !== 'saving') {
+      if (state !== 'saved') setPhase('hidden');
+      return;
+    }
+    setPhase('in');
+    opacity.value = withTiming(1, { duration: reduced ? 0 : 180 });
+    const hold = setTimeout(() => {
+      setPhase('out');
+      opacity.value = withTiming(0, { duration: reduced ? 0 : 200 });
+    }, SAVED_HOLD_MS);
+    const done = setTimeout(() => setPhase('hidden'), SAVED_HOLD_MS + 220);
+    return () => {
+      clearTimeout(hold);
+      clearTimeout(done);
+    };
+  }, [state, reduced, opacity]);
+
+  if (state === 'error') {
+    return (
+      <View
+        accessibilityLiveRegion="polite"
+        style={{
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: radius.pill,
+          backgroundColor: c.errorContainer,
+        }}>
+        <Text style={{ color: c.onErrorContainer, fontFamily: fonts.bold, ...type.caption }}>
+          Not saved
+        </Text>
+      </View>
+    );
+  }
+  if (state === 'saving' || state === 'dirty') {
+    return (
+      <Text
+        accessibilityLiveRegion="polite"
+        style={{ color: tone.muted, fontFamily: fonts.regular, ...type.caption }}>
+        {state === 'saving' ? 'Saving…' : 'Unsaved changes'}
+      </Text>
+    );
+  }
+  if (phase === 'hidden') return null;
+  const web = Platform.OS === 'web';
+  return (
+    <Animated.View
+      testID={web ? (phase === 'out' ? 'note-saved-out' : 'note-saved') : undefined}
+      accessibilityLiveRegion="polite"
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: radius.pill,
+          backgroundColor: c.success,
+        },
+        web ? null : fade,
+      ]}>
+      <Ionicons name="checkmark" size={13} color={contrastText(c.success)} />
+      <Text style={{ color: contrastText(c.success), fontFamily: fonts.bold, ...type.caption }}>
+        Saved
+      </Text>
+    </Animated.View>
   );
 }

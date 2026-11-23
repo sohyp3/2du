@@ -1,22 +1,29 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { useNoteStore } from '@/store/noteStore';
 import { useThemeStore, NOTE_PAPERS, type NotePaper } from '@/store/themeStore';
 import { Note } from '@/db/notes';
-import { DISPLAY_FONT_SEMI, useColors, useFontFamily, useScheme } from '@/utils/theme';
+import {
+  DISPLAY_FONT_SEMI,
+  radius,
+  space,
+  type,
+  useColors,
+  useFontFamily,
+  useScheme,
+} from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
-import { HeaderAction } from '@/components/ScreenHeader';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { Chip } from '@/components/Chip';
 const SAVED_ENTER = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 const SAVED_EXIT = FadeOut.duration(140).reduceMotion(ReduceMotion.System);
 
 const noteKey = (n: Note) => n.id;
 
 export default function NotesScreen() {
-  const insets = useSafeAreaInsets();
   const notes = useNoteStore((s) => s.notes),
     isLoading = useNoteStore((s) => s.isLoading),
     error = useNoteStore((s) => s.error),
@@ -98,75 +105,46 @@ export default function NotesScreen() {
           maxWidth: 1280,
           alignSelf: 'center',
           paddingHorizontal: desktop ? 32 : 12,
-          paddingTop: Platform.OS === 'web' ? 24 : insets.top + 12,
           paddingBottom: 40,
+          flexGrow: 1,
         }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: 4 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 8,
-              }}>
-              <Text
-                accessibilityRole="header"
-                style={{
-                  color: c.onSurface,
-                  fontFamily: DISPLAY_FONT_SEMI,
-                  fontSize: desktop ? 30 : 24,
-                  flexShrink: 1,
-                  letterSpacing: -0.5,
-                }}>
-                Notes & thoughts<Text style={{ color: c.primary }}>.</Text>
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ScreenHeader
+              emoji="💭"
+              title="Notes"
+              showSettings
+              subtitle={
+                showGreeting
+                  ? 'Good ideas start as little thoughts. Make yourself at home.'
+                  : undefined
+              }
+              actions={
                 <PressFeedback
+                  haptic="tap"
                   accessibilityRole="button"
                   accessibilityLabel="New note"
                   onPress={handleAdd}
                   style={{
                     flexDirection: 'row',
-                    gap: 10,
+                    gap: space.sm,
                     alignItems: 'center',
-                    minHeight: 40,
-                    paddingHorizontal: desktop ? 14 : 0,
-                    width: desktop ? undefined : 40,
-                    flexShrink: 0,
                     justifyContent: 'center',
-                    borderRadius: 12,
+                    height: 44,
+                    paddingHorizontal: desktop ? space.lg : 0,
+                    width: desktop ? undefined : 44,
+                    borderRadius: radius.pill,
                     backgroundColor: c.primary,
                   }}>
-                  <Ionicons name="add" size={20} color={c.onPrimary} />
+                  <Ionicons name="add" size={22} color={c.onPrimary} />
                   {desktop && (
-                    <Text style={{ color: c.onPrimary, fontFamily: fonts.medium, fontSize: 14 }}>
+                    <Text style={{ color: c.onPrimary, fontFamily: fonts.bold, ...type.label }}>
                       Write a note
                     </Text>
                   )}
                 </PressFeedback>
-                {!desktop && (
-                  <HeaderAction
-                    icon="settings-outline"
-                    label="Settings"
-                    onPress={() => router.push('/settings')}
-                  />
-                )}
-              </View>
-            </View>
-            {showGreeting && (
-              <Text
-                style={{
-                  color: c.onSurfaceVariant,
-                  fontFamily: fonts.regular,
-                  fontSize: 13,
-                  lineHeight: 18,
-                  marginBottom: 12,
-                }}>
-                Good ideas start as little thoughts. Make yourself at home.
-              </Text>
-            )}
+              }
+            />
             <NoteComposer
               showGreeting={showGreeting}
               desktop={desktop}
@@ -197,48 +175,12 @@ export default function NotesScreen() {
                 marginBottom: 4,
               }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {[
-                  { label: 'All notes', pinned: false },
-                  { label: 'Pinned', pinned: true },
-                ].map((tab) => (
-                  <PressFeedback
-                    key={tab.label}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: pinnedOnly === tab.pinned }}
-                    onPress={() => setPinnedOnly(tab.pinned)}
-                    style={{
-                      flexDirection: 'row',
-                      gap: 8,
-                      alignItems: 'center',
-                      minHeight: 34,
-                      paddingHorizontal: 12,
-                      borderRadius: 8,
-                      backgroundColor:
-                        pinnedOnly === tab.pinned ? c.surfaceContainerHigh : 'transparent',
-                    }}>
-                    {tab.pinned && (
-                      <Ionicons name="pin-outline" size={14} color={c.onSurfaceVariant} />
-                    )}
-                    <Text
-                      style={{
-                        color: pinnedOnly === tab.pinned ? c.onSurface : c.onSurfaceVariant,
-                        fontFamily: fonts.medium,
-                        fontSize: 13,
-                      }}>
-                      {tab.label}
-                    </Text>
-                    {!tab.pinned && (
-                      <Text
-                        style={{
-                          color: c.onSurfaceVariant,
-                          fontFamily: fonts.regular,
-                          fontSize: 12,
-                        }}>
-                        {notes.length}
-                      </Text>
-                    )}
-                  </PressFeedback>
-                ))}
+                <Chip
+                  label={`All notes · ${notes.length}`}
+                  selected={!pinnedOnly}
+                  onPress={() => setPinnedOnly(false)}
+                />
+                <Chip label="📌 Pinned" selected={pinnedOnly} onPress={() => setPinnedOnly(true)} />
               </View>
               <View
                 style={{
@@ -246,8 +188,8 @@ export default function NotesScreen() {
                   alignItems: 'center',
                   gap: 10,
                   backgroundColor: c.surfaceContainer,
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
+                  borderRadius: radius.pill,
+                  paddingHorizontal: space.lg,
                   minHeight: 44,
                   flexGrow: desktop ? 0 : 1,
                   minWidth: desktop ? 240 : 180,
@@ -292,27 +234,28 @@ export default function NotesScreen() {
           </View>
         }
         ListEmptyComponent={
-          <View style={{ padding: 32, alignItems: 'center' }}>
+          <View style={{ padding: space.xxl, alignItems: 'center' }}>
+            <Text style={{ fontSize: 56, lineHeight: 68 }}>✍️</Text>
             <Text
               style={{
                 color: c.onSurface,
                 fontFamily: DISPLAY_FONT_SEMI,
-                fontSize: 26,
+                ...type.title,
+                marginTop: space.sm,
                 textAlign: 'center',
               }}>
               {query
                 ? 'No thoughts found.'
                 : pinnedOnly
                   ? 'Keep a good thought close.'
-                  : 'Your next idea starts here.'}
+                  : 'Jot something down'}
             </Text>
             <Text
               style={{
                 color: c.onSurfaceVariant,
                 fontFamily: fonts.regular,
-                fontSize: 14,
-                lineHeight: 23,
-                marginTop: 10,
+                ...type.label,
+                marginTop: space.sm,
                 maxWidth: 360,
                 textAlign: 'center',
               }}>
@@ -320,8 +263,29 @@ export default function NotesScreen() {
                 ? 'Try another word, or clear your search.'
                 : pinnedOnly
                   ? 'Pin a note to find it here whenever you need it.'
-                  : 'Use the space above for a quick thought, or write a note to explore something bigger.'}
+                  : 'A quick thought above, or a whole note for something bigger.'}
             </Text>
+            {!query && (
+              <PressFeedback
+                haptic="tap"
+                accessibilityRole="button"
+                onPress={handleAdd}
+                style={{
+                  marginTop: space.lg,
+                  minHeight: 48,
+                  paddingHorizontal: space.xl,
+                  borderRadius: radius.pill,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: space.sm,
+                  backgroundColor: c.primary,
+                }}>
+                <Ionicons name="create-outline" size={20} color={c.onPrimary} />
+                <Text style={{ fontFamily: fonts.bold, ...type.body, color: c.onPrimary }}>
+                  Write a note
+                </Text>
+              </PressFeedback>
+            )}
           </View>
         }
       />
@@ -383,8 +347,8 @@ const NoteComposer = memo(function NoteComposer({
     <View
       style={{
         backgroundColor: c.surfaceContainer,
-        borderRadius: 16,
-        padding: desktop ? 16 : 14,
+        borderRadius: radius.lg,
+        padding: desktop ? space.lg : 14,
         marginBottom: 12,
         flexDirection: desktop ? 'row' : 'column',
         gap: desktop ? 20 : 6,
@@ -469,8 +433,8 @@ const NoteComposer = memo(function NoteComposer({
             onPress={saveThought}
             style={{
               minHeight: 36,
-              paddingHorizontal: 12,
-              borderRadius: 8,
+              paddingHorizontal: space.lg,
+              borderRadius: radius.pill,
               backgroundColor: c.primary,
               opacity: !draft.trim() || saving ? 0.5 : 1,
               flexDirection: 'row',
@@ -507,72 +471,73 @@ const NoteCard = memo(function NoteCard({
     day: 'numeric',
   });
   return (
-    <View style={{ flex: 1, maxWidth: `${100 / columns}%`, padding: 4 }}>
+    <View style={{ flex: 1, maxWidth: `${100 / columns}%`, padding: 6 }}>
       <View
         testID="note-card"
         style={{
           flex: 1,
-          minHeight: 120,
+          minHeight: 140,
           backgroundColor: tone.surface,
-          borderRadius: 14,
+          borderRadius: radius.lg,
         }}>
         <PressFeedback
           accessibilityRole="button"
           accessibilityLabel={`Open note ${note.title}`}
           onPress={() => router.push(`/note/${note.id}`)}
-          style={{ flex: 1, padding: 12, paddingBottom: 4 }}>
+          style={{ flex: 1, padding: space.lg, paddingRight: 44, paddingBottom: space.xs }}>
           <Text
             numberOfLines={2}
             style={{
               color: tone.ink,
-              fontFamily: fonts.medium,
-              fontSize: 15,
-              lineHeight: 20,
-              marginBottom: 4,
+              fontFamily: fonts.bold,
+              fontSize: 16,
+              lineHeight: 21,
+              marginBottom: 6,
             }}>
             {note.title}
           </Text>
           <Text
-            numberOfLines={4}
+            numberOfLines={6}
             style={{
               color: tone.muted,
               fontFamily: fonts.regular,
-              fontSize: 12,
-              lineHeight: 17,
+              fontSize: 13,
+              lineHeight: 19,
             }}>
             {preview || 'An idea with room to grow. Open it and keep going.'}
           </Text>
         </PressFeedback>
-        <View
+        <Text
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingLeft: 12,
-            paddingRight: 2,
-            paddingBottom: 2,
-            gap: 8,
+            color: tone.muted,
+            fontFamily: fonts.medium,
+            ...type.caption,
+            paddingHorizontal: space.lg,
+            paddingBottom: space.md,
           }}>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: tone.accent }} />
-            <Text style={{ color: tone.muted, fontFamily: fonts.regular, fontSize: 11 }}>
-              {date}
-            </Text>
-          </View>
-          <PressFeedback
-            accessibilityRole="button"
-            accessibilityLabel={`${note.pinned ? 'Unpin' : 'Pin'} note ${note.title}`}
-            accessibilityState={{ selected: note.pinned }}
-            onPress={() => togglePin(note.id)}
-            style={{
-              minHeight: 36,
-              minWidth: 36,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Ionicons name={note.pinned ? 'pin' : 'pin-outline'} size={15} color={tone.accent} />
-          </PressFeedback>
-        </View>
+          {date}
+        </Text>
+        <PressFeedback
+          haptic="tap"
+          accessibilityRole="button"
+          accessibilityLabel={`${note.pinned ? 'Unpin' : 'Pin'} note ${note.title}`}
+          accessibilityState={{ selected: note.pinned }}
+          onPress={() => togglePin(note.id)}
+          style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            width: 40,
+            height: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          {note.pinned ? (
+            <Text style={{ fontSize: 18, lineHeight: 22 }}>📌</Text>
+          ) : (
+            <Ionicons name="pin-outline" size={16} color={tone.muted} />
+          )}
+        </PressFeedback>
       </View>
     </View>
   );

@@ -66,12 +66,15 @@ textarea {
   transform: scale(0.97);
 }
 [data-testid='note-card'] {
-  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition:
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 @media (hover: hover) and (pointer: fine) {
   [data-testid='note-card']:hover,
   [data-testid='note-card']:focus-within {
     transform: translateY(-4px);
+    box-shadow: 0 12px 28px var(--c-shadow);
   }
   [data-testid='note-card'] [role='button']:hover {
     opacity: 1;
@@ -88,6 +91,14 @@ textarea {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+[data-testid='note-saved-out'] {
+  animation: note-fade-out 200ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+@keyframes note-fade-out {
+  to {
+    opacity: 0;
   }
 }
 @keyframes note-confirm-reduced {
