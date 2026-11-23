@@ -4,7 +4,7 @@ import { GoalPicker } from '@/components/GoalPicker';
 import { useGoalStore } from '@/store/goalStore';
 import { useCalendarsStore } from '@/store/calendarsStore';
 import { useState, useMemo, useCallback } from 'react';
-import { Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useTodoStore } from '@/store/todoStore';
@@ -14,6 +14,7 @@ import { space, type, useColors, useFontFamily } from '@/utils/theme';
 import {
   Field,
   FormButton,
+  FormCard,
   FormFooter,
   FormInput,
   SwitchRow,
@@ -103,63 +104,67 @@ export default function AddTodoScreen() {
           paddingTop: space.lg,
           paddingBottom: space.xl,
         }}>
-        <FormInput
-          style={{ fontSize: 18, minHeight: 56, marginBottom: space.lg }}
-          placeholder="What do you need to do?"
-          value={name}
-          onChangeText={setName}
-          autoFocus
-          returnKeyType="next"
-          accessibilityLabel="Task name"
-        />
-        <Field label="Calendar">
-          <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
-        </Field>
-        {hasGoals && (
-          <Field label="Goal">
-            <GoalPicker value={goalId} onChange={setGoalId} />
-          </Field>
-        )}
-        <Field label="Notes">
+        <FormCard title="What">
           <FormInput
-            placeholder="Add details"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-          />
-        </Field>
-        <Text
-          style={{
-            fontFamily: fonts.medium,
-            color: c.onSurfaceVariant,
-            ...type.label,
-            marginBottom: space.sm,
-          }}>
-          Priority
-        </Text>
-        <PriorityPicker value={priority} onChange={setPriority} />
-        <Field label="Date">
-          <DatePicker value={selectedDate} onChange={setSelectedDate} />
-        </Field>
-        <Field label="Time">
-          <TimeStepper
-            hour={hour}
-            minute={minute}
-            onChange={(h, m) => {
-              setHour(h);
-              setMinute(m);
+            style={{
+              ...type.title,
+              fontFamily: fonts.medium,
+              minHeight: 56,
+              marginBottom: space.lg,
             }}
+            placeholder="What do you need to do?"
+            value={name}
+            onChangeText={setName}
+            autoFocus
+            returnKeyType="next"
+            accessibilityLabel="Task name"
           />
-        </Field>
-        <Field label="Time needed (minutes)">
-          <FormInput
-            placeholder="e.g. 30"
-            value={timeNeeded}
-            onChangeText={(v) => setTimeNeeded(v.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-          />
-        </Field>
-        <SwitchRow label="Remind me" value={remindMe} onValueChange={setRemindMe} />
+          <Field label="Notes">
+            <FormInput
+              placeholder="Add details"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+            />
+          </Field>
+        </FormCard>
+        <FormCard title="When">
+          <Field label="Date">
+            <DatePicker value={selectedDate} onChange={setSelectedDate} />
+          </Field>
+          <Field label="Time">
+            <TimeStepper
+              hour={hour}
+              minute={minute}
+              onChange={(h, m) => {
+                setHour(h);
+                setMinute(m);
+              }}
+            />
+          </Field>
+          <Field label="Time needed (minutes)">
+            <FormInput
+              placeholder="e.g. 30"
+              value={timeNeeded}
+              onChangeText={(v) => setTimeNeeded(v.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+            />
+          </Field>
+          <SwitchRow label="Remind me" value={remindMe} onValueChange={setRemindMe} />
+        </FormCard>
+        <FormCard title="Where">
+          <Field label="Calendar">
+            <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
+          </Field>
+          {hasGoals && (
+            <Field label="Goal">
+              <GoalPicker value={goalId} onChange={setGoalId} />
+            </Field>
+          )}
+          <Field label="Priority">
+            <PriorityPicker value={priority} onChange={setPriority} />
+          </Field>
+        </FormCard>
       </ScrollView>
       <FormFooter>
         <FormButton label="Save task" onPress={handleSave} disabled={!canSave} />

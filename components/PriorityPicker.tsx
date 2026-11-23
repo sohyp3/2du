@@ -1,6 +1,8 @@
 import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Priority } from '@/db/todos';
+import type { ThemeColors } from '@/store/themeStore';
+import { contrastText, mix } from '@/utils/palette';
 import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from './PressFeedback';
 export const PRIORITIES: { key: Priority; label: string }[] = [
@@ -8,6 +10,20 @@ export const PRIORITIES: { key: Priority; label: string }[] = [
   { key: 'moderate', label: 'Normal' },
   { key: 'low', label: 'Can wait' },
 ];
+
+const TONE: Record<Priority, keyof ThemeColors> = {
+  urgent: 'error',
+  moderate: 'warning',
+  low: 'outline',
+};
+
+const ICON: Record<Priority, keyof typeof Ionicons.glyphMap> = {
+  urgent: 'flag',
+  moderate: 'remove',
+  low: 'time-outline',
+};
+
+/** Three pills, each in its priority's colour: a soft fill until chosen, then solid. */
 export function PriorityPicker({
   value,
   onChange,
@@ -19,39 +35,37 @@ export function PriorityPicker({
 }) {
   const c = useColors(),
     fonts = useFontFamily();
-  // One quiet track; colour appears only where it means something (a chosen Urgent).
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        padding: 3,
-        borderRadius: radius.md,
-        backgroundColor: c.surfaceContainer,
-        marginBottom: space.lg,
-      }}>
+    <View style={{ flexDirection: 'row', gap: space.sm }}>
       {PRIORITIES.map((p) => {
         const selected = value === p.key;
-        const ink = selected ? (p.key === 'urgent' ? c.error : c.onSurface) : c.onSurfaceVariant;
+        const tone = c[TONE[p.key]];
+        const bg = selected ? tone : mix(c.surface, tone, 0.18);
+        const ink = selected ? contrastText(tone) : c.onSurface;
         return (
           <PressFeedback
             key={p.key}
+            haptic="select"
             accessibilityRole="button"
             accessibilityLabel={`${p.label} priority`}
-            accessibilityState={{ selected }}
+            accessibilityState={{ selected, disabled }}
             disabled={disabled}
             onPress={() => onChange(p.key)}
             style={{
               flex: 1,
               minHeight: 44,
-              borderRadius: radius.sm + 1,
-              backgroundColor: selected ? c.surfaceContainerHighest : 'transparent',
+              paddingHorizontal: space.sm,
+              borderRadius: radius.pill,
+              backgroundColor: bg,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
             }}>
-            {p.key === 'urgent' && <Ionicons name="flag" size={12} color={ink} />}
-            <Text style={{ color: ink, fontFamily: fonts.medium, ...type.label }}>{p.label}</Text>
+            <Ionicons name={ICON[p.key]} size={14} color={selected ? ink : tone} />
+            <Text numberOfLines={1} style={{ color: ink, fontFamily: fonts.bold, ...type.label }}>
+              {p.label}
+            </Text>
           </PressFeedback>
         );
       })}

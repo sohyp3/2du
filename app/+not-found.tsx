@@ -1,26 +1,56 @@
-import { Link, Stack } from 'expo-router';
-
+import { Stack, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
-
-import { Container } from '@/components/Container';
+import { PressFeedback } from '@/components/PressFeedback';
+import { DISPLAY_FONT, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 
 export default function NotFoundScreen() {
+  const c = useColors(),
+    fonts = useFontFamily(),
+    router = useRouter();
   return (
-    <View className={styles.container}>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <Container>
-        <Text className={styles.title}>{"This screen doesn't exist."}</Text>
-        <Link href="/" className={styles.link}>
-          <Text className={styles.linkText}>Go to home screen!</Text>
-        </Link>
-      </Container>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: c.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: space.xl,
+        gap: space.md,
+      }}>
+      <Stack.Screen options={{ title: 'Nothing here' }} />
+      <Text style={{ fontSize: 64, lineHeight: 76 }} accessibilityElementsHidden>
+        🧭
+      </Text>
+      <Text
+        accessibilityRole="header"
+        style={{ fontFamily: DISPLAY_FONT, color: c.onSurface, ...type.display }}>
+        Nothing here
+      </Text>
+      <Text
+        style={{
+          fontFamily: fonts.regular,
+          color: c.onSurfaceVariant,
+          ...type.body,
+          textAlign: 'center',
+        }}>
+        {"This page doesn't exist."}
+      </Text>
+      <PressFeedback
+        haptic="tap"
+        accessibilityRole="link"
+        onPress={() => router.replace('/')}
+        style={{
+          marginTop: space.md,
+          minHeight: 52,
+          paddingHorizontal: space.xl,
+          borderRadius: radius.pill,
+          justifyContent: 'center',
+          backgroundColor: c.primary,
+        }}>
+        <Text style={{ fontFamily: fonts.bold, color: c.onPrimary, ...type.body }}>
+          Back to tasks
+        </Text>
+      </PressFeedback>
     </View>
   );
 }
-
-const styles = {
-  container: `flex flex-1 bg-white`,
-  title: `text-xl font-bold`,
-  link: `mt-4 pt-4`,
-  linkText: `text-base text-[#2e78b7]`,
-};

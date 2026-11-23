@@ -5,7 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusStore } from '@/store/focusStore';
-import { DISPLAY_FONT, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import {
+  DISPLAY_FONT,
+  DISPLAY_FONT_SEMI,
+  radius,
+  space,
+  type,
+  useColors,
+  useFontFamily,
+} from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
 import { playTing } from '@/utils/ting';
 import { formatClock, useRemaining } from '@/utils/clock';
@@ -58,21 +66,24 @@ function Countdown({ endsAt, minutes }: { endsAt: number; minutes: number }) {
   }, [over, endsAt]);
 
   const progress = minutes > 0 ? 1 - remaining / (minutes * 60_000) : 1;
-  const size = Math.min(96, Math.max(64, width * 0.2));
   return (
     <View style={{ alignItems: 'center', gap: space.xl }}>
-      <Clock ms={remaining} size={size} color={over ? c.primary : c.onSurface} />
+      <Clock ms={remaining} size={72} color={over ? c.primary : c.onSurface} />
+      {/* No react-native-svg in the app, so progress is a filling bar rather than a ring. */}
       <View
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
         style={{
-          width: Math.min(280, width - 96),
-          height: 3,
-          borderRadius: 2,
-          backgroundColor: c.surfaceContainerHigh,
+          width: Math.min(320, width - 96),
+          height: 12,
+          borderRadius: radius.pill,
+          backgroundColor: c.surfaceContainerLow,
           overflow: 'hidden',
         }}>
         <View
           style={{
-            height: 3,
+            height: 12,
+            borderRadius: radius.pill,
             width: `${Math.min(100, Math.max(0, progress * 100))}%`,
             backgroundColor: c.primary,
           }}
@@ -142,25 +153,53 @@ export default function FocusScreen() {
       accessibilityLabel={delta > 0 ? 'Add 5 minutes' : 'Remove 5 minutes'}
       onPress={() => adjust(delta)}
       style={{
-        minWidth: 72,
+        minWidth: 80,
         minHeight: 44,
-        borderRadius: radius.md,
-        paddingHorizontal: space.md,
+        borderRadius: radius.pill,
+        paddingHorizontal: space.lg,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: c.surfaceContainer,
+        backgroundColor: c.surfaceContainerLow,
       }}>
-      <Text style={{ fontFamily: fonts.medium, color: c.onSurface, ...type.label }}>
+      <Text style={{ fontFamily: fonts.bold, color: c.onSurface, ...type.label }}>
         {delta > 0 ? '+5 min' : '−5 min'}
       </Text>
     </PressFeedback>
+  );
+
+  const round = (
+    label: string,
+    icon: 'stop' | 'checkmark',
+    hint: string,
+    onPress: () => void,
+    primary: boolean
+  ) => (
+    <View style={{ alignItems: 'center', gap: space.sm }}>
+      <PressFeedback
+        haptic="tap"
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={hint}
+        onPress={onPress}
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: radius.pill,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: primary ? c.primary : c.surfaceContainerLow,
+        }}>
+        <Ionicons name={icon} size={32} color={primary ? c.onPrimary : c.onSurface} />
+      </PressFeedback>
+      <Text style={{ fontFamily: fonts.bold, color: c.onSurface, ...type.label }}>{label}</Text>
+    </View>
   );
 
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: c.surface,
+        backgroundColor: c.accentSoft,
         paddingTop: insets.top + space.sm,
         paddingBottom: insets.bottom + space.lg,
         paddingHorizontal: space.xl,
@@ -188,9 +227,9 @@ export default function FocusScreen() {
           numberOfLines={3}
           style={{
             textAlign: 'center',
-            fontFamily: fonts.medium,
+            fontFamily: DISPLAY_FONT_SEMI,
             color: c.onSurface,
-            fontSize: 20,
+            fontSize: 22,
             lineHeight: 28,
             writingDirection: 'auto',
           }}>
@@ -207,46 +246,9 @@ export default function FocusScreen() {
         </View>
       </View>
 
-      <View
-        style={{
-          flexDirection: 'row',
-          gap: space.md,
-          width: '100%',
-          maxWidth: 480,
-          alignSelf: 'center',
-        }}>
-        <PressFeedback
-          accessibilityRole="button"
-          accessibilityHint="Stops the timer and puts the task back"
-          onPress={cancel}
-          style={{
-            flex: 1,
-            minHeight: 56,
-            borderRadius: radius.lg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: c.surfaceContainerHighest,
-          }}>
-          <Text style={{ fontFamily: fonts.medium, color: c.onSurface, ...type.body }}>Cancel</Text>
-        </PressFeedback>
-        <PressFeedback
-          accessibilityRole="button"
-          accessibilityHint="Marks the task done"
-          onPress={done}
-          style={{
-            flex: 1,
-            minHeight: 56,
-            borderRadius: radius.lg,
-            flexDirection: 'row',
-            gap: space.sm,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: c.primary,
-          }}>
-          <Ionicons name="checkmark" size={20} color={c.onPrimary} />
-          <Text style={{ fontFamily: fonts.bold, color: c.onPrimary, ...type.body }}>Done</Text>
-        </PressFeedback>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.xxl * 1.5 }}>
+        {round('Stop', 'stop', 'Stops the timer and puts the task back', cancel, false)}
+        {round('Done', 'checkmark', 'Marks the task done', done, true)}
       </View>
     </View>
   );

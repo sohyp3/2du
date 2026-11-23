@@ -3,7 +3,8 @@ import { ActivityIndicator, Text, TextInput, View, type TextInputProps } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCalendarStore } from '@/store/calendarStore';
-import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import { DISPLAY_FONT_SEMI, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
+import { Card } from './Card';
 import { PressFeedback } from './PressFeedback';
 import { SettingsSwitch } from './settings/controls';
 
@@ -18,6 +19,27 @@ export function Field({ label, children }: { label: string; children: ReactNode 
       </Text>
       {children}
     </View>
+  );
+}
+
+/** A titled card that groups related fields in a task form ("What", "When", "Where"). The last
+ * field's bottom margin doubles as the card's bottom padding. */
+export function FormCard({ title, children }: { title: string; children: ReactNode }) {
+  const c = useColors();
+  return (
+    <Card style={{ marginBottom: space.lg, paddingBottom: 0 }}>
+      <Text
+        accessibilityRole="header"
+        style={{
+          fontFamily: DISPLAY_FONT_SEMI,
+          color: c.onSurface,
+          ...type.title,
+          marginBottom: space.md,
+        }}>
+        {title}
+      </Text>
+      {children}
+    </Card>
   );
 }
 

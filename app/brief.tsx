@@ -6,9 +6,10 @@ import { useBriefStore } from '@/store/briefStore';
 import { useSyncStore } from '@/store/syncStore';
 import { localDateKey } from '@/shared/localDate';
 import { isRtlText } from '@/shared/textDirection';
-import { useColors, useFontFamily } from '@/utils/theme';
+import { radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { buildMarkdownStyles } from '@/utils/markdownStyles';
 import { PressFeedback } from '@/components/PressFeedback';
+import { Card } from '@/components/Card';
 
 export default function BriefScreen() {
   const c = useColors(),
@@ -75,8 +76,15 @@ export default function BriefScreen() {
     <PressFeedback
       accessibilityRole="button"
       onPress={onPress}
-      style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
-      <Text style={{ color: c.primary, fontFamily: fonts.medium, fontSize: 14 }}>{label}</Text>
+      haptic="tap"
+      style={{
+        minHeight: 40,
+        justifyContent: 'center',
+        paddingHorizontal: space.lg,
+        borderRadius: radius.pill,
+        backgroundColor: c.accentSoft,
+      }}>
+      <Text style={{ color: c.primary, fontFamily: fonts.bold, ...type.label }}>{label}</Text>
     </PressFeedback>
   );
   const note = (text: string) => (
@@ -84,8 +92,7 @@ export default function BriefScreen() {
       style={{
         color: c.onSurfaceVariant,
         fontFamily: fonts.regular,
-        fontSize: 14,
-        lineHeight: 20,
+        ...type.body,
       }}>
       {text}
     </Text>
@@ -94,11 +101,11 @@ export default function BriefScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.surface }}
-      contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16 }}>
+      contentContainerStyle={{ paddingVertical: space.lg, paddingHorizontal: space.lg }}>
       <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center' }}>
         <View
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.medium, fontSize: 13 }}>
+          <Text style={{ color: c.onSurfaceVariant, fontFamily: fonts.bold, ...type.label }}>
             {shown?.date ?? localDateKey(new Date())}
           </Text>
           {busy ? (
@@ -108,16 +115,17 @@ export default function BriefScreen() {
           )}
         </View>
         {error && (
-          <Text style={{ color: c.error, fontFamily: fonts.regular, fontSize: 13, marginTop: 6 }}>
+          <Text style={{ color: c.error, fontFamily: fonts.regular, ...type.label, marginTop: 6 }}>
             {error}
           </Text>
         )}
         {shown ? (
-          <View style={{ marginTop: 8, direction: rtl ? 'rtl' : 'ltr' }}>
+          <Card
+            style={{ marginTop: space.md, paddingTop: space.xs, direction: rtl ? 'rtl' : 'ltr' }}>
             <Markdown style={markdownStyles}>{shown.content}</Markdown>
-          </View>
+          </Card>
         ) : (
-          <View style={{ marginTop: 16, gap: 8, alignItems: 'flex-start' }}>
+          <Card style={{ marginTop: space.md, gap: space.md, alignItems: 'flex-start' }}>
             {connected ? (
               <>
                 {note('No brief yet today.')}
@@ -131,35 +139,42 @@ export default function BriefScreen() {
                 )}
               </>
             )}
-          </View>
+          </Card>
         )}
         {earlier.length > 0 && (
-          <View style={{ marginTop: 28 }}>
-            <Text style={{ color: c.onSurface, fontFamily: fonts.medium, fontSize: 14 }}>
+          <Card style={{ marginTop: space.xl, paddingVertical: space.sm }}>
+            <Text
+              style={{
+                color: c.onSurfaceVariant,
+                fontFamily: fonts.bold,
+                ...type.label,
+                paddingTop: space.sm,
+              }}>
               Earlier
             </Text>
-            {earlier.map((b) => (
+            {earlier.map((b, i) => (
               <PressFeedback
                 key={b.id}
                 accessibilityRole="button"
+                accessibilityState={{ selected: picked === b.id }}
                 onPress={() => setPicked(b.id)}
                 style={{
                   minHeight: 44,
                   justifyContent: 'center',
-                  borderBottomWidth: 1,
-                  borderBottomColor: c.outlineVariant,
+                  borderTopWidth: i ? 1 : 0,
+                  borderTopColor: c.outlineVariant,
                 }}>
                 <Text
                   style={{
                     color: picked === b.id ? c.primary : c.onSurface,
-                    fontFamily: fonts.regular,
-                    fontSize: 14,
+                    fontFamily: picked === b.id ? fonts.bold : fonts.regular,
+                    ...type.body,
                   }}>
                   {b.date}
                 </Text>
               </PressFeedback>
             ))}
-          </View>
+          </Card>
         )}
       </View>
     </ScrollView>

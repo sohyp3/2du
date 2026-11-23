@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { getTodosForPick } from '@/db/todos';
 import { getSetting, setSetting } from '@/db/database';
 import { useGoalStore } from '@/store/goalStore';
@@ -18,6 +24,8 @@ import { getStartOfWeek } from '@/utils/dates';
 import { DISPLAY_FONT, radius, space, type, useColors, useFontFamily } from '@/utils/theme';
 import { PressFeedback } from '@/components/PressFeedback';
 import { Chip, Segmented } from '@/components/Chip';
+import { Card } from '@/components/Card';
+import * as haptics from '@/utils/haptics';
 
 const CHOICES: { label: string; minutes: number | null }[] = [
   { label: 'Any time', minutes: null },
@@ -49,6 +57,27 @@ interface Deck {
 }
 
 const keyOf = (c: Candidate) => `${c.kind}:${c.id}`;
+
+const LAND = { damping: 11, stiffness: 220, mass: 0.8 };
+
+/** Springs its card in with a slight tilt and a success haptic each time `drawKey` changes. */
+function Reveal({ drawKey, children }: { drawKey: string; children: ReactNode }) {
+  const reduced = useReducedMotion();
+  const scale = useSharedValue(1);
+  const rotate = useSharedValue(0);
+  useEffect(() => {
+    haptics.success();
+    if (reduced) return;
+    scale.value = 0.85;
+    rotate.value = -5;
+    scale.value = withSpring(1, LAND);
+    rotate.value = withSpring(0, LAND);
+  }, [drawKey, reduced, scale, rotate]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { rotate: `${rotate.value}deg` }],
+  }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
 
 function parseChoice(value: string | null): number | null {
   const minutes = Number(value);
@@ -186,25 +215,31 @@ export default function PickScreen() {
       ? goals.find((g) => g.id === choice.goal_id)?.name
       : undefined;
 
-  const button = (label: string, onPress: () => void, primary = false, icon?: 'play') => (
+  const button = (
+    label: string,
+    onPress: () => void,
+    primary = false,
+    icon?: 'play' | 'shuffle'
+  ) => (
     <PressFeedback
+      haptic="tap"
       accessibilityRole="button"
       onPress={onPress}
       style={{
         flex: primary ? 1 : undefined,
         minHeight: 52,
         paddingHorizontal: space.xl,
-        borderRadius: radius.lg,
+        borderRadius: radius.pill,
         flexDirection: 'row',
         gap: space.sm,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: primary ? c.primary : c.surfaceContainer,
       }}>
-      {icon && <Ionicons name={icon} size={16} color={c.onPrimary} />}
+      {icon && <Ionicons name={icon} size={16} color={primary ? c.onPrimary : c.onSurface} />}
       <Text
         style={{
-          fontFamily: primary ? fonts.bold : fonts.medium,
+          fontFamily: fonts.bold,
           ...type.body,
           color: primary ? c.onPrimary : c.onSurface,
         }}>
@@ -285,54 +320,61 @@ export default function PickScreen() {
               paddingVertical: space.xxl,
               gap: space.xxl,
             }}>
-            <View style={{ gap: space.sm }}>
-              <Text
-                accessibilityRole="header"
-                style={{
-                  fontFamily: DISPLAY_FONT,
-                  fontSize: 32,
-                  lineHeight: 40,
-                  letterSpacing: -0.5,
-                  color: c.onSurface,
-                  writingDirection: 'auto',
-                }}>
-                {choice.name}
-              </Text>
-              {(goalName || choice.reasons.length > 0) && (
+            <Reveal drawKey={keyOf(choice)}>
+              <Card tone="accent" style={{ padding: space.xl, gap: space.sm }}>
                 <Text
-                  style={{ fontFamily: fonts.regular, ...type.label, color: c.onSurfaceVariant }}>
-                  {(goalName ? [goalName, ...choice.reasons] : choice.reasons).join(' · ')}
-                </Text>
-              )}
-              {choice.kind === 'goal' && (
-                <View
+                  accessibilityRole="header"
                   style={{
-                    marginTop: space.md,
-                    padding: space.lg,
-                    borderRadius: radius.lg,
-                    backgroundColor: c.surfaceContainer,
-                    gap: 2,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: 34,
+                    lineHeight: 42,
+                    letterSpacing: -0.6,
+                    color: c.onPrimary,
+                    writingDirection: 'auto',
                   }}>
+                  {choice.name}
+                </Text>
+                {(goalName || choice.reasons.length > 0) && (
                   <Text
                     style={{
-                      fontFamily: fonts.regular,
-                      ...type.caption,
-                      color: c.onSurfaceVariant,
+                      fontFamily: fonts.medium,
+                      ...type.label,
+                      color: c.onPrimary,
+                      opacity: 0.85,
                     }}>
-                    {task
-                      ? 'Next task'
-                      : bestTaskFor(choice.id, deck?.allTasks ?? [])
-                        ? 'None of its tasks fits that time'
-                        : 'No open task for this goal yet'}
+                    {(goalName ? [goalName, ...choice.reasons] : choice.reasons).join(' · ')}
                   </Text>
-                  {task && (
-                    <Text style={{ fontFamily: fonts.medium, ...type.body, color: c.onSurface }}>
-                      {task.name}
+                )}
+                {choice.kind === 'goal' && (
+                  <View
+                    style={{
+                      marginTop: space.md,
+                      padding: space.lg,
+                      borderRadius: radius.md,
+                      backgroundColor: c.surfaceContainerLow,
+                      gap: 2,
+                    }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.regular,
+                        ...type.caption,
+                        color: c.onSurfaceVariant,
+                      }}>
+                      {task
+                        ? 'Next task'
+                        : bestTaskFor(choice.id, deck?.allTasks ?? [])
+                          ? 'None of its tasks fits that time'
+                          : 'No open task for this goal yet'}
                     </Text>
-                  )}
-                </View>
-              )}
-            </View>
+                    {task && (
+                      <Text style={{ fontFamily: fonts.medium, ...type.body, color: c.onSurface }}>
+                        {task.name}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </Card>
+            </Reveal>
 
             <View style={{ gap: space.md }}>
               <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -343,7 +385,7 @@ export default function PickScreen() {
                       () => router.push({ pathname: '/add-todo', params: { goal: choice.id } }),
                       true
                     )}
-                {button('Another', another)}
+                {button('Pick again', another, false, 'shuffle')}
               </View>
               {task && (
                 <View style={{ flexDirection: 'row', justifyContent: 'center' }}>

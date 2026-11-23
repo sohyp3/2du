@@ -5,7 +5,7 @@ export interface MarkdownInk {
   ink: string;
   muted: string;
   rule: string;
-  link?: string;
+  link: string;
   codeBg?: string;
 }
 
@@ -33,12 +33,12 @@ export function buildMarkdownStyles(
     },
     heading3: {
       color: paper.ink,
-      fontFamily: fonts.medium,
+      fontFamily: DISPLAY_FONT_SEMI,
       fontSize: 20,
       lineHeight: 28,
       marginVertical: 12,
     },
-    link: { color: paper.link ?? '#426031', textDecorationLine: 'underline' as const },
+    link: { color: paper.link, textDecorationLine: 'underline' as const },
     blockquote: {
       borderLeftColor: paper.rule,
       borderLeftWidth: 1,
@@ -46,13 +46,13 @@ export function buildMarkdownStyles(
       backgroundColor: 'transparent',
     },
     code_inline: {
-      backgroundColor: paper.codeBg ?? '#e2dacb',
+      backgroundColor: paper.codeBg ?? paper.rule,
       color: paper.ink,
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
       fontSize: 14,
     },
     fence: {
-      backgroundColor: paper.codeBg ?? '#e2dacb',
+      backgroundColor: paper.codeBg ?? paper.rule,
       color: paper.ink,
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
       fontSize: 14,

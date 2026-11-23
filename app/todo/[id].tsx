@@ -6,7 +6,6 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   Text,
   View,
-  Pressable,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
@@ -25,12 +24,14 @@ import { DISPLAY_FONT, radius, space, type, useColors, useFontFamily } from '@/u
 import {
   Field,
   FormButton,
+  FormCard,
   FormFooter,
   FormInput,
   SwitchRow,
   TimeStepper,
 } from '@/components/form';
 import { PressFeedback } from '@/components/PressFeedback';
+import { Card } from '@/components/Card';
 import { useFocusStore } from '@/store/focusStore';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ThemeColors } from '@/store/themeStore';
@@ -225,17 +226,19 @@ export default function TodoDetailScreen() {
         <Text style={{ fontFamily: fonts.bold, color: c.error, fontSize: 18, marginBottom: 8 }}>
           {error || 'Todo not found'}
         </Text>
-        <Pressable
+        <PressFeedback
+          accessibilityRole="button"
           onPress={() => router.back()}
           style={{
             backgroundColor: c.primary,
-            paddingHorizontal: 24,
-            paddingVertical: 12,
-            borderRadius: 20,
-            marginTop: 16,
+            paddingHorizontal: space.xl,
+            minHeight: 48,
+            justifyContent: 'center',
+            borderRadius: radius.pill,
+            marginTop: space.lg,
           }}>
-          <Text style={{ fontFamily: fonts.medium, color: c.onPrimary }}>Go Back</Text>
-        </Pressable>
+          <Text style={{ fontFamily: fonts.bold, color: c.onPrimary }}>Go back</Text>
+        </PressFeedback>
       </View>
     );
   }
@@ -276,70 +279,74 @@ export default function TodoDetailScreen() {
         }}>
         {editing ? (
           <>
-            <FormInput
-              style={{ fontSize: 18, minHeight: 56, marginBottom: space.lg }}
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              editable={!isLoading}
-              accessibilityLabel="Task name"
-            />
-            <Field label="Calendar">
-              <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
-            </Field>
-            {hasGoals && (
-              <Field label="Goal">
-                <GoalPicker value={goalId} onChange={setGoalId} />
-              </Field>
-            )}
-            <Field label="Notes">
+            <FormCard title="What">
               <FormInput
-                placeholder="Add details"
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                editable={!isLoading}
-              />
-            </Field>
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                color: c.onSurfaceVariant,
-                ...type.label,
-                marginBottom: space.sm,
-              }}>
-              Priority
-            </Text>
-            <PriorityPicker value={priority} onChange={setPriority} disabled={isLoading} />
-            <Field label="Date">
-              <DatePicker value={selectedDate} onChange={setSelectedDate} />
-            </Field>
-            <Field label="Time">
-              <TimeStepper
-                hour={hour}
-                minute={minute}
-                disabled={isLoading}
-                onChange={(h, m) => {
-                  setHour(h);
-                  setMinute(m);
+                style={{
+                  ...type.title,
+                  fontFamily: fonts.medium,
+                  minHeight: 56,
+                  marginBottom: space.lg,
                 }}
-              />
-            </Field>
-            <Field label="Time needed (minutes)">
-              <FormInput
-                placeholder="e.g. 30"
-                value={timeNeeded}
-                onChangeText={(v) => setTimeNeeded(v.replace(/[^0-9]/g, ''))}
-                keyboardType="number-pad"
+                value={name}
+                onChangeText={setName}
+                autoFocus
                 editable={!isLoading}
+                accessibilityLabel="Task name"
               />
-            </Field>
-            <SwitchRow
-              label="Remind me"
-              value={remindMe}
-              onValueChange={setRemindMe}
-              disabled={isLoading}
-            />
+              <Field label="Notes">
+                <FormInput
+                  placeholder="Add details"
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  editable={!isLoading}
+                />
+              </Field>
+            </FormCard>
+            <FormCard title="When">
+              <Field label="Date">
+                <DatePicker value={selectedDate} onChange={setSelectedDate} />
+              </Field>
+              <Field label="Time">
+                <TimeStepper
+                  hour={hour}
+                  minute={minute}
+                  disabled={isLoading}
+                  onChange={(h, m) => {
+                    setHour(h);
+                    setMinute(m);
+                  }}
+                />
+              </Field>
+              <Field label="Time needed (minutes)">
+                <FormInput
+                  placeholder="e.g. 30"
+                  value={timeNeeded}
+                  onChangeText={(v) => setTimeNeeded(v.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  editable={!isLoading}
+                />
+              </Field>
+              <SwitchRow
+                label="Remind me"
+                value={remindMe}
+                onValueChange={setRemindMe}
+                disabled={isLoading}
+              />
+            </FormCard>
+            <FormCard title="Where">
+              <Field label="Calendar">
+                <CalendarPicker value={calendarId} onChange={setCalendarId} all={false} />
+              </Field>
+              {hasGoals && (
+                <Field label="Goal">
+                  <GoalPicker value={goalId} onChange={setGoalId} />
+                </Field>
+              )}
+              <Field label="Priority">
+                <PriorityPicker value={priority} onChange={setPriority} disabled={isLoading} />
+              </Field>
+            </FormCard>
           </>
         ) : (
           <>
@@ -377,13 +384,7 @@ export default function TodoDetailScreen() {
               </Text>
             ) : null}
 
-            <View
-              style={{
-                backgroundColor: c.surfaceContainer,
-                borderRadius: radius.lg,
-                overflow: 'hidden',
-                marginTop: space.xl,
-              }}>
+            <Card padded={false} style={{ overflow: 'hidden', marginTop: space.xl }}>
               <DetailRow label="Date" value={dateStr} c={c} fonts={fonts} />
               <DetailRow
                 label="Time"
@@ -407,7 +408,7 @@ export default function TodoDetailScreen() {
                 fonts={fonts}
                 last
               />
-            </View>
+            </Card>
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: space.xl }}>
               <PressFeedback
                 accessibilityRole="button"
@@ -457,7 +458,7 @@ export default function TodoDetailScreen() {
             {!isCompleted && (
               <FormButton
                 label={focusing ? 'Back to timer' : 'Start focus'}
-                icon={focusing ? 'timer-outline' : 'play'}
+                icon="timer-outline"
                 onPress={() =>
                   focusing
                     ? router.push('/focus')
