@@ -135,23 +135,8 @@ export async function initDatabase(): Promise<void> {
         END;`);
     }
     if (!(await getSetting('sync_bootstrapped'))) {
-      const now = '1970-01-01T00:00:00.000Z';
-      await db.runAsync(
-        "INSERT OR IGNORE INTO calendars VALUES('daily','Daily tasks','#a7c968',?,?)",
-        now,
-        now
-      );
-      await db.runAsync(
-        "INSERT OR IGNORE INTO calendars VALUES('work','Work','#bb8ed6',?,?)",
-        now,
-        now
-      );
-      for (const entity of entities) {
-        const json = fields[entity].map((f) => `'${f}',${f}`).join(',');
-        await db.execAsync(
-          `INSERT OR IGNORE INTO sync_outbox SELECT '${entity}',id,json_object(${json}),updated_at FROM ${entity}`
-        );
-      }
+      await seedCalendars();
+      await queueLocalData(false);
       await setSetting('sync_bootstrapped', 'true');
     }
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
@@ -162,6 +147,53 @@ export async function initDatabase(): Promise<void> {
       error instanceof Error ? error : undefined
     );
   }
+}
+
+/** The calendars a new device starts with. Their epoch timestamps lose to any server copy. */
+async function seedCalendars() {
+  const now = '1970-01-01T00:00:00.000Z';
+  await db.runAsync(
+    "INSERT OR IGNORE INTO calendars VALUES('daily','Daily tasks','#a7c968',?,?)",
+    now,
+    now
+  );
+  await db.runAsync(
+    "INSERT OR IGNORE INTO calendars VALUES('work','Work','#bb8ed6',?,?)",
+    now,
+    now
+  );
+}
+
+/** Queues every local row for upload, so the next sync copies this device's data into the
+ * signed-in account. `replace` also overwrites rows already queued. */
+async function queueLocalData(replace: boolean) {
+  for (const entity of entities) {
+    const json = fields[entity].map((f) => `'${f}',${f}`).join(',');
+    await db.execAsync(
+      `INSERT OR ${replace ? 'REPLACE' : 'IGNORE'} INTO sync_outbox SELECT '${entity}',id,json_object(${json}),updated_at FROM ${entity}`
+    );
+  }
+}
+
+/** Queues all local data for upload into a different account (the "merge" choice). */
+export function queueAllLocalData(): Promise<void> {
+  return withDatabaseWrite(() => db.withTransactionAsync(() => queueLocalData(true)));
+}
+
+/**
+ * Deletes every synced row and the outbox, then re-seeds the default calendars, without queueing
+ * anything for upload. Keeps `settings` and `calendar_settings`. Callers reload the stores.
+ */
+export function clearLocalData(): Promise<void> {
+  return withDatabaseWrite(() =>
+    db.withTransactionAsync(async () => {
+      await db.runAsync('UPDATE sync_control SET applying=1 WHERE id=1');
+      for (const entity of entities) await db.runAsync(`DELETE FROM ${entity}`);
+      await db.runAsync('DELETE FROM sync_outbox');
+      await seedCalendars();
+      await db.runAsync('UPDATE sync_control SET applying=0 WHERE id=1');
+    })
+  );
 }
 
 export async function getSetting(key: string): Promise<string | null> {

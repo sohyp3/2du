@@ -66,6 +66,8 @@ export function SettingsButton(props: {
   onPress: () => void;
   primary?: boolean;
   selected?: boolean;
+  /** A tonal error-coloured button, for removing or deleting. */
+  destructive?: boolean;
   disabled?: boolean;
   busy?: boolean;
   /** Share the available width with sibling buttons. */
@@ -89,7 +91,11 @@ export function SettingsButton(props: {
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: radius.pill,
-        backgroundColor: filled ? c.primary : c.surfaceContainer,
+        backgroundColor: filled
+          ? c.primary
+          : props.destructive
+            ? c.errorContainer
+            : c.surfaceContainer,
         opacity: props.disabled ? 0.5 : 1,
       }}>
       {props.busy ? (
@@ -99,7 +105,7 @@ export function SettingsButton(props: {
           style={{
             fontFamily: fonts.bold,
             fontSize: 15,
-            color: filled ? c.onPrimary : c.onSurface,
+            color: filled ? c.onPrimary : props.destructive ? c.onErrorContainer : c.onSurface,
             textAlign: 'center',
           }}>
           {props.label}

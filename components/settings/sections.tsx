@@ -3,10 +3,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { Card } from '@/components/Card';
 import { Chip } from '@/components/Chip';
-import { SyncSettings } from '@/components/SyncSettings';
 import { useSyncStore } from '@/store/syncStore';
 import type { ThemeColors } from '@/store/themeStore';
 import { SWATCHES } from '@/utils/palette';
+import { AccountSettings } from './AccountSettings';
 import { AppearanceSettings } from './AppearanceSettings';
 import { BookingSettings } from './BookingSettings';
 import { BriefSettings } from './BriefSettings';
@@ -74,7 +74,7 @@ export const SECTIONS: Section[] = [
     hint: 'Sign-in, server and sync status',
     icon: 'person-circle',
     color: SWATCHES[0],
-    Component: SyncSettings,
+    Component: AccountSettings,
   },
   {
     key: 'appearance',

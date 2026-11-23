@@ -1,7 +1,14 @@
 import { AuthError, fetchJSON, NetworkError } from '@/utils/http';
 import { create } from 'zustand';
 import { AppState, Platform } from 'react-native';
-import { db, getSetting, setSetting, withDatabaseWrite } from '@/db/database';
+import {
+  clearLocalData,
+  db,
+  getSetting,
+  queueAllLocalData,
+  setSetting,
+  withDatabaseWrite,
+} from '@/db/database';
 import { readCredential, writeCredential, deleteCredential } from '@/utils/credentials';
 import { entities, fields, validateChange, type Change, type Entity } from '@/shared/records';
 import { useTodoStore } from './todoStore';
@@ -22,11 +29,34 @@ let lastSyncWrite = 0;
 // A server without incremental sync rejects the `since` field. Remembered until restart.
 let legacyServer = false;
 const ID_CHUNK = 500;
-interface ApiKey {
+/** The shared server new devices sign in to. A custom server lives under Advanced. */
+export const DEFAULT_SERVER = 'https://2du.hyp3.cafe';
+/** Thrown by `connect()` when this device's data belongs to another account or server. Retry
+ * with `mode` 'merge' (upload it into the new account) or 'fresh' (remove it first). */
+export class BindingConflict extends Error {
+  constructor() {
+    super('This device has data from another account');
+    this.name = 'BindingConflict';
+  }
+}
+export type ConnectMode = 'merge' | 'fresh';
+export interface ApiKey {
   id: string;
   name: string;
   scope: string;
   created_at: string;
+  expires: number | null;
+  last_used: string | null;
+  meta: { calendar_ids?: string[] } | null;
+}
+async function reloadStores() {
+  await Promise.all([
+    useTodoStore.getState().loadTodos(),
+    useNoteStore.getState().loadNotes(),
+    useCalendarsStore.getState().load(),
+    useGoalStore.getState().load(),
+    useBriefStore.getState().load(),
+  ]);
 }
 interface SyncState {
   url: string;
@@ -42,8 +72,18 @@ interface SyncState {
   revision: number;
   keys: ApiKey[];
   init: () => Promise<void>;
-  connect: (url: string, username: string, password: string, register: boolean) => Promise<void>;
-  disconnect: () => Promise<void>;
+  connect: (
+    url: string,
+    username: string,
+    password: string,
+    register: boolean,
+    mode?: ConnectMode
+  ) => Promise<void>;
+  /** Signs out. With `keepData` false, also removes this device's local data. */
+  disconnect: (keepData?: boolean) => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
+  /** Permanently deletes the account on the server, then removes local data. */
+  deleteAccount: (password: string) => Promise<void>;
   sync: () => Promise<void>;
   request: (path: string, options?: RequestInit) => Promise<any>;
   loadKeys: () => Promise<void>;
@@ -57,6 +97,33 @@ export const useSyncStore = create<SyncState>((set, get) => {
     await setSetting('sync_needs_login', 'true');
     set({ token: '', keys: [], busy: false, error: null, needsLogin: true });
   };
+  /** Ends the session on this device only; the server side is the caller's job. */
+  const signOutLocal = async (keepData: boolean) => {
+    await deleteCredential('2du_session');
+    await setSetting('sync_needs_login', 'false');
+    await db.runAsync("DELETE FROM settings WHERE key='sync_cursor'");
+    set({ token: '', keys: [], error: null, needsLogin: false });
+    if (keepData) return;
+    await clearLocalData();
+    await db.runAsync("DELETE FROM settings WHERE key='sync_binding'");
+    set({ pending: 0 });
+    await reloadStores();
+    set((s) => ({ revision: s.revision + 1 }));
+  };
+  /** An account call that checks a password: a 401 means a wrong password, not a dead session. */
+  const accountRequest = async (path: string, method: string, body: object) => {
+    const { url, token } = get();
+    try {
+      return await fetchJSON(`${url}/v1/${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      if (e instanceof AuthError) throw Object.assign(new Error(e.message), { status: 401 });
+      throw e;
+    }
+  };
   return {
     url: '',
     username: '',
@@ -69,7 +136,7 @@ export const useSyncStore = create<SyncState>((set, get) => {
     revision: 0,
     keys: [],
     init: async () => {
-      const url = (await getSetting('sync_url')) || '',
+      const url = (await getSetting('sync_url')) || DEFAULT_SERVER,
         username = (await getSetting('sync_username')) || '';
       const token = (await readCredential('2du_session')) || '';
       set({
@@ -81,7 +148,7 @@ export const useSyncStore = create<SyncState>((set, get) => {
       });
       if (token) await get().sync();
     },
-    connect: async (input, username, password, register) => {
+    connect: async (input, username, password, register, mode) => {
       set({ busy: true, error: null });
       try {
         const url = input.trim().replace(/\/+$/, '');
@@ -97,15 +164,19 @@ export const useSyncStore = create<SyncState>((set, get) => {
           throw new Error('Enter a server origin, such as https://sync.example.com');
         const bound = await getSetting('sync_binding');
         const binding = `${url}|${username.trim().toLowerCase()}`;
-        if (bound && bound !== binding)
-          throw new Error(
-            'This local workspace is linked to another account or server. Use a separate browser profile or app installation for a different account.'
-          );
+        const conflict = !!bound && bound !== binding;
+        if (conflict && !mode) throw new BindingConflict();
+        // Sign in first, so a wrong password never removes or re-queues anything.
         const body = await fetchJSON(`${url}/v1/auth/${register ? 'register' : 'login'}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: username.trim(), password }),
         });
+        if (conflict && mode === 'fresh') {
+          await clearLocalData();
+          await reloadStores();
+          set((s) => ({ revision: s.revision + 1 }));
+        } else if (conflict) await queueAllLocalData();
         await writeCredential('2du_session', body.token);
         await setSetting('sync_url', url);
         await setSetting('sync_username', body.username);
@@ -138,16 +209,22 @@ export const useSyncStore = create<SyncState>((set, get) => {
         throw e;
       }
     },
-    disconnect: async () => {
+    disconnect: async (keepData = true) => {
       if (get().busy) return;
       try {
         await get().request('session', { method: 'DELETE' });
       } catch {
         /* local sign-out also works offline */
       }
-      await deleteCredential('2du_session');
-      await setSetting('sync_needs_login', 'false');
-      set({ token: '', keys: [], error: null, needsLogin: false });
+      await signOutLocal(keepData);
+    },
+    changePassword: async (current, next) => {
+      await accountRequest('account/password', 'POST', { current, next });
+    },
+    deleteAccount: async (password) => {
+      await accountRequest('account', 'DELETE', { password });
+      // The server already revoked every token, so there is no session to delete.
+      await signOutLocal(false);
     },
     sync: async () => {
       if (!get().token || get().busy) return;
